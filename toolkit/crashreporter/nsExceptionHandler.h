@@ -272,17 +272,11 @@ using CrashPipeType = mozilla::UniqueFileHandle;
 void SetCrashHelperPipes(FileHandle breakpadFd, FileHandle crashHelperFd);
 #endif
 CrashPipeType GetChildNotificationPipe();
-
-#if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
-
-// Return the pid of the crash helper process.
-MOZ_EXPORT ProcessId GetCrashHelperPid();
-
-#endif  // XP_LINUX && !defined(MOZ_WIDGET_ANDROID)
+mozilla::UniqueFileHandle RegisterChildIPCChannel();
 
 // Child-side API
 MOZ_EXPORT bool SetRemoteExceptionHandler(
-    CrashPipeType aCrashPipe, Maybe<ProcessId> aCrashHelperPid = Nothing());
+    CrashPipeType aCrashPipe, mozilla::UniqueFileHandle aCrashHelperPipe);
 bool UnsetRemoteExceptionHandler(bool wasSet = true);
 
 }  // namespace CrashReporter

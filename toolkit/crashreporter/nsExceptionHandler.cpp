@@ -258,8 +258,6 @@ static char* androidUserSerial = nullptr;
 static const char* androidStartServiceCommand = nullptr;
 #endif
 
-static Maybe<ProcessId> gCrashHelperPid;
-
 // this holds additional data sent via the API
 static Mutex* notesFieldLock;
 static nsCString* notesField = nullptr;
@@ -1723,11 +1721,11 @@ static void PrepareForMinidump() {
   DllBlocklist_Shutdown();
 #  endif
 #elif defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
-  if (gCrashHelperPid.isSome()) {
-    // Ignore the return value because we're in the exception handler, so
-    // there's not much we can do safely, not even log the error.
-    Unused << prctl(PR_SET_PTRACER, gCrashHelperPid.value());
-  }
+  // TODO: Get the PID of the crash helper
+  int crashHelperPid = -1;
+  // Ignore the return value because we're in the exception handler, so
+  // there's not much we can do safely, not even log the error.
+  Unused << prctl(PR_SET_PTRACER, crashHelperPid);
 #endif
 }
 
@@ -3337,22 +3335,19 @@ CrashPipeType GetChildNotificationPipe() {
 #endif
 }
 
-#if defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
-
-ProcessId GetCrashHelperPid() {
+UniqueFileHandle RegisterChildIPCChannel() {
   if (gCrashHelperClient) {
-    return crash_helper_pid(gCrashHelperClient);
+    auto ipc_endpoint = register_child_ipc_channel(gCrashHelperClient);
+    return UniqueFileHandle{ipc_endpoint};
   }
 
-  return base::kInvalidProcessId;
+  return UniqueFileHandle();
 }
 
-#endif  // defined(XP_LINUX) && !defined(MOZ_WIDGET_ANDROID)
-
 bool SetRemoteExceptionHandler(CrashPipeType aCrashPipe,
-                               Maybe<ProcessId> aCrashHelperPid) {
+                               UniqueFileHandle aCrashHelperPipe) {
   MOZ_ASSERT(!gExceptionHandler, "crash client already init'd");
-  gCrashHelperPid = aCrashHelperPid;
+  crash_helper_rendezvous(aCrashHelperPipe.release());
   RegisterRuntimeExceptionModule();
   InitializeAppNotes();
   RegisterAnnotations();

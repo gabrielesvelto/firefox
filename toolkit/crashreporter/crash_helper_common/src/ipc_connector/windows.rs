@@ -29,6 +29,8 @@ use windows_sys::Win32::{
     System::Pipes::{SetNamedPipeHandleState, WaitNamedPipeA, PIPE_READMODE_MESSAGE},
 };
 
+pub type AncillaryData = HANDLE;
+
 pub struct IPCConnector {
     handle: OwnedHandle,
     event: OwnedHandle,

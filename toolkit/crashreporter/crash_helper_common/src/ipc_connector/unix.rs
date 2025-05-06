@@ -12,7 +12,7 @@ use crate::platform::macos::{
     recv_nonblock, send_nonblock, server_addr, set_socket_cloexec, set_socket_default_flags,
     unix_socket,
 };
-use crate::{ignore_eintr, AncillaryData, Pid, IO_TIMEOUT};
+use crate::{ignore_eintr, Pid, IO_TIMEOUT};
 
 use nix::{
     errno::Errno,
@@ -21,7 +21,7 @@ use nix::{
 };
 use std::{
     ffi::{CStr, CString},
-    os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, OwnedFd, RawFd},
+    os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, IntoRawFd, OwnedFd, RawFd},
     str::FromStr,
 };
 
@@ -29,6 +29,11 @@ use crate::{
     errors::IPCError,
     messages::{self, Message},
 };
+
+pub type AncillaryData = RawFd;
+
+// This must match `kInvalidHandle` in `mfbt/UniquePtrExt.h`
+pub const INVALID_ANCILLARY_DATA: AncillaryData = -1;
 
 pub struct IPCConnector {
     socket: OwnedFd,
@@ -50,6 +55,10 @@ impl IPCConnector {
     pub fn from_fd_inheritable(socket: OwnedFd) -> Result<IPCConnector, IPCError> {
         set_socket_default_flags(socket.as_fd()).map_err(IPCError::System)?;
         Ok(IPCConnector { socket })
+    }
+
+    pub fn from_ancillary(ancillary_data: AncillaryData) -> Result<IPCConnector, IPCError> {
+        IPCConnector::from_fd(unsafe { OwnedFd::from_raw_fd(ancillary_data) })
     }
 
     /// Create a new connector by connecting it to the process specified by
@@ -102,6 +111,10 @@ impl IPCConnector {
 
     fn raw_fd(&self) -> RawFd {
         self.socket.as_raw_fd()
+    }
+
+    pub fn into_ancillary(self) -> AncillaryData {
+        self.socket.into_raw_fd()
     }
 
     pub fn as_raw_ref(&self) -> BorrowedFd {
