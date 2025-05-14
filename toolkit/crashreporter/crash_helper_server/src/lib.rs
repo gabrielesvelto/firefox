@@ -61,14 +61,14 @@ pub unsafe extern "C" fn crash_generator_logic_desktop(
         })
         .unwrap();
 
-    let crash_generator = CrashGenerator::new(client_pid, breakpad_data, minidump_path)
+    let crash_generator = CrashGenerator::new(breakpad_data, minidump_path)
         .map_err(|error| {
             log::error!("Could not create the crash generator (error: {error})");
             error
         })
         .unwrap();
 
-    let ipc_server = IPCServer::new(client_pid, listener, connector);
+    let ipc_server = IPCServer::new(listener, connector);
 
     main_loop(ipc_server, crash_generator)
 }
