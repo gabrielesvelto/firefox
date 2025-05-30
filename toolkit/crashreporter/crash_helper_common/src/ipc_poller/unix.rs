@@ -70,5 +70,9 @@ pub fn wait_for_events(
         }
     }
 
+    // We reverse the order of events, so that we start processing them
+    // from the highest indexes toward the lowest. If we did the opposite
+    // removed connections would invalidate the successive indexes.
+    events.reverse();
     Ok(events)
 }
