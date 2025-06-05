@@ -17,7 +17,7 @@ use errors::MessageError;
 
 // Re-export the platform-specific types and functions
 pub use crate::breakpad::{BreakpadChar, BreakpadData, BreakpadRawData, Pid};
-pub use crate::ipc_channel::IPCChannel;
+pub use crate::ipc_channel::{IPCChannel, IPCClientChannel};
 pub use crate::ipc_connector::{AncillaryData, IPCConnector, IPCEvent, INVALID_ANCILLARY_DATA};
 pub use crate::ipc_listener::IPCListener;
 
