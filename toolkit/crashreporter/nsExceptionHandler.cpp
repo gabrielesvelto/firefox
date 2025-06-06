@@ -1716,7 +1716,7 @@ static void PrepareForMinidump() {
   ReleaseResources();
 #if defined(XP_WIN) && defined(DEBUG) && defined(HAS_DLL_BLOCKLIST)
   DllBlocklist_Shutdown();
-#endif // defined(XP_WIN) && defined(DEBUG) && defined(HAS_DLL_BLOCKLIST)
+#endif  // defined(XP_WIN) && defined(DEBUG) && defined(HAS_DLL_BLOCKLIST)
 }
 
 #ifdef XP_WIN
@@ -3327,7 +3327,7 @@ CrashPipeType GetChildNotificationPipe() {
 
 UniqueFileHandle RegisterChildIPCChannel() {
   if (gCrashHelperClient) {
-    auto ipc_endpoint = register_child_ipc_channel(gCrashHelperClient);
+    AncillaryData ipc_endpoint = register_child_ipc_channel(gCrashHelperClient);
     return UniqueFileHandle{ipc_endpoint};
   }
 

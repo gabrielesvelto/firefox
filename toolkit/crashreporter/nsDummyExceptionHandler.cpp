@@ -215,7 +215,10 @@ void SetCrashHelperPipes(FileHandle breakpadFd, FileHandle crashHelperFd) {}
 
 bool GetLastRunCrashID(nsAString& id) { return false; }
 
-bool SetRemoteExceptionHandler(CrashPipeType aCrashPipe) { return false; }
+bool SetRemoteExceptionHandler(CrashPipeType aCrashPipe,
+                               UniqueFileHandle aCrashHelperPipe) {
+  return false;
+}
 
 bool TakeMinidumpForChild(ProcessId childPid, nsIFile** dump,
                           AnnotationTable& aAnnotations) {

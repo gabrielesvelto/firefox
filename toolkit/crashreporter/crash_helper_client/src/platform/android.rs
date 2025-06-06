@@ -14,7 +14,11 @@ impl CrashHelperClient {
         let server_socket = unsafe { OwnedFd::from_raw_fd(server_socket) };
         let connector = IPCConnector::from_fd(server_socket)?;
 
-        Ok(CrashHelperClient { connector })
+        Ok(CrashHelperClient {
+            connector,
+            spawner_thread: None,
+            helper_process: Some(()),
+        })
     }
 
     pub(crate) fn prepare_for_minidump(_crash_helper_pid: Pid) {

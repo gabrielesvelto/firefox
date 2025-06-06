@@ -5,7 +5,8 @@
 use anyhow::{bail, Result};
 use crash_helper_common::{
     messages::{self},
-    AncillaryData, BreakpadString, IPCClientChannel, IPCConnector, INVALID_ANCILLARY_DATA,
+    AncillaryData, BreakpadString, IPCClientChannel, IPCConnector, ProcessHandle,
+    INVALID_ANCILLARY_DATA,
 };
 #[cfg(any(target_os = "android", target_os = "linux"))]
 use minidump_writer::minidump_writer::{AuxvType, DirectAuxvDumpInfo};
@@ -15,7 +16,7 @@ use std::{
     ffi::{c_char, CString, OsString},
     ptr::null_mut,
     sync::Mutex,
-    thread,
+    thread::{self, JoinHandle},
 };
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::System::Diagnostics::Debug::{CONTEXT, EXCEPTION_RECORD};
@@ -28,6 +29,8 @@ mod platform;
 
 pub struct CrashHelperClient {
     connector: IPCConnector,
+    spawner_thread: Option<JoinHandle<Result<ProcessHandle>>>,
+    helper_process: Option<ProcessHandle>,
 }
 
 impl CrashHelperClient {
@@ -37,10 +40,37 @@ impl CrashHelperClient {
         Ok(())
     }
 
-    fn register_child_process(&mut self, ipc_endpoint: IPCConnector) -> Result<()> {
-        let message = messages::RegisterChildProcess::new(ipc_endpoint.into_ancillary());
+    fn register_child_process(&mut self) -> Result<AncillaryData> {
+        let ipc_channel = IPCClientChannel::new()?;
+        let (server_endpoint, client_endpoint) = ipc_channel.deconstruct();
+
+        if let Some(join_handle) = self.spawner_thread.take() {
+            let Ok(process_handle) = join_handle.join() else {
+                bail!("The spawner thread failed to execute");
+            };
+
+            let Ok(process_handle) = process_handle else {
+                bail!("The crash helper process failed to launch");
+            };
+
+            self.helper_process = Some(process_handle);
+        }
+
+        if self.helper_process.is_none() {
+            bail!("The crash helper process is not available");
+        };
+
+        let Ok(ancillary_data) = server_endpoint.into_ancillary(self.helper_process) else {
+            bail!("Could not convert the server IPC endpoint");
+        };
+
+        let message = messages::RegisterChildProcess::new(ancillary_data);
         self.connector.send_message(&message)?;
-        Ok(())
+        let Ok(ancillary_data) = client_endpoint.into_ancillary(/* dst_process */ None) else {
+            bail!("Could not convert the local IPC endpoint");
+        };
+
+        Ok(ancillary_data)
     }
 
     #[cfg(any(target_os = "android", target_os = "linux"))]
@@ -195,14 +225,11 @@ pub unsafe extern "C" fn register_child_ipc_channel(
     client: *mut CrashHelperClient,
 ) -> AncillaryData {
     let client = client.as_mut().unwrap();
-    if let Ok(ipc_channel) = IPCClientChannel::new() {
-        let (server_endpoint, client_endpoint) = ipc_channel.deconstruct();
-        if let Ok(_) = client.register_child_process(server_endpoint) {
-            return client_endpoint.into_ancillary();
-        }
+    if let Ok(client_endpoint) = client.register_child_process() {
+        client_endpoint
+    } else {
+        INVALID_ANCILLARY_DATA
     }
-
-    INVALID_ANCILLARY_DATA
 }
 
 /// Request the crash report generated for the process associated with `pid`.
@@ -270,7 +297,8 @@ pub unsafe fn report_external_exception(
         messages::WindowsErrorReportingMinidump::new(pid, thread, exception_records, context);
 
     // In the code below we connect to the crash helper, send our message and wait for a reply before returning, but we ignore errors because we can't do anything about them in the calling code
-    if let Ok(connector) = IPCConnector::connect(main_process_pid) {
+    let server_name = crash_helper_common::server_name(main_process_pid);
+    if let Ok(connector) = IPCConnector::connect(&server_name) {
         let _ = connector
             .send_message(&message)
             .and_then(|_| connector.recv_reply::<messages::WindowsErrorReportingMinidumpReply>());
@@ -346,6 +374,15 @@ pub unsafe extern "C" fn unregister_child_auxv_info(
 
 static CHILD_CONNECTOR: Mutex<Option<IPCConnector>> = Mutex::new(None);
 
+/// Let a client rendez-vous with the crash helper process. This step ensures
+/// the crash helper will be able to dump the calling child. This will also
+/// serve additional functionality in the future.
+///
+/// # Safety
+///
+/// This function is safe to use if the `client_endpoint` parameter contains
+/// a valid pipe handle (on Windows) or a valid file descriptor (on all other
+/// platforms).
 #[no_mangle]
 pub unsafe extern "C" fn crash_helper_rendezvous(client_endpoint: AncillaryData) {
     let Ok(connector) = IPCConnector::from_ancillary(client_endpoint) else {

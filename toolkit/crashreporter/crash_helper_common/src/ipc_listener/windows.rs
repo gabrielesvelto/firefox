@@ -34,8 +34,7 @@ pub struct IPCListener {
 }
 
 impl IPCListener {
-    pub fn new(pid: Pid) -> Result<IPCListener, IPCError> {
-        let server_name = server_name(pid);
+    pub fn new(server_name: String) -> Result<IPCListener, IPCError> {
         let pipe = create_named_pipe(&server_name, /* first_instance */ true)?;
         let event = create_manual_reset_event()?;
 
@@ -49,6 +48,10 @@ impl IPCListener {
 
     pub fn event_raw_handle(&self) -> HANDLE {
         self.event.as_raw_handle() as HANDLE
+    }
+
+    pub fn address(&self) -> &str {
+        &self.server_name
     }
 
     pub fn listen(&mut self) -> Result<(), IPCError> {

@@ -14,9 +14,7 @@
 
 #include "mozilla/EnumeratedArray.h"
 #include "mozilla/Maybe.h"
-#if !defined(XP_WIN)
-#  include "mozilla/UniquePtrExtensions.h"  // For UniqueFileHandle
-#endif                                      // XP_WIN
+#include "mozilla/UniquePtrExtensions.h"  // For UniqueFileHandle
 
 #include "CrashAnnotations.h"
 

@@ -98,7 +98,6 @@ impl IPCServer {
             .expect("Invalid connector index");
         let connector = &mut connection.connector;
         let (data, ancillary_data) = connector.recv(header.size)?;
-
         let reply = match connection.endpoint {
             IPCEndpoint::Parent => generator.parent_message(header.kind, &data, ancillary_data),
             IPCEndpoint::Child => generator.child_message(header.kind, &data, ancillary_data),
