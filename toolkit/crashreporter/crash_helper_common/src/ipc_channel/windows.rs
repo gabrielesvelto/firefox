@@ -37,3 +37,32 @@ impl IPCChannel {
         (self.listener, self.server_endpoint, self.client_endpoint)
     }
 }
+
+pub struct IPCClientChannel {
+    client_endpoint: IPCConnector,
+    server_endpoint: IPCConnector,
+}
+
+impl IPCClientChannel {
+    /// Create a new IPC channel for use between on of the browser's child
+    /// processes and the crash helper.
+    pub fn new() -> Result<IPCClientChannel, IPCError> {
+        let pid = process::id() as Pid;
+        let mut listener = IPCListener::new(pid)?;
+        listener.listen()?;
+        let client_endpoint = IPCConnector::connect(pid)?;
+        let server_endpoint = listener.accept()?;
+
+        Ok(IPCClientChannel {
+            client_endpoint,
+            server_endpoint,
+        })
+    }
+
+    /// Deconstruct the IPC channel, returning the listening endpoint,
+    /// the connected server-side endpoint and the connected client-side
+    /// endpoint.
+    pub fn deconstruct(self) -> (IPCConnector, IPCConnector) {
+        (self.server_endpoint, self.client_endpoint)
+    }
+}

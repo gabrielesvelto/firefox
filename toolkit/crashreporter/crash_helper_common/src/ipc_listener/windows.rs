@@ -27,7 +27,7 @@ use windows_sys::Win32::{
 };
 
 pub struct IPCListener {
-    server_name: String,
+    pipe_name: String,
     handle: OwnedHandle,
     overlapped: Option<OverlappedOperation>,
     event: OwnedHandle,
@@ -35,12 +35,16 @@ pub struct IPCListener {
 
 impl IPCListener {
     pub fn new(pid: Pid) -> Result<IPCListener, IPCError> {
-        let server_name = server_name(pid);
-        let pipe = create_named_pipe(&server_name, /* first_instance */ true)?;
+        let pipe_name = server_name(pid);
+        IPCListener::with_name(pipe_name)
+    }
+
+    pub fn with_name(pipe_name: String) -> Result<IPCListener, IPCError> {
+        let pipe = create_named_pipe(&pipe_name, /* first_instance */ true)?;
         let event = create_manual_reset_event()?;
 
         Ok(IPCListener {
-            server_name,
+            pipe_name,
             handle: pipe,
             overlapped: None,
             event,
@@ -64,7 +68,7 @@ impl IPCListener {
         // already waiting, so panic in that scenario.
         let overlapped = self.overlapped.take().unwrap();
         overlapped.accept(self.handle.as_raw_handle() as HANDLE)?;
-        let new_pipe = create_named_pipe(&self.server_name, /* first_instance */ false)?;
+        let new_pipe = create_named_pipe(&self.pipe_name, /* first_instance */ false)?;
         let connected_pipe = std::mem::replace(&mut self.handle, new_pipe);
 
         // Once we've accepted a new connection and replaced the listener's
@@ -95,7 +99,7 @@ impl IPCListener {
         let event = create_manual_reset_event()?;
 
         let mut listener = IPCListener {
-            server_name,
+            pipe_name: server_name,
             handle,
             overlapped: None,
             event,

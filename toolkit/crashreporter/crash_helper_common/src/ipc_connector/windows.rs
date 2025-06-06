@@ -6,19 +6,20 @@ use crate::{
     errors::IPCError,
     messages::{self, Message},
     platform::windows::{create_manual_reset_event, server_name, OverlappedOperation},
-    Pid, IO_TIMEOUT,
+    Pid, ProcessHandle, IO_TIMEOUT,
 };
 
 use std::{
     ffi::{c_void, CStr, OsString},
-    os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle, RawHandle},
+    os::windows::io::{AsRawHandle, FromRawHandle, IntoRawHandle, OwnedHandle, RawHandle},
     ptr::null_mut,
     str::FromStr,
     time::{Duration, Instant},
 };
 use windows_sys::Win32::{
     Foundation::{
-        GetLastError, ERROR_FILE_NOT_FOUND, ERROR_INVALID_MESSAGE, ERROR_PIPE_BUSY, FALSE, HANDLE,
+        DuplicateHandle, GetLastError, DUPLICATE_CLOSE_SOURCE, DUPLICATE_SAME_ACCESS,
+        ERROR_FILE_NOT_FOUND, ERROR_INVALID_MESSAGE, ERROR_PIPE_BUSY, FALSE, HANDLE,
         INVALID_HANDLE_VALUE, WAIT_TIMEOUT,
     },
     Security::SECURITY_ATTRIBUTES,
@@ -26,12 +27,16 @@ use windows_sys::Win32::{
         CreateFileA, FILE_FLAG_OVERLAPPED, FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE,
         FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, OPEN_EXISTING,
     },
-    System::Pipes::{SetNamedPipeHandleState, WaitNamedPipeA, PIPE_READMODE_MESSAGE},
+    System::{
+        Pipes::{SetNamedPipeHandleState, WaitNamedPipeA, PIPE_READMODE_MESSAGE},
+        Threading::GetCurrentProcess,
+    },
 };
 
-pub type AncillaryData = ();
+pub type AncillaryData = HANDLE;
 
-pub const INVALID_ANCILLARY_DATA: AncillaryData = ();
+// This must match `kInvalidHandle` in `mfbt/UniquePtrExt.h`
+pub const INVALID_ANCILLARY_DATA: AncillaryData = 0;
 
 pub struct IPCConnector {
     handle: OwnedHandle,
@@ -48,6 +53,10 @@ impl IPCConnector {
             event,
             overlapped: None,
         })
+    }
+
+    pub fn from_ancillary(ancillary_data: AncillaryData) -> Result<IPCConnector, IPCError> {
+        IPCConnector::new(unsafe { OwnedHandle::from_raw_handle(ancillary_data) })
     }
 
     pub fn as_raw(&self) -> HANDLE {
@@ -151,6 +160,24 @@ impl IPCConnector {
         // SAFETY: This is a handle we passed in ourselves.
         let handle = unsafe { OwnedHandle::from_raw_handle(handle) };
         IPCConnector::new(handle)
+    }
+
+    pub fn into_ancillary(self, dst_process: ProcessHandle) -> AncillaryData {
+        let mut dst_handle: HANDLE = INVALID_ANCILLARY_DATA;
+        // TODO: We need to check for errors.
+        let _ = unsafe {
+            DuplicateHandle(
+                GetCurrentProcess(),
+                self.handle.into_raw_handle(),
+                dst_process,
+                &mut dst_handle,
+                /* dwDesiredAccess */ 0,
+                /* bInheritHandle */ FALSE,
+                DUPLICATE_CLOSE_SOURCE | DUPLICATE_SAME_ACCESS,
+            )
+        };
+
+        dst_handle
     }
 
     pub fn send_message(&self, message: &dyn Message) -> Result<(), IPCError> {
