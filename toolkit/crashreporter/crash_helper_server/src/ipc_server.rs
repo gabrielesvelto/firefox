@@ -229,10 +229,10 @@ impl IPCServer {
                         }
                     };
 
-                    let reply = crash_report.map_or(
-                        messages::TransferMinidumpReply::new(OsString::new(), None),
-                        |cr| messages::TransferMinidumpReply::new(cr.path, cr.error),
-                    );
+                    let reply = crash_report
+                        .map_or(messages::MinidumpReply::new(OsString::new(), None), |cr| {
+                            messages::MinidumpReply::new(cr.path, cr.error)
+                        });
 
                     connector.send_message(reply)?;
                 }

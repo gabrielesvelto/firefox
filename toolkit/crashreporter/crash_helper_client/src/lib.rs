@@ -90,9 +90,7 @@ impl CrashHelperClient {
         let message = messages::TransferMinidump::new(id);
         self.connector.send_message(message)?;
 
-        let reply = self
-            .connector
-            .recv_reply::<messages::TransferMinidumpReply>()?;
+        let reply = self.connector.recv_reply::<messages::MinidumpReply>()?;
 
         if reply.path.is_empty() {
             // TODO: We should return Result<Option<CrashReport>> instead of
