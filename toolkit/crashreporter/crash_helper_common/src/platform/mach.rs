@@ -2,6 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+use crate::{
+    platform::{AsProcessReaderHandle, AsRawThreadHandle, FromRawThreadHandle},
+    IO_TIMEOUT,
+};
 use mach2::{
     kern_return::{kern_return_t, KERN_SUCCESS},
     mach_port::{
@@ -29,8 +33,6 @@ use std::{
 };
 use thiserror::Error;
 
-use crate::{AsProcessReaderHandle, IO_TIMEOUT};
-
 pub(crate) const PROCESS_RENDEZVOUS_ANCILLARY_DATA_LEN: usize = 1;
 
 pub type Result<T> = result::Result<T, PlatformError>;
@@ -40,6 +42,21 @@ pub type ProcessHandle = SendRight;
 impl AsProcessReaderHandle for ProcessHandle {
     fn as_handle(&self) -> process_reader::ProcessHandle {
         self.as_raw_port()
+    }
+}
+
+pub type RawThreadHandle = mach_port_name_t;
+pub type ThreadHandle = SendRight;
+
+impl AsRawThreadHandle for ThreadHandle {
+    fn as_raw_handle(&self) -> RawThreadHandle {
+        self.0
+    }
+}
+
+impl FromRawThreadHandle for ThreadHandle {
+    unsafe fn from_raw_handle(handle: RawThreadHandle) -> ThreadHandle {
+        SendRight(handle)
     }
 }
 

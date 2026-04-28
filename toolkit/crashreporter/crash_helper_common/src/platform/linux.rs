@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use crate::platform::AsProcessReaderHandle;
+use crate::platform::{AsProcessReaderHandle, AsRawThreadHandle, FromRawThreadHandle};
 use nix::{
     errno::Errno,
     fcntl::{
@@ -32,6 +32,21 @@ impl Clone for ProcessHandle {
 impl AsProcessReaderHandle for ProcessHandle {
     fn as_handle(&self) -> process_reader::ProcessHandle {
         self.0 as process_reader::ProcessHandle
+    }
+}
+
+pub type RawThreadHandle = i32;
+pub struct ThreadHandle(pub i32);
+
+impl AsRawThreadHandle for ThreadHandle {
+    fn as_raw_handle(&self) -> RawThreadHandle {
+        self.0
+    }
+}
+
+impl FromRawThreadHandle for ThreadHandle {
+    unsafe fn from_raw_handle(handle: RawThreadHandle) -> ThreadHandle {
+        ThreadHandle(handle)
     }
 }
 
