@@ -2629,7 +2629,6 @@ dependencies = [
  "rure",
  "rusqlite 0.33.0",
  "rust_minidump_writer_linux",
- "shell_windows",
  "signature_cache",
  "static_prefs",
  "storage",
@@ -6151,19 +6150,6 @@ checksum = "75872d278a8f37ef87fa0ddbda7802605cb18344497949862c0d4dcb291eba60"
 dependencies = [
  "digest",
  "keccak",
-]
-
-[[package]]
-name = "shell_windows"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "log",
- "nserror",
- "nsstring",
- "sha2",
- "windows",
- "xpcom",
 ]
 
 [[package]]
