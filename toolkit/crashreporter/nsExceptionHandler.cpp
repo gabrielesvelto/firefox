@@ -7,33 +7,23 @@
 #include "ExtraFileParser.h"
 
 #include "json/json.h"
-#include "nsAppDirectoryServiceDefs.h"
-#include "nsComponentManagerUtils.h"
-#include "nsDirectoryServiceDefs.h"
-#include "nsDirectoryService.h"
 #include "nsIDUtils.h"
 #include "nsIFileStreams.h"
 #include "nsNetUtil.h"
 #include "nsString.h"
-#include "mozilla/DebugOnly.h"
 #include "mozilla/GeckoArgs.h"
 #include "mozilla/EnumeratedRange.h"
 #include "mozilla/Services.h"
 #include "nsIObserverService.h"
 #include "mozilla/RuntimeExceptionModule.h"
 #include "mozilla/ScopeExit.h"
-#include "mozilla/Sprintf.h"
 #include "mozilla/StaticPrefs_browser.h"
-#include "mozilla/SyncRunnable.h"
 #include "mozilla/ToString.h"
 #include "mozilla/TimeStamp.h"
 
 #include "nsPrintfCString.h"
 #include "nsThreadUtils.h"
 #include "nsThread.h"
-#include "jsfriendapi.h"
-#include "base/process_util.h"
-#include "common/basictypes.h"
 
 #include "mozilla/toolkit/crashreporter/mozannotation_client_ffi_generated.h"
 #include "mozilla/crash_helper_client_ffi_generated.h"
@@ -55,10 +45,10 @@
 #  include "breakpad-client/windows/handler/exception_handler.h"
 #  include <dbghelp.h>
 #  include <string.h>
-#  include "nsDirectoryServiceUtils.h"
-
-#  include "nsWindowsDllInterceptor.h"
+#  include "mozilla/DebugOnly.h"
 #  include "mozilla/WindowsDllBlocklist.h"
+#  include "nsDirectoryServiceUtils.h"
+#  include "nsWindowsDllInterceptor.h"
 #  include "psapi.h"  // For PERFORMANCE_INFORMATION and K32GetPerformanceInfo()
 #elif defined(XP_MACOSX)
 #  include "breakpad-client/mac/crash_generation/client_info.h"
