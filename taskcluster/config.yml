@@ -675,7 +675,7 @@ workers:
             worker-type: b-linux-xlarge
         b-linux-docker-large-amd:
             provisioner: '{trust-domain}-{level}'
-            implementation: generic-worker
+            implementation: docker-worker
             os: linux
             worker-type: '{alias}'
         b-win2012:
