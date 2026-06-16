@@ -7,24 +7,16 @@
 #include "ExtraFileParser.h"
 
 #include "json/json.h"
-#include "nsAppDirectoryServiceDefs.h"
-#include "nsComponentManagerUtils.h"
-#include "nsDirectoryServiceDefs.h"
-#include "nsDirectoryService.h"
 #include "nsIDUtils.h"
 #include "nsIFileStreams.h"
 #include "nsNetUtil.h"
 #include "nsString.h"
-#include "mozilla/DebugOnly.h"
 #include "mozilla/GeckoArgs.h"
 #include "mozilla/EnumeratedRange.h"
 #include "mozilla/Services.h"
 #include "nsIObserverService.h"
 #include "mozilla/RuntimeExceptionModule.h"
-#include "mozilla/ScopeExit.h"
-#include "mozilla/Sprintf.h"
 #include "mozilla/StaticPrefs_browser.h"
-#include "mozilla/SyncRunnable.h"
 #include "mozilla/ToString.h"
 #include "mozilla/TimeStamp.h"
 
@@ -33,9 +25,6 @@
 #include "prsystem.h"
 #include "nsThreadUtils.h"
 #include "nsThread.h"
-#include "jsfriendapi.h"
-#include "base/process_util.h"
-#include "common/basictypes.h"
 
 #include "mozilla/toolkit/crashreporter/mozannotation_client_ffi_generated.h"
 #include "mozilla/crash_helper_client_ffi_generated.h"
@@ -54,18 +43,20 @@
 #  endif
 
 #  include "nsXULAppAPI.h"
-#  include "nsIXULAppInfo.h"
-#  include "nsIWindowsRegKey.h"
 #  include "breakpad-client/windows/crash_generation/client_info.h"
 #  include "breakpad-client/windows/crash_generation/crash_generation_server.h"
 #  include "breakpad-client/windows/handler/exception_handler.h"
 #  include <dbghelp.h>
+#  include <filesystem>
 #  include <string.h>
-#  include "nsDirectoryServiceUtils.h"
-
-#  include "nsWindowsDllInterceptor.h"
+#  include "mozilla/DebugOnly.h"
 #  include "mozilla/WindowsDllBlocklist.h"
+#  include "nsDirectoryServiceUtils.h"
+#  include "nsWindowsDllInterceptor.h"
 #  include "psapi.h"  // For PERFORMANCE_INFORMATION and K32GetPerformanceInfo()
+#  if defined(HAVE_64BIT_BUILD)
+#    include "jsfriendapi.h"
+#  endif  // defined(HAVE_64BIT_BUILD)
 #elif defined(XP_MACOSX)
 #  include "breakpad-client/mac/crash_generation/client_info.h"
 #  include "breakpad-client/mac/crash_generation/crash_generation_server.h"
@@ -99,6 +90,7 @@
 #  include "sys/sysinfo.h"
 #  include <sys/wait.h>
 #  include <unistd.h>
+#  include "mozilla/ScopeExit.h"
 
 #  if defined(MOZ_OXIDIZED_BREAKPAD)
 #    include "mozilla/toolkit/crashreporter/rust_minidump_writer_linux_ffi_generated.h"
@@ -109,9 +101,6 @@
 #  error "Not yet implemented for this platform"
 #endif  // defined(XP_WIN)
 
-#ifdef XP_WIN
-#  include <filesystem>
-#endif
 #include <fmt/format.h>
 #include <fstream>
 #include <optional>
