@@ -1815,7 +1815,7 @@ bool DrawTargetSkia::Init(const IntSize& aSize, SurfaceFormat aFormat) {
   }
   SkSurfaceProps props(0, GetSkPixelGeometry());
 
-  size_t bufSize = BufferSizeFromStrideAndHeight(stride.value(), info.height());
+  size_t bufSize = BufferSizeFromStrideAndHeight(stride, info.height());
   if (!bufSize) {
     return false;
   }
