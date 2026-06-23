@@ -985,8 +985,15 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
         return NS_OK;
       }
 
+      // We failed to attach a new shadow root, so instead attach a template
+      // element and return its content.
       nsIContent* node = *aOperation.mTemplateNode;
-      nsIContent* host = *aOperation.mHost;
+      *aOperation.mFragHandle =
+          static_cast<HTMLTemplateElement*>(node)->Content();
+      nsContentUtils::LogSimpleConsoleError(
+          u"Failed to attach Declarative Shadow DOM."_ns, "DOM"_ns,
+          mBuilder->GetDocument()->IsInPrivateBrowsing(),
+          mBuilder->GetDocument()->IsInChromeDocShell());
 
       if (MOZ_UNLIKELY(node->GetParentNode())) {
         Detach(node, mBuilder);
@@ -996,15 +1003,17 @@ nsresult nsHtml5TreeOperation::Perform(nsHtml5TreeOpExecutor* aBuilder,
         }
       }
 
-      // We failed to attach a new shadow root, so instead attach a template
-      // element and return its content.
+      nsIContent* host = *aOperation.mHost;
+
+      if (MOZ_UNLIKELY(node->HasChildren()) &&
+          host->IsInclusiveDescendantOf(node)) {
+        // "If it is not possible to insert element at the adjusted insertion
+        // location, abort these steps."
+        // But see https://github.com/whatwg/html/issues/12494
+        return NS_OK;
+      }
+
       nsHtml5TreeOperation::Append(node, host, mBuilder);
-      *aOperation.mFragHandle =
-          static_cast<HTMLTemplateElement*>(node)->Content();
-      nsContentUtils::LogSimpleConsoleError(
-          u"Failed to attach Declarative Shadow DOM."_ns, "DOM"_ns,
-          mBuilder->GetDocument()->IsInPrivateBrowsing(),
-          mBuilder->GetDocument()->IsInChromeDocShell());
       return NS_OK;
     }
 
