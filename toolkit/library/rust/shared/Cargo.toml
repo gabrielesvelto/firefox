@@ -26,8 +26,8 @@ webrender_bindings = { path = "../../../../gfx/webrender_bindings" }
 cubeb-coreaudio = { git = "https://github.com/mozilla/cubeb-coreaudio-rs", rev = "bebaa23317332c95734df76e25193c24a83a6840", optional = true }
 cubeb-pulse = { git = "https://github.com/mozilla/cubeb-pulse-rs", rev="8678dcab1c287de79c4c184ccc2e065bc62b70e2", optional = true, features=["pulse-dlopen"] }
 cubeb-sys = { version = "0.13", optional = true, features=["gecko-in-tree"] }
-audioipc2-client = { git = "https://github.com/mozilla/audioipc", rev = "e6f44a2bd1e57d11dfc737632a9e849077632330", optional = true }
-audioipc2-server = { git = "https://github.com/mozilla/audioipc", rev = "e6f44a2bd1e57d11dfc737632a9e849077632330", optional = true }
+audioipc2-client = { git = "https://github.com/mozilla/audioipc", rev = "3f0d4aef7a2c06b0146384592b312a7f47ab7cea", optional = true }
+audioipc2-server = { git = "https://github.com/mozilla/audioipc", rev = "3f0d4aef7a2c06b0146384592b312a7f47ab7cea", optional = true }
 encoding_glue = { path = "../../../../intl/encoding_glue" }
 authrs_bridge = { path = "../../../../dom/webauthn/authrs_bridge" }
 gkrust_utils = { path = "../../../../xpcom/rust/gkrust_utils" }
