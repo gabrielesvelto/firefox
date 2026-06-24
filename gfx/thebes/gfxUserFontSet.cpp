@@ -1246,7 +1246,7 @@ bool gfxUserFontSet::UserFontCache::Entry::KeyEquals(
 
 void gfxUserFontSet::UserFontCache::CacheFont(gfxFontEntry* aFontEntry) {
   MOZ_ASSERT(NS_IsMainThread());
-  NS_ASSERTION(aFontEntry->mFamilyName.Length() != 0,
+  NS_ASSERTION(aFontEntry->FamilyName().Length() != 0,
                "caching a font associated with no family yet");
 
   // if caching is disabled, simply return
