@@ -75,7 +75,10 @@ class CompositionTransaction final : public EditTransactionBase,
  private:
   virtual ~CompositionTransaction() = default;
 
-  MOZ_CAN_RUN_SCRIPT nsresult SetSelectionForRanges();
+  void UpdateTextNodeAndOffset(dom::Text& aText, uint32_t aOffset) {
+    mTextNode = &aText;
+    mOffset = aOffset;
+  }
 
   // The text element to operate upon.
   RefPtr<dom::Text> mTextNode;
@@ -83,6 +86,8 @@ class CompositionTransaction final : public EditTransactionBase,
   // The offsets into mTextNode where the insertion should be placed.
   uint32_t mOffset;
 
+  // The replace range in the original `Text` even if it's split and shrunken.
+  uint32_t mReplaceOffset;
   uint32_t mReplaceLength;
 
   // The range list.
