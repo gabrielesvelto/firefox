@@ -25,6 +25,7 @@
 #include "skia/include/effects/SkImageFilters.h"
 #include "skia/include/private/base/SkMalloc.h"
 #include "Blur.h"
+#include "DataSurfaceHelpers.h"
 #include "Logging.h"
 #include "Tools.h"
 #include "PathHelpers.h"
@@ -1738,12 +1739,16 @@ bool DrawTargetSkia::Init(const IntSize& aSize, SurfaceFormat aFormat) {
   }
   SkSurfaceProps props(0, GetSkPixelGeometry());
 
+  size_t bufSize = BufferSizeFromStrideAndHeight(stride, info.height());
+  if (!bufSize) {
+    return false;
+  }
+
   if (aFormat == SurfaceFormat::A8) {
     // Skia does not fully allocate the last row according to stride.
     // Since some of our algorithms (i.e. blur) depend on this, we must allocate
     // the bitmap pixels manually.
-    CheckedInt<size_t> size = stride;
-    size *= info.height();
+    CheckedInt<size_t> size = bufSize;
     // We need to leave room for an additional 3 bytes for a potential overrun
     // in our blurring code.
     size += 3;
