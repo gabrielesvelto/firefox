@@ -808,7 +808,8 @@ impl ProcessRendezVous {
         }
         #[cfg(any(target_os = "android", target_os = "linux"))]
         {
-            ProcessHandle(self.child_pid)
+            use crate::FromRawProcessHandle;
+            ProcessHandle::from_raw_handle(self.child_pid)
         }
         #[cfg(any(target_os = "ios", target_os = "macos"))]
         {

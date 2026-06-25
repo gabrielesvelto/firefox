@@ -3,7 +3,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::{
-    platform::{AsProcessReaderHandle, AsRawThreadHandle, FromRawThreadHandle},
+    platform::{AsRawProcessHandle, AsRawThreadHandle, FromRawThreadHandle},
     IO_TIMEOUT,
 };
 use mach2::{
@@ -37,10 +37,11 @@ pub(crate) const PROCESS_RENDEZVOUS_ANCILLARY_DATA_LEN: usize = 1;
 
 pub type Result<T> = result::Result<T, PlatformError>;
 
+pub type RawProcessHandle = mach_port_name_t;
 pub type ProcessHandle = SendRight;
 
-impl AsProcessReaderHandle for ProcessHandle {
-    fn as_handle(&self) -> process_reader::ProcessHandle {
+impl AsRawProcessHandle for ProcessHandle {
+    fn as_raw_handle(&self) -> RawProcessHandle {
         self.as_raw_port()
     }
 }

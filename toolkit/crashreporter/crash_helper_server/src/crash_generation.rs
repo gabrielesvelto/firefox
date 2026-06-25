@@ -29,7 +29,7 @@ use crash_helper_common::{
     crash_annotations::{
         should_include_annotation, type_of_annotation, CrashAnnotation, CrashAnnotationType,
     },
-    AsProcessReaderHandle, ApplicationInfo, BreakpadChar, BreakpadString, ExtraCrashData, GeckoChildId, Pid, ProcessHandle,
+    AsRawProcessHandle, ApplicationInfo, BreakpadChar, BreakpadString, ExtraCrashData, GeckoChildId, Pid, ProcessHandle,
 };
 use mozannotation_server::{AnnotationData, errors::AnnotationsRetrievalError, CAnnotation};
 use num_traits::FromPrimitive;
@@ -165,7 +165,7 @@ impl CrashGenerator {
         &self,
     ) -> Result<Vec<CAnnotation>, AnnotationsRetrievalError> {
         mozannotation_server::retrieve_annotations(
-            self.main_process_handle.as_handle(),
+            self.main_process_handle.as_raw_handle(),
             CrashAnnotation::Count as usize,
         )
     }
