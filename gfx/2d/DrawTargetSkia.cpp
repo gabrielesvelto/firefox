@@ -278,6 +278,7 @@ static sk_sp<SkImage> GetSkImageForSurface(SourceSurface* aSurface,
       return nullptr;
     }
     releaseProc = ReleaseTemporaryMappedSurface;
+    break;
   default:
     map.mData = dataSurface->GetData();
     map.mStride = dataSurface->Stride();
