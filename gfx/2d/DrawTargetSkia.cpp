@@ -257,17 +257,18 @@ static sk_sp<SkImage> GetSkImageForSurface(SourceSurface* aSurface,
     return nullptr;
   }
 
-  // Wrapper surfaces (e.g. SourceSurfaceOffset) can hand back the inner
-  // SourceSurfaceSkia here; route it through GetImage so copy-on-write
-  // snapshots are detached/locked rather than borrowing a raw pixel pointer
-  // that can outlive the originating SkSurface.
-  if (dataSurface->GetType() == SurfaceType::SKIA) {
-    return static_cast<SourceSurfaceSkia*>(dataSurface.get())->GetImage(aLock);
-  }
-
   DataSourceSurface::MappedSurface map;
   SkImage::RasterReleaseProc releaseProc;
-  if (dataSurface->GetType() == SurfaceType::DATA_SHARED_WRAPPER) {
+  switch (dataSurface->GetType()) {
+  case SurfaceType::SKIA:
+    // Wrapper surfaces (e.g. SourceSurfaceOffset) can hand back the inner
+    // SourceSurfaceSkia here; route it through GetImage so copy-on-write
+    // snapshots are detached/locked rather than borrowing a raw pixel pointer
+    // that can outlive the originating SkSurface.
+    return static_cast<SourceSurfaceSkia*>(dataSurface.get())->GetImage(aLock);
+  case SurfaceType::DATA_SHARED_WRAPPER:
+  case SurfaceType::DATA_SHARED:
+  case SurfaceType::DATA_RECYCLING_SHARED:
     // Technically all surfaces should be mapped and unmapped explicitly but it
     // appears SourceSurfaceSkia and DataSourceSurfaceWrapper have issues with
     // this. For now, we just map SourceSurfaceSharedDataWrapper to ensure we
@@ -277,10 +278,16 @@ static sk_sp<SkImage> GetSkImageForSurface(SourceSurface* aSurface,
       return nullptr;
     }
     releaseProc = ReleaseTemporaryMappedSurface;
-  } else {
+  default:
     map.mData = dataSurface->GetData();
     map.mStride = dataSurface->Stride();
     releaseProc = ReleaseTemporarySurface;
+    break;
+  }
+
+  if (!map.mData || map.mStride <= 0) {
+    gfxWarning() << "Failed mapping DataSourceSurface for Skia image";
+    return nullptr;
   }
 
   DataSourceSurface* surf = dataSurface.forget().take();
