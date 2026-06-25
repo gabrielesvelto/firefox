@@ -3254,8 +3254,10 @@ EditorBase::InsertTextIntoTextNodeWithTransaction(
     if (NS_WARN_IF(!mComposition->GetContainerTextNode())) {
       return aPointToInsert;
     }
-    return EditorDOMPointInText(mComposition->GetContainerTextNode(),
-                                mComposition->ClampedStartOffsetInTextNode());
+    return EditorDOMPointInText(
+        mComposition->GetContainerTextNode(),
+        std::min(mComposition->XPOffsetInTextNode(),
+                 mComposition->GetContainerTextNode()->TextDataLength()));
   }();
 
   EditorDOMPointInText endOfInsertedText(
@@ -3830,9 +3832,9 @@ nsresult EditorBase::OnCompositionChange(
   if (IsHTMLEditor() && mComposition->GetContainerTextNode()) {
     RefPtr<StaticRange> targetRange = StaticRange::Create(
         mComposition->GetContainerTextNode(),
-        mComposition->ClampedStartOffsetInTextNode(),
+        mComposition->XPOffsetInTextNode(),
         mComposition->GetContainerTextNode(),
-        mComposition->ClampedEndOffsetInTextNode(), IgnoreErrors());
+        mComposition->XPEndOffsetInTextNode(), IgnoreErrors());
     NS_WARNING_ASSERTION(targetRange && targetRange->IsPositioned(),
                          "StaticRange::Create() failed");
     if (targetRange && targetRange->IsPositioned()) {
@@ -5556,19 +5558,18 @@ nsresult EditorBase::InitializeSelection(
     MOZ_ASSERT(textNode,
                "There must be text node if composition string is not empty");
     if (textNode) {
-      MOZ_ASSERT(textNode->Length() >=
-                     mComposition->EndOffsetMaybeInFollowingTextNode(),
+      MOZ_ASSERT(textNode->Length() >= mComposition->XPEndOffsetInTextNode(),
                  "The text node must be different from the old text node");
       RefPtr<TextRangeArray> ranges = mComposition->GetRanges();
       DebugOnly<nsresult> rvIgnored = CompositionTransaction::SetIMESelection(
-          *this, textNode, mComposition->StartOffsetMaybeInFollowingTextNode(),
-          mComposition->LengthMaybeInFollowingTextNode(), ranges);
+          *this, textNode, mComposition->XPOffsetInTextNode(),
+          mComposition->XPLengthInTextNode(), ranges);
       NS_WARNING_ASSERTION(
           NS_SUCCEEDED(rvIgnored),
           "CompositionTransaction::SetIMESelection() failed, but ignored");
       mComposition->OnUpdateCompositionInEditor(
           mComposition->String(), *textNode,
-          mComposition->StartOffsetMaybeInFollowingTextNode());
+          mComposition->XPOffsetInTextNode());
     }
   }
 
