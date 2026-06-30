@@ -665,6 +665,10 @@ nsIContent* nsHtml5TreeOperation::CreateMathMLElement(
 
 void nsHtml5TreeOperation::SetFormElement(nsIContent* aNode, nsIContent* aForm,
                                           nsIContent* aParent) {
+  if (aForm->SubtreeRoot() != aParent->SubtreeRoot()) {
+    return;
+  }
+
   RefPtr<dom::HTMLFormElement> formElement =
       dom::HTMLFormElement::FromNodeOrNull(aForm);
   NS_ASSERTION(formElement,
@@ -674,8 +678,7 @@ void nsHtml5TreeOperation::SetFormElement(nsIContent* aNode, nsIContent* aForm,
       formControl->ControlType() !=
           FormControlType::FormAssociatedCustomElement &&
       !formControl->GetForm() &&
-      !aNode->AsElement()->HasAttr(kNameSpaceID_None, nsGkAtoms::form) &&
-      aForm->SubtreeRoot() == aParent->SubtreeRoot()) {
+      !aNode->AsElement()->HasAttr(kNameSpaceID_None, nsGkAtoms::form)) {
     formControl->SetForm(formElement);
   } else if (HTMLImageElement* domImageElement =
                  dom::HTMLImageElement::FromNodeOrNull(aNode)) {
