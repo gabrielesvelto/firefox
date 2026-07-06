@@ -527,12 +527,21 @@ static void H264EncodeBatchTest(
         EncodeBatchWithInputStats(e, numFrames, aFrameSource, batchSize));
     MediaDataEncoder::EncodedData output = std::move(r.mEncodedData);
     if (aUsage == Usage::Realtime && is4KOrLarger) {
-      // Realtime encoding may drop frames for large frame sizes.
+      // Realtime encoding may drop frames for large frame sizes. Submitting a
+      // whole batch at once can overwhelm the encoder enough that it drops the
+      // frame carrying a forced-keyframe request (the one-frame-at-a-time tests
+      // have enough slack to avoid this), so fewer frames and fewer keyframes
+      // than requested may be produced. Require only that some output was
+      // produced and that the stream still starts with a keyframe.
       EXPECT_LE(output.Length(), numFrames);
+      EXPECT_FALSE(output.IsEmpty());
+      if (!output.IsEmpty()) {
+        EXPECT_TRUE(output[0]->mKeyframe);
+      }
     } else {
       EXPECT_EQ(output.Length(), numFrames);
+      EXPECT_GE(GetKeyFrameCount(output), r.mInputKeyframes);
     }
-    EXPECT_GE(GetKeyFrameCount(output), r.mInputKeyframes);
     if (isAVCC) {
       uint8_t naluSize = GetNALUSize(output[0]).unwrapOr(0);
       EXPECT_GT(naluSize, 0);
