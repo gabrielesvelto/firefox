@@ -1262,11 +1262,13 @@ bool DocumentLoadListener::SpeculativeLoadInParent(
     nsCOMPtr<nsIRedirectChannelRegistrar> registrar =
         RedirectChannelRegistrar::GetOrCreate();
     uint64_t loadIdentifier = aLoadState->GetLoadIdentifier();
+    // Parent-process speculative load, so the redirect is owned by the
+    // parent process (ContentParentId 0).
     DebugOnly<nsresult> rv =
-        registrar->RegisterChannel(nullptr, loadIdentifier);
+        registrar->RegisterChannel(nullptr, loadIdentifier, 0);
     MOZ_ASSERT(NS_SUCCEEDED(rv));
     // Register listener (as an nsIParentChannel) under our new identifier.
-    rv = registrar->LinkChannels(loadIdentifier, listener, nullptr);
+    rv = registrar->LinkChannels(loadIdentifier, 0, listener, nullptr);
     MOZ_ASSERT(NS_SUCCEEDED(rv));
   }
   return !!promise;
@@ -2197,7 +2199,20 @@ DocumentLoadListener::RedirectToRealChannel(
     chan = vsc->GetInnerChannel();
   }
   mRedirectChannelId = nsContentUtils::GenerateLoadIdentifier();
-  MOZ_ALWAYS_SUCCEEDS(registrar->RegisterChannel(chan, mRedirectChannelId));
+
+  // Bind the registered channel to the content process the redirect is
+  // destined for (0 for the parent process), so only that process can link
+  // its parent channel to it.
+  uint64_t ownerContentParentId = 0;
+  if (aDestinationProcess) {
+    if (ContentParent* destCp = *aDestinationProcess) {
+      ownerContentParentId = destCp->ChildID();
+    }
+  } else if (mContentParent) {
+    ownerContentParentId = mContentParent->ChildID();
+  }
+  MOZ_ALWAYS_SUCCEEDS(registrar->RegisterChannel(chan, mRedirectChannelId,
+                                                 ownerContentParentId));
 
   if (aDestinationProcess) {
     RefPtr<ContentParent> cp = *aDestinationProcess;
