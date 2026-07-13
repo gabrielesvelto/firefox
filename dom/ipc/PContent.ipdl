@@ -1196,7 +1196,6 @@ parent:
                              nsString aContentDispositionFilename,
                              bool aForceSave,
                              int64_t aContentLength,
-                             bool aWasFileChannel,
                              nullable nsIURI aReferrer,
                              MaybeDiscardedBrowsingContext aContext);
 
