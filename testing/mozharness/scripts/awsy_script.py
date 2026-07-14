@@ -156,7 +156,9 @@ class AWSY(TestingMixin, MercurialScript, TooltoolMixin, CodeCoverageMixin):
         ]
 
         for requirements_file in requirements_files:
-            self.register_virtualenv_module(requirements=[requirements_file])
+            self.register_virtualenv_module(
+                requirements=[requirements_file], two_pass=True
+            )
 
         self.register_virtualenv_module("awsy", self.awsy_path)
 

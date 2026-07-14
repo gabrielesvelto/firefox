@@ -434,7 +434,7 @@ class AndroidEmulatorTest(
                 "websocketprocessbridge_requirements_3.txt",
             )
         if requirements:
-            self.register_virtualenv_module(requirements=[requirements])
+            self.register_virtualenv_module(requirements=[requirements], two_pass=True)
 
     def download_and_extract(self):
         """
