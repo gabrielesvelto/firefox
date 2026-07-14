@@ -251,6 +251,9 @@ bool gfxGraphiteShaper::ShapeText(DrawTarget* aDrawTarget,
   nsresult rv =
       SetGlyphsFromSegment(aShapedText, aOffset, aLength, aText,
                            t_aText.to_opaque(), seg.to_opaque(), aRounding);
+  if (NS_FAILED(rv)) {
+    aShapedText->ClearGlyphs();
+  }
 
   sandbox_invoke(*mSandbox, gr_seg_destroy, seg);
 
