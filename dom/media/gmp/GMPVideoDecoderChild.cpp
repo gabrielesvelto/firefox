@@ -138,6 +138,12 @@ mozilla::ipc::IPCResult GMPVideoDecoderChild::RecvDecode(
     return IPC_FAIL(this, "!mVideoDecoder");
   }
 
+  if (!GMPVideoEncodedFrameImpl::CheckFrameData(aInputFrame,
+                                                aInputShmem.Size<uint8_t>())) {
+    DeallocShmem(aInputShmem);
+    return IPC_OK();
+  }
+
   auto f = new GMPVideoEncodedFrameImpl(aInputFrame, &mVideoHost);
 
   // Ignore any return code. It is OK for this to fail without killing the
