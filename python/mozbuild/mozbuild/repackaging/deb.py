@@ -163,7 +163,7 @@ def repackage_deb_l10n(
         if release_product == "devedition":
             depends_package = "firefox-devedition"
         else:
-            depends_package = application_ini_data['remoting_name']
+            depends_package = application_ini_data["remoting_name"]
 
         depends_version = application_ini_data["pkg_version"]
 
