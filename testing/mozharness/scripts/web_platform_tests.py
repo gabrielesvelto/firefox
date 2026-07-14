@@ -276,7 +276,7 @@ class WebPlatformTest(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidM
             dirs["abs_test_install_dir"], "config", "marionette_requirements.txt"
         )
 
-        self.register_virtualenv_module(requirements=[requirements], two_pass=True)
+        self.register_virtualenv_module(requirements=[requirements])
 
         webtransport_requirements = os.path.join(
             dirs["abs_test_install_dir"],
@@ -287,9 +287,7 @@ class WebPlatformTest(TestingMixin, MercurialScript, CodeCoverageMixin, AndroidM
             "requirements.txt",
         )
 
-        self.register_virtualenv_module(
-            requirements=[webtransport_requirements], two_pass=True
-        )
+        self.register_virtualenv_module(requirements=[webtransport_requirements])
 
     def _query_geckodriver(self):
         path = None
