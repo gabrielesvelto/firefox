@@ -392,12 +392,12 @@ var FullPageTranslationsPanel = new (class {
    * Use `#getCachedDetectedLanguages` when the lang tags do not need to be re-fetched.
    * This requires a bit of work to do, so prefer the cached version when possible.
    *
-   * @returns {Promise<LangTags>}
+   * @returns {Promise<LangTags | null>}
    */
   async #fetchDetectedLanguages() {
     this.detectedLanguages = await TranslationsParent.getTranslationsActor(
       gBrowser.selectedBrowser
-    ).getDetectedLanguages();
+    ).getLangTags();
     return this.detectedLanguages;
   }
 
@@ -405,7 +405,7 @@ var FullPageTranslationsPanel = new (class {
    * If the detected language tags have been retrieved previously, return the cached
    * version. Otherwise do a fresh lookup of the document's language tag.
    *
-   * @returns {Promise<LangTags>}
+   * @returns {Promise<LangTags | null>}
    */
   async #getCachedDetectedLanguages() {
     if (!this.detectedLanguages) {

@@ -38,6 +38,321 @@ const TOPIC_APP_LOCALES_CHANGED = "intl:app-locales-changed";
 const USE_LEXICAL_SHORTLIST_PREF = "browser.translations.useLexicalShortlist";
 
 /**
+ * The decision table for Translations offer behavior after resolving the HTML lang
+ * attribute and the identified page language.
+ *
+ * The table below expands the resulting outcomes.
+ * Keep this in sync with browser_translations_full_page_language_id_behavior.js.
+ *
+ * Status values:
+ * - SUPPORTED:
+ *     The candidate maps to a source language that Translations can use.
+ *
+ * - UNSUPPORTED:
+ *     The candidate does not map to a supported source language.
+ *
+ * - USER:
+ *     The candidate matches a user's web-content language. This may help us determine
+ *     which language tag we want to use if there is a discrepancy between the HTML
+ *     language tag and the language tag that was identified from the page's sample text.
+ *
+ * - NONE:
+ *     There is no usable HTML language candidate.
+ *
+ * Actions:
+ * - ALLOW:
+ *     Either show the Translations panel, or auto-translate if the user's settings say to.
+ *
+ * - BUTTON:
+ *     Show only the translations button in the URL bar.
+ *     This is used when we have a signal that the page may be translatable, but not enough
+ *     confidence in the chosen source language to justify taking an automatic action.
+ *
+ * - HIDE:
+ *     Hide the translations button.
+ *
+ * Source values:
+ *
+ * - HTML:
+ *     Use the HTML lang tag as the source language.
+ *
+ * - IDENTIFIED:
+ *     Use the language identified from the sample text as the source language.
+ *
+ * - -:
+ *     All values produce the same outcome.
+ *
+ * ID Agrees values:
+ * - TRUE:
+ *     The HTML and identified candidates match after language-tag normalization.
+ *
+ * - FALSE:
+ *     The HTML and identified candidates do not match after language-tag normalization.
+ *
+ * - -:
+ *     All values produce the same outcome.
+ *
+ * Confidence values:
+ * - HIGH:
+ *     The extracted text sample was long enough to trust the language identification.
+ *
+ * - LOW:
+ *     The extracted text sample was too short to fully trust the language identification.
+ *
+ * - -:
+ *     All values produce the same outcome.
+ *
+ * ┌─────┬─────────────┬─────────────┬───────────┬────────────┬────────┬────────────┐
+ * │ #   │ HTML Status │ ID Status   │ ID Agrees │ Confidence │ Action │ Source     │
+ * ├─────┼─────────────┼─────────────┼───────────┼────────────┼────────┼────────────┤
+ * │ 01  │ SUPPORTED   │ SUPPORTED   │ TRUE      │ -          │ ALLOW  │ HTML       │
+ * │ 02  │ USER        │ USER        │ TRUE      │ -          │ HIDE   │ -          │
+ * │ 03  │ UNSUPPORTED │ UNSUPPORTED │ TRUE      │ -          │ HIDE   │ -          │
+ * │ 04  │ SUPPORTED   │ SUPPORTED   │ FALSE     │ HIGH       │ ALLOW  │ IDENTIFIED │
+ * │ 05  │ USER        │ SUPPORTED   │ FALSE     │ HIGH       │ ALLOW  │ IDENTIFIED │
+ * │ 06  │ USER        │ UNSUPPORTED │ FALSE     │ HIGH       │ HIDE   │ IDENTIFIED │
+ * │ 07  │ SUPPORTED   │ USER        │ FALSE     │ HIGH       │ ALLOW  │ HTML       │
+ * │ 08  │ UNSUPPORTED │ USER        │ FALSE     │ HIGH       │ HIDE   │ IDENTIFIED │
+ * │ 09  │ USER        │ USER        │ FALSE     │ HIGH       │ HIDE   │ IDENTIFIED │
+ * │ 10  │ SUPPORTED   │ UNSUPPORTED │ FALSE     │ HIGH       │ BUTTON │ HTML       │
+ * │ 11  │ UNSUPPORTED │ SUPPORTED   │ FALSE     │ HIGH       │ ALLOW  │ IDENTIFIED │
+ * │ 12  │ UNSUPPORTED │ UNSUPPORTED │ FALSE     │ HIGH       │ HIDE   │ IDENTIFIED │
+ * │ 13  │ SUPPORTED   │ -           │ FALSE     │ LOW        │ ALLOW  │ HTML       │
+ * │ 14  │ USER        │ SUPPORTED   │ FALSE     │ LOW        │ BUTTON │ IDENTIFIED │
+ * │ 15  │ USER        │ UNSUPPORTED │ FALSE     │ LOW        │ HIDE   │ HTML       │
+ * │ 16  │ USER        │ USER        │ FALSE     │ LOW        │ HIDE   │ HTML       │
+ * │ 17  │ UNSUPPORTED │ SUPPORTED   │ FALSE     │ LOW        │ BUTTON │ IDENTIFIED │
+ * │ 18  │ UNSUPPORTED │ UNSUPPORTED │ FALSE     │ LOW        │ HIDE   │ HTML       │
+ * │ 19  │ UNSUPPORTED │ USER        │ FALSE     │ LOW        │ HIDE   │ HTML       │
+ * │ 20  │ NONE        │ SUPPORTED   │ -         │ HIGH       │ ALLOW  │ IDENTIFIED │
+ * │ 21  │ NONE        │ USER        │ -         │ HIGH       │ HIDE   │ IDENTIFIED │
+ * │ 22  │ NONE        │ UNSUPPORTED │ -         │ HIGH       │ HIDE   │ IDENTIFIED │
+ * │ 23  │ NONE        │ SUPPORTED   │ -         │ LOW        │ BUTTON │ IDENTIFIED │
+ * │ 24  │ NONE        │ USER        │ -         │ LOW        │ HIDE   │ IDENTIFIED │
+ * │ 25  │ NONE        │ UNSUPPORTED │ -         │ LOW        │ HIDE   │ IDENTIFIED │
+ * └─────┴─────────────┴─────────────┴───────────┴────────────┴────────┴────────────┘
+ *
+ * @type {readonly TranslationsOfferMatrixScenario[]}
+ */
+const TranslationsOfferMatrix = [
+  {
+    conditions: {
+      htmlStatus: "supported",
+      identificationStatus: "supported",
+      identificationMatchesHtml: true,
+    },
+    outcome: { action: "allowOffer", sourceCandidate: "html" },
+  },
+  {
+    conditions: {
+      htmlStatus: "user-language",
+      identificationStatus: "user-language",
+      identificationMatchesHtml: true,
+    },
+    outcome: { action: "hideButton" },
+  },
+  {
+    conditions: {
+      htmlStatus: "unsupported",
+      identificationStatus: "unsupported",
+      identificationMatchesHtml: true,
+    },
+    outcome: { action: "hideButton" },
+  },
+  {
+    conditions: {
+      htmlStatus: "supported",
+      identificationStatus: "supported",
+      identificationMatchesHtml: false,
+      identificationConfident: true,
+    },
+    outcome: { action: "allowOffer", sourceCandidate: "identified" },
+  },
+  {
+    conditions: {
+      htmlStatus: "user-language",
+      identificationStatus: "supported",
+      identificationMatchesHtml: false,
+      identificationConfident: true,
+    },
+    outcome: { action: "allowOffer", sourceCandidate: "identified" },
+  },
+  {
+    conditions: {
+      htmlStatus: "user-language",
+      identificationStatus: "unsupported",
+      identificationMatchesHtml: false,
+      identificationConfident: true,
+    },
+    outcome: { action: "hideButton" },
+  },
+  {
+    conditions: {
+      htmlStatus: "supported",
+      identificationStatus: "user-language",
+      identificationMatchesHtml: false,
+      identificationConfident: true,
+    },
+    outcome: { action: "allowOffer", sourceCandidate: "html" },
+  },
+  {
+    conditions: {
+      htmlStatus: "unsupported",
+      identificationStatus: "user-language",
+      identificationMatchesHtml: false,
+      identificationConfident: true,
+    },
+    outcome: { action: "hideButton" },
+  },
+  {
+    conditions: {
+      htmlStatus: "user-language",
+      identificationStatus: "user-language",
+      identificationMatchesHtml: false,
+      identificationConfident: true,
+    },
+    outcome: { action: "hideButton" },
+  },
+  {
+    conditions: {
+      htmlStatus: "supported",
+      identificationStatus: "unsupported",
+      identificationMatchesHtml: false,
+      identificationConfident: true,
+    },
+    outcome: { action: "showButton", sourceCandidate: "html" },
+  },
+  {
+    conditions: {
+      htmlStatus: "unsupported",
+      identificationStatus: "supported",
+      identificationMatchesHtml: false,
+      identificationConfident: true,
+    },
+    outcome: { action: "allowOffer", sourceCandidate: "identified" },
+  },
+  {
+    conditions: {
+      htmlStatus: "unsupported",
+      identificationStatus: "unsupported",
+      identificationMatchesHtml: false,
+      identificationConfident: true,
+    },
+    outcome: { action: "hideButton" },
+  },
+  {
+    conditions: {
+      htmlStatus: "supported",
+      identificationMatchesHtml: false,
+      identificationConfident: false,
+    },
+    outcome: { action: "allowOffer", sourceCandidate: "html" },
+  },
+  {
+    conditions: {
+      htmlStatus: "user-language",
+      identificationStatus: "supported",
+      identificationMatchesHtml: false,
+      identificationConfident: false,
+    },
+    outcome: { action: "showButton", sourceCandidate: "identified" },
+  },
+  {
+    conditions: {
+      htmlStatus: "user-language",
+      identificationStatus: "unsupported",
+      identificationMatchesHtml: false,
+      identificationConfident: false,
+    },
+    outcome: { action: "hideButton" },
+  },
+  {
+    conditions: {
+      htmlStatus: "user-language",
+      identificationStatus: "user-language",
+      identificationMatchesHtml: false,
+      identificationConfident: false,
+    },
+    outcome: { action: "hideButton" },
+  },
+  {
+    conditions: {
+      htmlStatus: "unsupported",
+      identificationStatus: "supported",
+      identificationMatchesHtml: false,
+      identificationConfident: false,
+    },
+    outcome: { action: "showButton", sourceCandidate: "identified" },
+  },
+  {
+    conditions: {
+      htmlStatus: "unsupported",
+      identificationStatus: "unsupported",
+      identificationMatchesHtml: false,
+      identificationConfident: false,
+    },
+    outcome: { action: "hideButton" },
+  },
+  {
+    conditions: {
+      htmlStatus: "unsupported",
+      identificationStatus: "user-language",
+      identificationMatchesHtml: false,
+      identificationConfident: false,
+    },
+    outcome: { action: "hideButton" },
+  },
+  {
+    conditions: {
+      htmlStatus: null,
+      identificationStatus: "supported",
+      identificationConfident: true,
+    },
+    outcome: { action: "allowOffer", sourceCandidate: "identified" },
+  },
+  {
+    conditions: {
+      htmlStatus: null,
+      identificationStatus: "user-language",
+      identificationConfident: true,
+    },
+    outcome: { action: "hideButton" },
+  },
+  {
+    conditions: {
+      htmlStatus: null,
+      identificationStatus: "unsupported",
+      identificationConfident: true,
+    },
+    outcome: { action: "hideButton" },
+  },
+  {
+    conditions: {
+      htmlStatus: null,
+      identificationStatus: "supported",
+      identificationConfident: false,
+    },
+    outcome: { action: "showButton", sourceCandidate: "identified" },
+  },
+  {
+    conditions: {
+      htmlStatus: null,
+      identificationStatus: "user-language",
+      identificationConfident: false,
+    },
+    outcome: { action: "hideButton" },
+  },
+  {
+    conditions: {
+      htmlStatus: null,
+      identificationStatus: "unsupported",
+      identificationConfident: false,
+    },
+    outcome: { action: "hideButton" },
+  },
+];
+
+/**
  * @typedef {object} Lazy
  * @property {typeof setTimeout} setTimeout
  * @property {typeof clearTimeout} clearTimeout
@@ -64,6 +379,14 @@ const USE_LEXICAL_SHORTLIST_PREF = "browser.translations.useLexicalShortlist";
  *   TranslationModelPayload,
  *   TranslationModelRecord,
  *   TranslationsEnginePayload,
+ *   TranslationsOfferAction,
+ *   TranslationsOfferIdentifiedLanguageCandidate,
+ *   TranslationsOfferInstruction,
+ *   TranslationsOfferLanguageCandidate,
+ *   TranslationsOfferMatrixConditions,
+ *   TranslationsOfferMatrixLanguageStatus,
+ *   TranslationsOfferMatrixOutcome,
+ *   TranslationsOfferMatrixScenario,
  *   TranslationsRecord,
  *   WasmRecord,
  * } from "../translations"
@@ -478,25 +801,11 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
-   * The text-sample length that is sufficient to stop retrying extraction.
+   * The minimum text-sample length required to preserve the language detector's
+   * reported confidence. Extraction retries samples shorter than this threshold,
+   * and any identification from a shorter final sample is marked not confident.
    *
-   * @type {number}
-   */
-  static #TEXT_SAMPLE_MIN_CODE_UNITS = 1500;
-
-  /**
-   * The target text-sample length requested for language identification.
-   *
-   * @type {number}
-   */
-  static #TEXT_SAMPLE_TARGET_CODE_UNITS = 4096;
-
-  /**
-   * The shorter the text, the less confidence we should have in the result of the language
-   * identification. Add another heuristic to report the ID as not confident if the length
-   * of the code units of the text is less than this threshold.
-   *
-   * This was determined by plotting a kernel density estimation of the number of times the
+   * This threshold is informed by a kernel density estimation of the number of times the
    * source language had to be changed in the SelectTranslationsPanel vs. the code units in
    * the source text.
    *
@@ -510,7 +819,14 @@ export class TranslationsParent extends JSWindowActorParent {
    *
    * @type {number}
    */
-  static #DOC_CONFIDENCE_THRESHOLD = 150;
+  static #TEXT_SAMPLE_MIN_CODE_UNITS = 1000;
+
+  /**
+   * The target text-sample length requested for language identification.
+   *
+   * @type {number}
+   */
+  static #TEXT_SAMPLE_TARGET_CODE_UNITS = 4096;
 
   /**
    * Tracks the next sub-frame scheduler id for each top-level document.
@@ -563,6 +879,13 @@ export class TranslationsParent extends JSWindowActorParent {
    * @type {boolean}
    */
   #isTranslationStartupInProgress = false;
+
+  /**
+   * Tracks an in-progress language-tag resolution request for this actor.
+   *
+   * @type {Promise<LangTags | null> | null}
+   */
+  #langTagsPromise = null;
 
   /**
    * The web progress that owns the sub-frame translation progress listener.
@@ -1271,26 +1594,6 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
-   * Offer translations (for instance by automatically opening the popup panel) whenever
-   * languages are detected, but only do it once per host per session.
-   *
-   * Keep this table up to date with:
-   * browser/components/translations/tests/browser/browser_translations_full_page_language_id_behavior.js
-   *
-   * ┌──────────┬───────────┬───────────┬─────────────────────┐
-   * │ Has HTML │ Detection │ Detection │ Outcome             │
-   * │ Tag      │ Agrees    │ Confident │                     │
-   * ├──────────┼───────────┼───────────┼─────────────────────┤
-   * │ TRUE     │ TRUE      │ TRUE      │ Offer Matching Tag  │
-   * │ TRUE     │ TRUE      │ FALSE     │ Offer Matching Tag  │
-   * │ TRUE     │ FALSE     │ TRUE      │ Show Button Only    │
-   * │ TRUE     │ FALSE     │ FALSE     │ Show Button Only    │
-   * │ FALSE    │ N/A       │ TRUE      │ Offer Detected Tag  │
-   * │ FALSE    │ N/A       │ FALSE     │ Show Button Only    │
-   * └──────────┴───────────┴───────────┴─────────────────────┘
-   */
-
-  /**
    * Safely retrieves the document URI from the browsing context.
    *
    * @returns {nsIURI | null}
@@ -1388,13 +1691,56 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
-   * @param {LangTags} detectedLanguages
+   * Builds the page's Translations offer result and acts on it.
+   *
+   * Keep the offer matrix in sync with:
+   * browser/components/translations/tests/browser/browser_translations_full_page_language_id_behavior.js
    */
-  async maybeOfferTranslations(detectedLanguages) {
+  async maybeOfferTranslations() {
     if (!this.browsingContext?.currentWindowGlobal) {
       return;
     }
-    if (!lazy.automaticallyPopupPref) {
+
+    const langTags = await this.getLangTags();
+    if (this.#isDestroyed || !langTags) {
+      return;
+    }
+    if (this.languageState.requestedLanguagePair) {
+      // A translation was already requested.
+      return;
+    }
+
+    const { action, resolvedLangTags } =
+      await this.#buildTranslationsOfferInstruction(langTags);
+    if (this.#isDestroyed) {
+      return;
+    }
+    if (this.languageState.requestedLanguagePair) {
+      // A translation was already requested.
+      return;
+    }
+
+    this.languageState.detectedLanguages = resolvedLangTags;
+
+    if (action === "hideButton") {
+      return;
+    }
+
+    if (
+      action === "allowOffer" &&
+      this.#shouldAutoTranslateResolvedLangTags(resolvedLangTags)
+    ) {
+      await this.translate(
+        {
+          sourceLanguage: resolvedLangTags.docLangTag,
+          targetLanguage: resolvedLangTags.userLangTag,
+        },
+        true /* reportAsAutoTranslate */
+      );
+      return;
+    }
+
+    if (action !== "allowOffer" || !lazy.automaticallyPopupPref) {
       return;
     }
 
@@ -1411,14 +1757,10 @@ export class TranslationsParent extends JSWindowActorParent {
     }
 
     if (
-      !detectedLanguages.docLangTag ||
-      !detectedLanguages.userLangTag ||
-      !detectedLanguages.isDocLangTagSupported
+      !resolvedLangTags.docLangTag ||
+      !resolvedLangTags.userLangTag ||
+      !resolvedLangTags.isDocLangTagSupported
     ) {
-      lazy.console.log(
-        "maybeOfferTranslations - The detected languages were not supported.",
-        detectedLanguages
-      );
       return;
     }
 
@@ -1429,124 +1771,26 @@ export class TranslationsParent extends JSWindowActorParent {
 
     if (
       TranslationsParent.shouldNeverTranslateLanguage(
-        detectedLanguages.docLangTag
+        resolvedLangTags.docLangTag
       )
     ) {
-      lazy.console.log(
-        `maybeOfferTranslations - Should never translate language. "${detectedLanguages.docLangTag}"`,
-        documentURI?.spec
-      );
       return;
     }
     if (this.shouldNeverTranslateSite()) {
-      lazy.console.log(
-        "maybeOfferTranslations - Should never translate site.",
-        documentURI?.spec
-      );
       return;
     }
 
     if (
       lazy.TranslationsUtils.langTagsMatch(
-        detectedLanguages.docLangTag,
-        detectedLanguages.userLangTag
+        resolvedLangTags.docLangTag,
+        resolvedLangTags.userLangTag
       )
     ) {
-      lazy.console.log(
-        "maybeOfferTranslations - The document and user lang tag are the same, not offering a translation.",
-        documentURI?.spec
-      );
       return;
     }
 
-    // Before offering this translation, do a final language detection of the page.
-    // Frequently pages' lang attributes are mislabeled. If there is a mismatch between
-    // the identified and declared language, the translation icon will be shown, but the
-    // popup will not be shown.
-    if (detectedLanguages.htmlLangAttribute && !detectedLanguages.identified) {
-      // Compare language langTagsMatch
-      detectedLanguages.identified = await this.#identifyPageLanguage();
-
-      if (
-        !lazy.TranslationsUtils.langTagsMatch(
-          detectedLanguages.identified.language,
-          detectedLanguages.docLangTag
-        )
-      ) {
-        detectedLanguages.identified.language = Intl.getCanonicalLocales(
-          detectedLanguages.identified.language
-        )[0];
-        if (
-          !lazy.TranslationsUtils.langTagsMatch(
-            detectedLanguages.identified.language,
-            detectedLanguages.docLangTag
-          )
-        ) {
-          if (!detectedLanguages.identified.confident) {
-            lazy.console.log(
-              "The identified language was not confident, and the language tags don't match so don't offer a translation.",
-              this.languageState.detectedLanguages
-            );
-            return;
-          }
-
-          // The identified language and the declared document language do not match,
-          // but we are confident in the results of the contents of the page.
-
-          const originalDocLangTag = detectedLanguages.docLangTag;
-          // We support the identified language, use that as the preferred target
-          // language. Duplicate the object so that it will be dispatched to any
-          // consumers that are using it.
-          detectedLanguages = {
-            ...detectedLanguages,
-            docLangTag: detectedLanguages.identified.language,
-          };
-          this.languageState.detectedLanguages = detectedLanguages;
-
-          if (originalDocLangTag) {
-            lazy.console.log(
-              "maybeOfferTranslations - The document language tag was changed, but there was an original language, so don't offer.",
-              documentURI?.spec,
-              detectedLanguages
-            );
-            return;
-          }
-
-          if (
-            !TranslationsParent.findCompatibleSourceLangTagSync(
-              detectedLanguages.identified.language,
-              await TranslationsParent.getNonPivotLanguagePairs()
-            )
-          ) {
-            lazy.console.log(
-              "maybeOfferTranslations - There was no original language tag, but the detected language is not supported.",
-              documentURI?.spec,
-              detectedLanguages
-            );
-            return;
-          }
-        }
-      }
-      if (detectedLanguages.identified) {
-        // Since we've performed a language identification, and the html lang
-        // attribute matches, we should mark the identification as confident.
-        detectedLanguages.identified.confident = true;
-      }
-    }
-
-    if (
-      detectedLanguages.identified &&
-      !detectedLanguages.identified.confident
-    ) {
-      lazy.console.log(
-        "maybeOfferTranslations - The identified language was not confident.",
-        documentURI?.spec
-      );
-      return;
-    }
-
-    // Do the host check after the language identify check so that the translations popup
-    // will update the language correctly.
+    // Do the host check after the language-identification decision so that the
+    // translations popup will update the language correctly.
     let host;
     try {
       host = documentURI?.host;
@@ -1559,10 +1803,6 @@ export class TranslationsParent extends JSWindowActorParent {
     }
     if (TranslationsParent.#hostsOffered.has(host)) {
       // This host was already offered a translation.
-      lazy.console.log(
-        "maybeOfferTranslations - Host already offered a translation, so skip.",
-        documentURI?.spec
-      );
       return;
     }
     TranslationsParent.#hostsOffered.add(host);
@@ -1575,20 +1815,10 @@ export class TranslationsParent extends JSWindowActorParent {
       !TranslationsParent.testAutomaticPopup
     ) {
       // Do not show the panel in automation, as many tests do not expect this behavior.
-      lazy.console.log(
-        "maybeOfferTranslations - Do not show the translations panel in automation.",
-        documentURI?.spec
-      );
       return;
     }
 
     if (isCurrentPage) {
-      lazy.console.log(
-        "maybeOfferTranslations - Offering a translation",
-        documentURI?.spec,
-        detectedLanguages
-      );
-
       /* eslint-disable-next-line no-shadow */
       const { CustomEvent } = browser.documentGlobal;
       browser.dispatchEvent(
@@ -1597,6 +1827,332 @@ export class TranslationsParent extends JSWindowActorParent {
         })
       );
     }
+  }
+
+  /**
+   * Builds the concrete Translations offer instruction for this page.
+   *
+   * Keep this logic in sync with:
+   * browser/components/translations/tests/browser/browser_translations_full_page_language_id_behavior.js
+   *
+   * @param {LangTags} langTags
+   * @returns {Promise<TranslationsOfferInstruction>}
+   */
+  async #buildTranslationsOfferInstruction(langTags) {
+    const htmlLangCandidate = await this.#getHtmlLangCandidate(langTags);
+    if (this.#isDestroyed) {
+      return this.#createOfferInstructionFromExistingLangTags({
+        action: "hideButton",
+        langTags,
+      });
+    }
+
+    const identifiedLangCandidate =
+      await this.#getIdentifiedLangCandidate(langTags);
+    if (this.#isDestroyed || !identifiedLangCandidate) {
+      return this.#createOfferInstructionFromExistingLangTags({
+        action: "hideButton",
+        langTags,
+      });
+    }
+
+    const identificationResult = identifiedLangCandidate.identificationResult;
+    const conditions = this.#getTranslationsOfferMatrixConditions({
+      htmlLangCandidate,
+      identifiedLangCandidate,
+    });
+    const scenario = this.#getTranslationsOfferMatrixScenario(conditions);
+    const { outcome } = scenario;
+    const { action, sourceCandidate } = outcome;
+
+    let offerInstruction;
+    if (sourceCandidate) {
+      const sourceLangTag =
+        sourceCandidate === "html"
+          ? htmlLangCandidate.supportedLangTag
+          : identifiedLangCandidate.supportedLangTag;
+      offerInstruction = await this.#createOfferInstructionFromSupportedSource({
+        action,
+        langTags,
+        identificationResult,
+        sourceLangTag,
+      });
+    } else {
+      offerInstruction = this.#createOfferInstructionFromExistingLangTags({
+        action,
+        langTags,
+        identificationResult,
+      });
+    }
+
+    lazy.console.log(`Determined offer instruction: "${action}"`, {
+      scenario,
+      offerInstruction,
+    });
+
+    return offerInstruction;
+  }
+
+  /**
+   * Gets the current page conditions used by the Translations offer matrix.
+   *
+   * @param {object} options
+   * @param {TranslationsOfferLanguageCandidate | null} options.htmlLangCandidate
+   * @param {TranslationsOfferIdentifiedLanguageCandidate} options.identifiedLangCandidate
+   * @returns {TranslationsOfferMatrixConditions}
+   */
+  #getTranslationsOfferMatrixConditions({
+    htmlLangCandidate,
+    identifiedLangCandidate,
+  }) {
+    const identificationMatchesHtml = lazy.TranslationsUtils.langTagsMatch(
+      identifiedLangCandidate.langTag,
+      htmlLangCandidate?.langTag
+    );
+
+    return {
+      htmlStatus: this.#getOfferLanguageStatus(htmlLangCandidate),
+      identificationStatus: this.#getOfferLanguageStatus(
+        identifiedLangCandidate
+      ),
+      identificationConfident:
+        identifiedLangCandidate.identificationResult.confident,
+      identificationMatchesHtml,
+    };
+  }
+
+  /**
+   * Finds the matching scenario in the Translations offer matrix.
+   *
+   * @param {TranslationsOfferMatrixConditions} currentConditions
+   * @returns {TranslationsOfferMatrixScenario}
+   */
+  #getTranslationsOfferMatrixScenario(currentConditions) {
+    const scenario = TranslationsOfferMatrix.find(candidateScenario =>
+      TranslationsParent.#offerMatrixConditionsMatch(
+        candidateScenario.conditions,
+        currentConditions
+      )
+    );
+    if (!scenario) {
+      throw new Error("No Translations offer matrix scenario matched.");
+    }
+    return scenario;
+  }
+
+  /**
+   * Checks whether offer matrix conditions match the current page conditions.
+   *
+   * @param {TranslationsOfferMatrixConditions} expectedConditions
+   * @param {TranslationsOfferMatrixConditions} currentConditions
+   * @returns {boolean}
+   */
+  static #offerMatrixConditionsMatch(expectedConditions, currentConditions) {
+    return (
+      (expectedConditions.htmlStatus === undefined ||
+        expectedConditions.htmlStatus === currentConditions.htmlStatus) &&
+      (expectedConditions.identificationStatus === undefined ||
+        expectedConditions.identificationStatus ===
+          currentConditions.identificationStatus) &&
+      (expectedConditions.identificationConfident === undefined ||
+        expectedConditions.identificationConfident ===
+          currentConditions.identificationConfident) &&
+      (expectedConditions.identificationMatchesHtml === undefined ||
+        expectedConditions.identificationMatchesHtml ===
+          currentConditions.identificationMatchesHtml)
+    );
+  }
+
+  /**
+   * Converts a candidate into the normalized status used by the offer matrix.
+   *
+   * @param {TranslationsOfferLanguageCandidate | null} candidate
+   * @returns {TranslationsOfferMatrixLanguageStatus}
+   */
+  #getOfferLanguageStatus(candidate) {
+    if (!candidate) {
+      return null;
+    }
+
+    if (candidate.matchesWebContentLanguage) {
+      return "user-language";
+    }
+
+    if (candidate.supportedLangTag) {
+      return "supported";
+    }
+
+    return "unsupported";
+  }
+
+  /**
+   * Builds a language candidate from the HTML lang attribute for the
+   * language-identification decision matrix.
+   *
+   * @param {LangTags} langTags
+   * @returns {Promise<TranslationsOfferLanguageCandidate | null>}
+   */
+  async #getHtmlLangCandidate(langTags) {
+    if (
+      !langTags.htmlLangAttribute ||
+      !lazy.TranslationsUtils.isLangTagValid(langTags.htmlLangAttribute)
+    ) {
+      return null;
+    }
+
+    return this.#getOfferLanguageCandidate(langTags.htmlLangAttribute);
+  }
+
+  /**
+   * Ensures language identification has run, then builds the identified
+   * language into a language candidate for the decision matrix.
+   *
+   * @param {LangTags} langTags
+   * @returns {Promise<TranslationsOfferIdentifiedLanguageCandidate | null>}
+   */
+  async #getIdentifiedLangCandidate(langTags) {
+    let { identified: identificationResult } = langTags;
+    if (!identificationResult) {
+      identificationResult = await this.#identifyLanguageFromTextSample();
+      if (this.#isDestroyed) {
+        return null;
+      }
+    }
+
+    const candidate = await this.#getOfferLanguageCandidate(
+      identificationResult.language
+    );
+    if (this.#isDestroyed || !candidate) {
+      return null;
+    }
+
+    return {
+      ...candidate,
+      identificationResult,
+    };
+  }
+
+  /**
+   * Builds normalized candidate data for a language tag used by the offer matrix.
+   *
+   * @param {string} langTag
+   * @returns {Promise<TranslationsOfferLanguageCandidate | null>}
+   */
+  async #getOfferLanguageCandidate(langTag) {
+    const supportedLangTag =
+      await TranslationsParent.findCompatibleSourceLangTag(langTag);
+    if (this.#isDestroyed) {
+      return null;
+    }
+
+    return {
+      langTag,
+      supportedLangTag,
+      matchesWebContentLanguage:
+        TranslationsParent.#langTagMatchesWebContentLanguageForOffer(langTag),
+    };
+  }
+
+  /**
+   * Returns whether a language tag matches the web-content language signal
+   * used to suppress an automatic translation offer.
+   *
+   * @param {string} langTag
+   * @returns {boolean}
+   */
+  static #langTagMatchesWebContentLanguageForOffer(langTag) {
+    const webContentLanguages = TranslationsParent.getWebContentLanguages();
+
+    if (
+      (TranslationsParent.mockedPlatform ?? AppConstants.platform) === "android"
+    ) {
+      // On Android the Accept-Language list is generated from the app and OS
+      // locales rather than being a user-curated list of preferred web-content
+      // languages, so only the primary language reliably reflects the user's own
+      // language.
+      return lazy.TranslationsUtils.langTagsMatch(
+        webContentLanguages.values().next().value,
+        langTag
+      );
+    }
+
+    return webContentLanguages
+      .keys()
+      .some(webContentLangTag =>
+        lazy.TranslationsUtils.langTagsMatch(webContentLangTag, langTag)
+      );
+  }
+
+  /**
+   * Creates an offer instruction using a supported source language selected by
+   * the offer matrix.
+   *
+   * @param {object} options
+   * @param {TranslationsOfferAction} options.action
+   * @param {LangTags} options.langTags
+   * @param {DetectionResult} options.identificationResult
+   * @param {string} options.sourceLangTag
+   * @returns {Promise<TranslationsOfferInstruction>}
+   */
+  async #createOfferInstructionFromSupportedSource({
+    action,
+    langTags,
+    identificationResult,
+    sourceLangTag,
+  }) {
+    let userLangTag = null;
+    const topPreferredLangTag =
+      await TranslationsParent.getTopPreferredSupportedToLang({
+        excludeLangTags: [sourceLangTag],
+      });
+    if (this.#isDestroyed) {
+      return this.#createOfferInstructionFromExistingLangTags({
+        action: "hideButton",
+        langTags,
+        identificationResult,
+      });
+    }
+
+    if (
+      topPreferredLangTag &&
+      !lazy.TranslationsUtils.langTagsMatch(topPreferredLangTag, sourceLangTag)
+    ) {
+      userLangTag = topPreferredLangTag;
+    }
+
+    return {
+      action,
+      resolvedLangTags: {
+        ...langTags,
+        identified: identificationResult,
+        docLangTag: sourceLangTag,
+        userLangTag,
+        isDocLangTagSupported: true,
+      },
+    };
+  }
+
+  /**
+   * Creates an offer instruction that preserves the existing language state.
+   *
+   * @param {object} options
+   * @param {TranslationsOfferAction} options.action
+   * @param {LangTags} options.langTags
+   * @param {DetectionResult | null} [options.identificationResult]
+   * @returns {TranslationsOfferInstruction}
+   */
+  #createOfferInstructionFromExistingLangTags({
+    action,
+    langTags,
+    identificationResult = langTags.identified,
+  }) {
+    return {
+      action,
+      resolvedLangTags: {
+        ...langTags,
+        identified: identificationResult,
+      },
+    };
   }
 
   /**
@@ -2075,6 +2631,15 @@ export class TranslationsParent extends JSWindowActorParent {
         break;
       }
       case TOPIC_TRANSLATIONS_ENABLED_STATE_CHANGED: {
+        if (TranslationsParent.AIFeature.isEnabled) {
+          this.#handleTranslationsEnabled().catch(error =>
+            lazy.console.error(
+              "Failed to identify languages after feature enable.",
+              error
+            )
+          );
+        }
+
         this.languageState?.dispatch({
           reason: "feature-enabled-state-changed",
         });
@@ -4064,18 +4629,17 @@ export class TranslationsParent extends JSWindowActorParent {
       return;
     }
 
-    const detectedLanguages =
-      await this.#ensureDetectedLanguagesForTranslation();
+    const langTags = await this.#ensureLangTagsForTranslation();
 
     if (this.#isDestroyed) {
       return;
     }
 
-    if (!detectedLanguages) {
+    if (!langTags) {
       return;
     }
 
-    const { docLangTag } = detectedLanguages;
+    const { docLangTag } = langTags;
     const didStartDocumentTranslation = await this.#startDocumentTranslation(
       languagePair,
       this.#isFindBarOpen()
@@ -4187,92 +4751,53 @@ export class TranslationsParent extends JSWindowActorParent {
       return;
     }
 
-    const detectedLanguages = await this.getDetectedLanguages().catch(error => {
-      lazy.console.log("Failed to get the detected languages.", error);
+    const langTags = await this.getLangTags().catch(error => {
+      lazy.console.warn("Failed to get the language tags.", error);
     });
-
-    if (this.#isDestroyed || !detectedLanguages) {
+    if (this.#isDestroyed || !langTags) {
       return;
     }
 
-    this.languageState.detectedLanguages = detectedLanguages;
+    this.languageState.detectedLanguages = langTags;
 
     const isSelectedTab =
       AppConstants.platform === "android"
         ? browser.docShellIsActive
         : browser === browser.documentGlobal?.gBrowser?.selectedBrowser;
 
-    if (!isSelectedTab) {
-      return;
-    }
-
-    if (await this.shouldAutoTranslate(detectedLanguages)) {
-      if (this.#isDestroyed) {
-        return;
-      }
-
-      this.translate(
-        {
-          sourceLanguage: detectedLanguages.docLangTag,
-          targetLanguage: detectedLanguages.userLangTag,
-        },
-        true // reportAsAutoTranslate
-      );
-    } else {
-      if (this.#isDestroyed) {
-        return;
-      }
-
-      this.maybeOfferTranslations(detectedLanguages).catch(error =>
-        lazy.console.error(error)
-      );
+    if (isSelectedTab) {
+      await this.maybeOfferTranslations();
     }
   }
 
   /**
-   * Identifies the page language from the current document's text sample.
+   * Identifies the page language from the document text sample.
    *
-   * @param {{ htmlLangAttribute: string, textSample: string } | null} [metadata]
+   * @param {DocumentLanguageMetadata | null} [metadata]
    * @returns {Promise<DetectionResult>}
    */
-  async #identifyPageLanguage(metadata = null) {
+  async #identifyLanguageFromTextSample(metadata = null) {
     if (this.languageState?.detectedLanguages?.identified) {
       return this.languageState.detectedLanguages.identified;
     }
 
-    lazy.console.log(
-      "Beginning text extraction:",
-      this.browsingContext?.currentURI?.spec
-    );
-
-    const extractionStartTime = ChromeUtils.now();
     metadata ??= await this.#requestDocumentLanguageMetadata();
-
-    if (this.#isDestroyed || !metadata) {
+    if (this.#isDestroyed) {
       return { language: "en", confident: false, languages: [] };
     }
 
-    const pageText = metadata.textSample;
-    const extractionTime = ChromeUtils.now() - extractionStartTime;
+    const metadataHtmlLangAttribute = metadata?.htmlLangAttribute ?? null;
+    const textSample = metadata?.textSample ?? null;
 
-    lazy.console.debug(
-      `Extracted Page Text (${pageText.length} code units):\n\n`,
-      pageText
-    );
-
-    const extractionLog =
-      `Extracted ${pageText.length} code units of text in ` +
-      `${extractionTime.toFixed(3)} ms.`;
-
-    lazy.console.log(extractionLog);
-    ChromeUtils.addProfilerMarker(
-      "TranslationsParent",
-      { startTime: extractionStartTime, innerWindowId: this.innerWindowId },
-      extractionLog
-    );
+    if (textSample == null) {
+      lazy.console.warn(
+        "Attempt to identify page language with no text sample."
+      );
+      return { language: "en", confident: false, languages: [] };
+    }
 
     const identificationStartTime = ChromeUtils.now();
-    const result = await lazy.LanguageDetector.detectLanguage(pageText);
+    const result = await lazy.LanguageDetector.detectLanguage(textSample);
 
     if (this.#isDestroyed) {
       return { language: "en", confident: false, languages: [] };
@@ -4280,7 +4805,7 @@ export class TranslationsParent extends JSWindowActorParent {
 
     const identificationTime = ChromeUtils.now() - identificationStartTime;
     const identificationLog =
-      `Identified ${pageText.length} code units of text as "${result.language}" ` +
+      `Identified ${textSample.length} code units of text as "${result.language}" ` +
       `in ${identificationTime.toFixed(3)} ms.`;
 
     lazy.console.log(identificationLog);
@@ -4289,18 +4814,14 @@ export class TranslationsParent extends JSWindowActorParent {
       { startTime: identificationStartTime, innerWindowId: this.innerWindowId },
       identificationLog
     );
-    ChromeUtils.addProfilerMarker(
-      "TranslationsParent",
-      { startTime: extractionStartTime, innerWindowId: this.innerWindowId },
-      "Total time to identify page language."
-    );
 
-    if (pageText.length < TranslationsParent.#DOC_CONFIDENCE_THRESHOLD) {
+    if (textSample.length < TranslationsParent.#TEXT_SAMPLE_MIN_CODE_UNITS) {
       result.confident = false;
     }
 
     const htmlLangAttribute =
-      this.languageState?.detectedLanguages?.htmlLangAttribute ?? null;
+      this.languageState?.detectedLanguages?.htmlLangAttribute ??
+      metadataHtmlLangAttribute;
     const identifiedLanguage = result.language;
 
     TranslationsParent.telemetry().onIdentifyPageLanguage({
@@ -4315,10 +4836,8 @@ export class TranslationsParent extends JSWindowActorParent {
       isLangAttributeValid: htmlLangAttribute
         ? lazy.TranslationsUtils.isLangTagValid(htmlLangAttribute)
         : null,
-      extractedCodeUnits: pageText.length,
-      extractionTime,
+      extractedCodeUnits: textSample.length,
       identificationTime,
-      totalTime: extractionTime + identificationTime,
       confident: result.confident,
     });
 
@@ -4326,55 +4845,27 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
+   * Returns whether the resolved language state should trigger auto-translation.
    *
-   * Keep this table up to date with:
-   * browser/components/translations/tests/browser/browser_translations_full_page_language_id_behavior.js
-   *
-   * ┌──────────┬───────────┬───────────┬─────────────────────────────┐
-   * │ Has HTML │ Detection │ Detection │ Outcome                     │
-   * │ Tag      │ Agrees    │ Confident │                             │
-   * ├──────────┼───────────┼───────────┼─────────────────────────────┤
-   * │ TRUE     │ TRUE      │ TRUE      │ Auto Translate Matching Tag │
-   * │ TRUE     │ TRUE      │ FALSE     │ Auto Translate Matching Tag │
-   * │ TRUE     │ FALSE     │ TRUE      │ Show Button Only            │
-   * │ TRUE     │ FALSE     │ FALSE     │ Show Button Only            │
-   * │ FALSE    │ N/A       │ TRUE      │ Auto Translate Detected Tag │
-   * │ FALSE    │ N/A       │ FALSE     │ Show Button Only            │
-   * └──────────┴───────────┴───────────┴─────────────────────────────┘
-   *
-   * @param {LangTags} langTags
+   * @param {LangTags} resolvedLangTags
+   * @returns {boolean}
    */
-  async shouldAutoTranslate(langTags) {
+  #shouldAutoTranslateResolvedLangTags(resolvedLangTags) {
     if (
-      langTags.docLangTag &&
-      langTags.userLangTag &&
-      langTags.isDocLangTagSupported &&
-      this.#maybeAutoTranslate(langTags) &&
-      !TranslationsParent.shouldNeverTranslateLanguage(langTags.docLangTag) &&
-      !this.shouldNeverTranslateSite()
+      !resolvedLangTags.docLangTag ||
+      !resolvedLangTags.userLangTag ||
+      !resolvedLangTags.isDocLangTagSupported
     ) {
-      // Do a final check that the identified language matches the reported language
-      // tag to ensure that the page isn't reporting the incorrect languages. This
-      // check is deferred to now for performance considerations.
-      langTags.identified = await this.#identifyPageLanguage();
-      langTags.docLangTag = langTags.identified.language;
-
-      if (
-        langTags.identified &&
-        langTags.identified.language === langTags.htmlLangAttribute
-      ) {
-        return true;
-      }
-
-      // Since there is a mismatch of the html lang attribute and the identified language,
-      // perform another check with the updated language.
-      return (
-        TranslationsParent.shouldAlwaysTranslateLanguage(langTags) &&
-        !TranslationsParent.shouldNeverTranslateLanguage(langTags.docLangTag)
-      );
+      return false;
     }
 
-    return false;
+    return (
+      this.#maybeAutoTranslate(resolvedLangTags) &&
+      !TranslationsParent.shouldNeverTranslateLanguage(
+        resolvedLangTags.docLangTag
+      ) &&
+      !this.shouldNeverTranslateSite()
+    );
   }
 
   /**
@@ -4395,7 +4886,7 @@ export class TranslationsParent extends JSWindowActorParent {
       lazy.TranslationsUtils.langTagsMatch(sourceLanguage, langTag)
     );
 
-    return langPair?.sourceLanguage;
+    return langPair?.sourceLanguage ?? null;
   }
 
   /**
@@ -4432,7 +4923,7 @@ export class TranslationsParent extends JSWindowActorParent {
       lazy.TranslationsUtils.langTagsMatch(targetLanguage, langTag)
     );
 
-    return langPair?.targetLanguage;
+    return langPair?.targetLanguage ?? null;
   }
 
   /**
@@ -4585,35 +5076,56 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
-   * Returns the lang tags that should be offered for translation. This is in the parent
-   * rather than the child to remove the per-content process memory allocation amount.
+   * Returns the language tags used to decide whether full-page translation should be offered.
    *
    * @returns {Promise<LangTags | null>} - Returns null if the actor was destroyed before
    *   the result could be resolved.
    */
-  async getDetectedLanguages() {
+  async getLangTags() {
     if (this.languageState.detectedLanguages) {
       return this.languageState.detectedLanguages;
     }
 
+    if (this.#langTagsPromise) {
+      return this.#langTagsPromise;
+    }
+
+    const langTagsPromise = this.#createLangTags();
+    this.#langTagsPromise = langTagsPromise;
+
+    try {
+      const langTags = await langTagsPromise;
+      if (this.#isDestroyed || !langTags) {
+        return null;
+      }
+      this.languageState.detectedLanguages = langTags;
+      return langTags;
+    } finally {
+      if (this.#langTagsPromise === langTagsPromise) {
+        this.#langTagsPromise = null;
+      }
+    }
+  }
+
+  /**
+   * @returns {Promise<LangTags | null>}
+   */
+  async #createLangTags() {
     if (!TranslationsParent.getIsTranslationsEngineSupported()) {
       return null;
     }
 
-    const metadata = await this.#requestDocumentLanguageMetadata();
+    const metadataPromise = this.#requestDocumentLanguageMetadata();
+    const languagePairs = await TranslationsParent.getNonPivotLanguagePairs();
+    const metadata = await metadataPromise;
     if (this.#isDestroyed || !metadata) {
       return null;
     }
 
-    let htmlLangAttribute = metadata.htmlLangAttribute;
+    let htmlLangAttribute = metadata.htmlLangAttribute || null;
     if (htmlLangAttribute) {
       htmlLangAttribute =
         lazy.LanguageDetector.maybeRefineMacroLanguageTag(htmlLangAttribute);
-    }
-
-    let languagePairs = await TranslationsParent.getNonPivotLanguagePairs();
-    if (this.#isDestroyed) {
-      return null;
     }
 
     /** @type {LangTags} */
@@ -4621,70 +5133,51 @@ export class TranslationsParent extends JSWindowActorParent {
       docLangTag: null,
       userLangTag: null,
       isDocLangTagSupported: false,
-      htmlLangAttribute: htmlLangAttribute ?? null,
-      identified: null,
+      htmlLangAttribute,
+      identified: await this.#identifyLanguageFromTextSample(metadata),
     };
 
-    /**
-     * Attempts to find a compatible source language tag that matches
-     * langTags.docLangTag. If a match is found, sets langTags.docLangTag
-     * to the normalized value and sets langTags.isDocLangTagSupported to true.
-     */
-    function findCompatibleDocLangTag() {
-      const compatibleLangTag =
+    if (this.#isDestroyed) {
+      return null;
+    }
+
+    if (lazy.TranslationsUtils.isLangTagValid(htmlLangAttribute)) {
+      const compatibleDocLangTag =
         TranslationsParent.findCompatibleSourceLangTagSync(
-          langTags.docLangTag,
+          htmlLangAttribute,
           languagePairs
         );
-
-      if (compatibleLangTag) {
-        langTags.docLangTag = compatibleLangTag;
-        langTags.isDocLangTagSupported = true;
-      }
+      langTags.docLangTag = compatibleDocLangTag ?? htmlLangAttribute;
+      langTags.isDocLangTagSupported = compatibleDocLangTag !== null;
     }
 
-    /**
-     * Attempts to normalize the langTags.docLangTag value to a language tag that is
-     * compatible as a source language for one of the translation models. If a language
-     * tag is found, sets langTags.isDocLangTagSupported to `true`.
-     */
-    function maybeNormalizeDocLangTag() {
-      if (!langTags.isDocLangTagSupported) {
-        findCompatibleDocLangTag();
-      }
+    if (langTags.identified?.language) {
+      const compatibleIdentifiedLangTag =
+        TranslationsParent.findCompatibleSourceLangTagSync(
+          langTags.identified.language,
+          languagePairs
+        );
+      const identifiedDocLangTag =
+        compatibleIdentifiedLangTag ?? langTags.identified.language;
 
-      if (langTags.docLangTag && !langTags.isDocLangTagSupported) {
-        // We have found a docLangTag, but it is still not supported.
-        // Try it again with a canonicalized version.
-        langTags.docLangTag = Intl.getCanonicalLocales(langTags.docLangTag)[0];
-        findCompatibleDocLangTag();
-      }
-    }
-
-    // First try to get the langTag from the document's markup.
-    // Attempt to find a supported locale from highest specificity to lowest specificity.
-    try {
-      langTags.docLangTag = new Intl.Locale(htmlLangAttribute).baseName;
-      maybeNormalizeDocLangTag();
-    } catch (error) {
-      // Failed to create a locale from htmlLangAttribute, continue on.
-    }
-
-    if (!langTags.docLangTag) {
-      // If the document's markup had no specified langTag, attempt to identify the
-      // page's language.
-      langTags.identified = await this.#identifyPageLanguage(metadata);
-      langTags.docLangTag = langTags.identified.language;
-      maybeNormalizeDocLangTag();
-      langTags.identified.language = langTags.docLangTag;
-
-      if (this.#isDestroyed) {
-        return null;
+      if (
+        langTags.docLangTag &&
+        lazy.TranslationsUtils.langTagsMatch(
+          langTags.docLangTag,
+          identifiedDocLangTag
+        )
+      ) {
+        langTags.identified.language = langTags.docLangTag;
+        langTags.identified.confident = true;
+      } else if (!langTags.docLangTag || langTags.identified.confident) {
+        langTags.docLangTag = identifiedDocLangTag;
+        langTags.isDocLangTagSupported = compatibleIdentifiedLangTag !== null;
+        langTags.identified.language = langTags.docLangTag;
       }
     }
 
     if (!langTags.docLangTag) {
-      const message = "No valid language detected.";
+      const message = "No valid language identified.";
       ChromeUtils.addProfilerMarker(
         "TranslationsParent",
         { innerWindowId: this.innerWindowId },
@@ -4704,33 +5197,13 @@ export class TranslationsParent extends JSWindowActorParent {
       return langTags;
     }
 
-    // On Android the Accept-Language list is generated from the app and OS
-    // locales rather than being a user-curated list of preferred web-content
-    // languages, so only the primary (first) language reliably reflects the
-    // user's own language. Matching against every entry there would suppress the
-    // offer for any page whose language appears anywhere in the OS locale list
-    // (commonly a secondary "en-US"), even when it differs from the primary
-    // language. On other platforms any configured web-content language counts.
-    const isAndroid =
-      (TranslationsParent.mockedPlatform ?? AppConstants.platform) ===
-      "android";
-    const webContentLanguages = TranslationsParent.getWebContentLanguages();
-    const docLangIsKnown = isAndroid
-      ? lazy.TranslationsUtils.langTagsMatch(
-          webContentLanguages.values().next().value,
-          langTags.docLangTag
-        )
-      : webContentLanguages
-          .keys()
-          .some(langTag =>
-            lazy.TranslationsUtils.langTagsMatch(langTag, langTags.docLangTag)
-          );
-
-    if (docLangIsKnown) {
-      // The doc language has been marked as a known language by the user, do not
-      // offer a translation.
+    if (
+      TranslationsParent.#langTagMatchesWebContentLanguageForOffer(
+        langTags.docLangTag
+      )
+    ) {
       const message =
-        "The app and document languages match, so not translating.";
+        "The candidate document language matches a user web language; leaving the target language unresolved until the offer decision.";
       ChromeUtils.addProfilerMarker(
         "TranslationsParent",
         { innerWindowId: this.innerWindowId },
@@ -4738,7 +5211,6 @@ export class TranslationsParent extends JSWindowActorParent {
       );
       lazy.console.log(message);
 
-      // The docLangTag will be set, while the userLangTag will be null.
       return langTags;
     }
 
@@ -4754,7 +5226,6 @@ export class TranslationsParent extends JSWindowActorParent {
     }
 
     if (!langTags.userLangTag) {
-      // No language pairs match.
       const message = `No matching language pairs were found for translating from "${langTags.docLangTag}".`;
       ChromeUtils.addProfilerMarker(
         "TranslationsParent",
@@ -4768,33 +5239,30 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
-   * Ensures that detected languages are available for translation, performing detection if necessary.
+   * Ensures language tags are available for translation, identifying the page language if necessary.
    *
-   * @returns {Promise<LangTags | null>} The detected languages, or null if detection failed
+   * @returns {Promise<LangTags | null>} The language tags, or null if identification failed.
    */
-  async #ensureDetectedLanguagesForTranslation() {
+  async #ensureLangTagsForTranslation() {
     if (this.languageState.detectedLanguages) {
       return this.languageState.detectedLanguages;
     }
 
-    const detectedLanguages = await this.getDetectedLanguages();
+    const langTags = await this.getLangTags();
 
     if (this.#isDestroyed) {
       return null;
     }
 
-    if (!detectedLanguages) {
-      lazy.console.error("Failed to detect languages for translation request.");
+    if (!langTags) {
+      lazy.console.error(
+        "Failed to identify languages for translation request."
+      );
       return null;
     }
 
-    this.languageState.detectedLanguages = detectedLanguages;
-
-    await this.maybeOfferTranslations(detectedLanguages).catch(error =>
-      lazy.console.error(error)
-    );
-
-    return detectedLanguages;
+    this.languageState.detectedLanguages = langTags;
+    return langTags;
   }
 
   /**
