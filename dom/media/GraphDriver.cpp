@@ -907,6 +907,15 @@ long AudioCallbackDriver::DataCallback(const AudioDataValue* aInputBuffer,
   uint32_t prefilledFrameCount = mScratchBuffer.Empty(mBuffer);
 
   if (mFirstCallbackIteration && !mTargetIterationTimeStamp.IsNull()) {
+    // Determine how much would ideally be rendered in this iteration by
+    // comparing the time this iteration started with the target start time of
+    // the previous iteration.
+    //
+    // FallbackDriverStopped() will not set mTargetIterationTimeStamp in the
+    // future, so mTargetIterationTimeStamp is usually before
+    // iterationStartTimeStamp.  This is not guaranteed however as
+    // iterationStartTimeStamp may have been recorded before the fallback driver
+    // started its iteration at mTargetIterationTimeStamp.
     MediaTime renderingTime =
         MediaTrackGraphImpl::RoundUpToEndOfAudioBlock(SecondsToMediaTime(
             (iterationStartTimeStamp - mTargetIterationTimeStamp).ToSeconds()));
@@ -917,7 +926,8 @@ long AudioCallbackDriver::DataCallback(const AudioDataValue* aInputBuffer,
       // rendering time.  Synchronize the rendering times of graph frames
       // under the audio callback with the rendering times under the previous
       // driver by padding the start of the provided buffer with silence.
-      prefilledFrameCount = AssertedCast<uint32_t>(aFrames - renderingTime);
+      prefilledFrameCount = AssertedCast<uint32_t>(
+          aFrames - std::max<MediaTime>(0, renderingTime));
       mBuffer.WriteSilence(prefilledFrameCount);
     }
   }
