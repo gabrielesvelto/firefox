@@ -114,6 +114,8 @@ skip-if = [
 
 ["browser_translations_full_page.js"]
 
+["browser_translations_full_page_iframe.js"]
+
 ["browser_translations_lang_tags.js"]
 
 ["browser_translations_pdf_is_disabled.js"]
