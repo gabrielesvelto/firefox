@@ -505,6 +505,19 @@ export class TranslationsParent extends JSWindowActorParent {
   static #REACT_TO_PAGE_LANGUAGE_TIMEOUT = 500;
 
   /**
+   * Tracks the next subframe scheduler id for each top-level document.
+   *
+   * Each number value represents a monotonically increasing id that will
+   * be incremented for each translatable <iframe> within the page.
+   *
+   * These counts must be kept within the parent process, since cross-origin
+   * iframes will be contained to their own content process due to fission.
+   *
+   * @type {WeakMap<WindowGlobalParent, number>}
+   */
+  static #nextSubFrameSchedulerIds = new WeakMap();
+
+  /**
    * Tracks the language-detection lifecycle for the page associated with this actor.
    * - null: Detection has not started.
    * - PromiseWithResolvers: Detection has started.
@@ -586,6 +599,107 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
+   * Returns true if this actor belongs to the top-level browsing context.
+   *
+   * If true, then this actor corresponds to the top-level document for the page.
+   * If false, then this actor corresponds to a sub frame within the page.
+   *
+   * On a page that has no iframes, this will be the only actor that exists.
+   *
+   * @returns {boolean}
+   */
+  isTopLevelActor() {
+    try {
+      return this.browsingContext === this.browsingContext?.top;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Retrieves the Translations actor associated with the top-level browsing context.
+   *
+   * @returns {TranslationsParent | null}
+   */
+  #getTopLevelTranslationsActor() {
+    const browser = this.#getBrowserFromContext();
+    if (!browser) {
+      return null;
+    }
+
+    try {
+      return browser.browsingContext.currentWindowGlobal.getActor(
+        "Translations"
+      );
+    } catch (error) {
+      lazy.console.warn(
+        "Unable to access top-level Translations actor.",
+        error
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Returns the scheduler id for a sub-frame document, or null for the
+   * top-level document.
+   *
+   * Every <iframe> that receives a TranslationsParent and TranslationsChild actor
+   * pair will receive a new monotonically increasing numeric id to help distinguish
+   * this frame in scheduler logs. Top-level documents must never receive one.
+   *
+   * @returns {number | null}
+   */
+  #getNextSubFrameSchedulerId() {
+    if (this.isTopLevelActor()) {
+      return null;
+    }
+
+    const browser = this.#getBrowserFromContext();
+    const topWindowGlobal = browser?.browsingContext?.currentWindowGlobal;
+
+    if (!topWindowGlobal) {
+      return null;
+    }
+
+    const nextSubFrameSchedulerId =
+      TranslationsParent.#nextSubFrameSchedulerIds.get(topWindowGlobal) ?? 1;
+
+    TranslationsParent.#nextSubFrameSchedulerIds.set(
+      topWindowGlobal,
+      nextSubFrameSchedulerId + 1
+    );
+
+    return nextSubFrameSchedulerId;
+  }
+
+  /**
+   * Starts translation for a sub frame if the top-level actor is already translating.
+   *
+   * @returns {Promise<boolean>}
+   */
+  async #maybeStartSubFrameTranslation() {
+    if (this.isTopLevelActor()) {
+      return false;
+    }
+
+    if (this.languageState?.requestedLanguagePair) {
+      return false;
+    }
+
+    const topLevelActor = this.#getTopLevelTranslationsActor();
+    const requestedLanguagePair =
+      topLevelActor?.languageState?.requestedLanguagePair;
+
+    if (!requestedLanguagePair) {
+      // There is no requested language pair, so there is no active translation.
+      return false;
+    }
+
+    return this.#translateSubFrame(requestedLanguagePair);
+  }
+
+  /**
    * Returns whether the FindBar is currently open for the top-level tab.
    *
    * @returns {boolean}
@@ -662,6 +776,7 @@ export class TranslationsParent extends JSWindowActorParent {
           isFindBarOpen,
           languagePair,
           port,
+          subFrameSchedulerId: this.#getNextSubFrameSchedulerId(),
         },
         [port]
       );
@@ -672,6 +787,58 @@ export class TranslationsParent extends JSWindowActorParent {
     }
   }
 
+  /**
+   * Invokes the callback for each existing sub-frame actor beneath the given browsing context.
+   *
+   * @param {(actor: TranslationsParent) => void} callback
+   * @param {BrowsingContext | null} [browsingContext=this.browsingContext]
+   */
+  #forEachSubFrameActor(callback, browsingContext = this.browsingContext) {
+    if (!browsingContext) {
+      return;
+    }
+
+    for (const childBrowsingContext of browsingContext.children) {
+      let actor = null;
+
+      try {
+        actor =
+          childBrowsingContext.currentWindowGlobal?.getExistingActor(
+            "Translations"
+          ) ?? null;
+      } catch (error) {
+        lazy.console.warn("Unable to access child Translations actor.", error);
+      }
+
+      if (actor) {
+        callback(actor);
+      }
+
+      this.#forEachSubFrameActor(callback, childBrowsingContext);
+    }
+  }
+
+  /**
+   * Starts translation for all sub-frame actors beneath this actor.
+   *
+   * @param {LanguagePair} languagePair
+   *
+   * @returns {Promise<void>}
+   */
+  async #translateSubFrames(languagePair) {
+    /** @type {Array<Promise<boolean>>} */
+    const translationPromises = [];
+
+    this.#forEachSubFrameActor(actor => {
+      if (actor === this) {
+        return;
+      }
+      translationPromises.push(actor.#translateSubFrame(languagePair));
+    });
+
+    await Promise.allSettled(translationPromises);
+  }
+
   actorCreated() {
     const browser = this.browsingContext?.top?.embedderElement;
     if (!browser) {
@@ -679,7 +846,20 @@ export class TranslationsParent extends JSWindowActorParent {
       return;
     }
 
-    this.innerWindowId = browser.innerWindowID;
+    this.innerWindowId =
+      this.browsingContext?.currentWindowGlobal?.innerWindowId ??
+      browser.innerWindowID;
+
+    if (!this.isTopLevelActor()) {
+      this.languageState = new TranslationsLanguageState(this);
+
+      this.#maybeStartSubFrameTranslation().catch(error =>
+        lazy.console.error("Failed to translate sub frame.", error)
+      );
+
+      return;
+    }
+
     const tabState = StatePerTab.getOrCreate(browser);
 
     const currentUrl = browser.currentURI?.spec;
@@ -1648,10 +1828,16 @@ export class TranslationsParent extends JSWindowActorParent {
       }
       case "findbaropen": {
         this.sendAsyncMessage("Translations:FindBarOpen");
+        this.#forEachSubFrameActor(actor => {
+          actor.sendAsyncMessage("Translations:FindBarOpen");
+        });
         break;
       }
       case "findbarclose": {
         this.sendAsyncMessage("Translations:FindBarClose");
+        this.#forEachSubFrameActor(actor => {
+          actor.sendAsyncMessage("Translations:FindBarClose");
+        });
         break;
       }
     }
@@ -1973,6 +2159,11 @@ export class TranslationsParent extends JSWindowActorParent {
 
     switch (name) {
       case "Translations:DOMContentLoaded": {
+        if (!this.isTopLevelActor()) {
+          await this.#maybeStartSubFrameTranslation();
+          return undefined;
+        }
+
         if (
           this.languageState?.detectedLanguages ||
           this.#languageDetectionReason
@@ -1998,6 +2189,11 @@ export class TranslationsParent extends JSWindowActorParent {
         return undefined;
       }
       case "Translations:Load": {
+        if (!this.isTopLevelActor()) {
+          await this.#maybeStartSubFrameTranslation();
+          return undefined;
+        }
+
         this.#languageDetectionReason?.resolve("load");
         return undefined;
       }
@@ -2052,9 +2248,18 @@ export class TranslationsParent extends JSWindowActorParent {
         return undefined;
       }
       case "Translations:ReportFirstVisibleChange": {
-        if (this.languageState) {
-          this.languageState.hasVisibleChange = true;
+        if (this.isTopLevelActor()) {
+          if (this.languageState) {
+            this.languageState.hasVisibleChange = true;
+          }
+          return undefined;
         }
+
+        const topLevelActor = this.#getTopLevelTranslationsActor();
+        if (topLevelActor?.languageState) {
+          topLevelActor.languageState.hasVisibleChange = true;
+        }
+        return undefined;
       }
     }
     return undefined;
@@ -3756,6 +3961,13 @@ export class TranslationsParent extends JSWindowActorParent {
    *   an auto-translate.
    */
   async translate(languagePair, reportAsAutoTranslate) {
+    if (!this.isTopLevelActor()) {
+      lazy.console.error(
+        "translate() should only be called on the top-level actor."
+      );
+      return;
+    }
+
     const { sourceLanguage, targetLanguage } = languagePair;
     if (!sourceLanguage || !targetLanguage) {
       lazy.console.error(
@@ -3833,6 +4045,22 @@ export class TranslationsParent extends JSWindowActorParent {
     });
 
     TranslationsParent.storeMostRecentTargetLanguage(targetLanguage);
+
+    await this.#translateSubFrames(languagePair);
+  }
+
+  /**
+   * Starts translation for a subframe actor using the current top-level FindBar state.
+   *
+   * @param {LanguagePair} languagePair
+   * @returns {Promise<boolean>}
+   */
+  async #translateSubFrame(languagePair) {
+    if (this.isTopLevelActor()) {
+      return false;
+    }
+
+    return this.#startDocumentTranslation(languagePair, this.#isFindBarOpen());
   }
 
   /**
@@ -4762,6 +4990,23 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
+   * Notifies the TranslationsChild that the associated engine has terminated.
+   *
+   * @returns {Promise<void>}
+   */
+  async notifyEngineTerminated() {
+    if (this.#isDestroyed) {
+      return;
+    }
+
+    try {
+      await this.sendQuery("Translations:EngineTerminated");
+    } catch (error) {
+      lazy.console.error(error);
+    }
+  }
+
+  /**
    * Ensure that the translations are always destroyed, even if the content translations
    * are misbehaving.
    */
@@ -4772,7 +5017,7 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   didDestroy() {
-    if (!TranslationsParent.AIFeature.isEnabled) {
+    if (this.isTopLevelActor() && !TranslationsParent.AIFeature.isEnabled) {
       // If the actor is getting destroyed due to the feature becoming disabled,
       // we have a few things we need to cache in case the user re-enables Translations.
       //
@@ -4808,7 +5053,9 @@ export class TranslationsParent extends JSWindowActorParent {
     }
 
     this.#ensureTranslationsDiscarded();
-    this.#removeFindBarEventListeners();
+    if (this.isTopLevelActor()) {
+      this.#removeFindBarEventListeners();
+    }
 
     this.#isDestroyed = true;
   }
@@ -4887,6 +5134,10 @@ class TranslationsLanguageState {
    * Dispatch anytime the language details change, so that any UI can react to it.
    */
   dispatch({ reason } = {}) {
+    if (!this.#actor?.isTopLevelActor()) {
+      return;
+    }
+
     try {
       const browser = this.#actor?.browsingContext?.top?.embedderElement;
       if (!browser) {

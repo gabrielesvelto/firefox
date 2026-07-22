@@ -112,7 +112,7 @@ export class TranslationsChild extends JSWindowActorChild {
           return undefined;
         }
 
-        const { isFindBarOpen, languagePair, port } = data;
+        const { isFindBarOpen, languagePair, port, subFrameSchedulerId } = data;
 
         if (
           !TranslationsChild.#translationsCache ||
@@ -132,7 +132,8 @@ export class TranslationsChild extends JSWindowActorChild {
           () => this.sendAsyncMessage("Translations:RequestPort"),
           () => this.sendAsyncMessage("Translations:ReportFirstVisibleChange"),
           TranslationsChild.#translationsCache,
-          isFindBarOpen
+          isFindBarOpen,
+          subFrameSchedulerId
         );
 
         return undefined;
@@ -147,6 +148,10 @@ export class TranslationsChild extends JSWindowActorChild {
       case "Translations:AcquirePort": {
         this.addProfilerMarker("Acquired a port, resuming translations");
         this.#translatedDoc.acquirePort(data.port);
+        return undefined;
+      }
+      case "Translations:EngineTerminated": {
+        this.#translatedDoc?.handleEngineTerminated();
         return undefined;
       }
       default:
