@@ -33,20 +33,6 @@ export class TranslationsChild extends JSWindowActorChild {
 
   #isDestroyed = false;
 
-  handleEvent(event) {
-    if (this.#isDestroyed) {
-      return;
-    }
-
-    if (event.type === "DOMContentLoaded") {
-      this.sendAsyncMessage("Translations:DOMContentLoaded", {
-        htmlLangAttribute: this.document.documentElement.lang,
-      });
-    } else if (event.type === "load") {
-      this.sendAsyncMessage("Translations:Load");
-    }
-  }
-
   didDestroy() {
     this.#isDestroyed = true;
     this.#translatedDoc?.destroy();
@@ -77,29 +63,6 @@ export class TranslationsChild extends JSWindowActorChild {
       case "Translations:FindBarClose": {
         this.#translatedDoc?.enterLazyTranslationsMode();
         return undefined;
-      }
-      case "Translations:ExtractPageText": {
-        const { document } = this;
-        if (!document) {
-          return "";
-        }
-
-        const { sufficientLength } = data;
-
-        const encoder = Cu.createDocumentEncoder("text/plain");
-        encoder.init(
-          document,
-          "text/plain",
-          Ci.nsIDocumentEncoder.OutputBodyOnly |
-            Ci.nsIDocumentEncoder.SkipInvisibleContent |
-            Ci.nsIDocumentEncoder.AllowCrossShadowBoundary |
-            Ci.nsIDocumentEncoder.OutputForPlainTextClipboardCopy |
-            Ci.nsIDocumentEncoder.OutputDisallowLineBreaking |
-            Ci.nsIDocumentEncoder.OutputDropInvisibleBreak |
-            Ci.nsIDocumentEncoder.OutputLFLineBreak
-        );
-
-        return encoder.encodeToStringWithMaxLength(sufficientLength);
       }
       case "Translations:TranslatePage": {
         if (this.#translatedDoc?.engineStatus === "error") {
@@ -137,13 +100,6 @@ export class TranslationsChild extends JSWindowActorChild {
         );
 
         return undefined;
-      }
-      case "Translations:GetDocumentElementLang": {
-        return this.document.documentElement.lang;
-      }
-      case "Translations:IsDocumentReady": {
-        const state = this.document.readyState;
-        return state === "interactive" || state === "complete";
       }
       case "Translations:AcquirePort": {
         this.addProfilerMarker("Acquired a port, resuming translations");

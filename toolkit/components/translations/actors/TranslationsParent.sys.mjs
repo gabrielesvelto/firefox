@@ -490,21 +490,6 @@ export class TranslationsParent extends JSWindowActorParent {
   static #DOC_CONFIDENCE_THRESHOLD = 150;
 
   /**
-   * The maximum time that we will wait to react to the page's
-   * language after observing the DOMContentLoaded event.
-   *
-   * In an ideal scenario, we want to fully wait for the "load"
-   * event before we scrape the page for text, but we also need
-   * mindful that some pages may take a long time to fully load
-   * depending on the complexity of the page and the speed of
-   * the user's connection.
-   *
-   * This is the worst-case scenario where we will start scraping
-   * the page text even if it has not yet fully loaded.
-   */
-  static #REACT_TO_PAGE_LANGUAGE_TIMEOUT = 500;
-
-  /**
    * Tracks the next subframe scheduler id for each top-level document.
    *
    * Each number value represents a monotonically increasing id that will
@@ -516,29 +501,6 @@ export class TranslationsParent extends JSWindowActorParent {
    * @type {WeakMap<WindowGlobalParent, number>}
    */
   static #nextSubFrameSchedulerIds = new WeakMap();
-
-  /**
-   * Tracks the language-detection lifecycle for the page associated with this actor.
-   * - null: Detection has not started.
-   * - PromiseWithResolvers: Detection has started.
-   *
-   * The promise resolves with the reason that detection started, so that it can be
-   * logged to the console.
-   *
-   * Detection may start due to 3 scenarios.
-   *
-   * 1) The page loaded while the Translations feature was disabled, and then the user
-   *    enabled the feature in a different tab via the Firefox AI Settings.
-   *
-   * 2) The page loaded with the Translations feature enabled, and we received the "load"
-   *    event before our timeout, signaling that we are ready to scrape the page content.
-   *
-   * 3) The page is loading with the Translations feature enabled, and we received DOMContentLoaded,
-   *    but have not received the "load" event before our specified timeout.
-   *
-   * @type {PromiseWithResolvers<string> | null}
-   */
-  #languageDetectionReason = null;
 
   /**
    * Contains the state that would affect UI. Anytime this state is changed, a dispatch
@@ -913,75 +875,6 @@ export class TranslationsParent extends JSWindowActorParent {
     }
 
     this.languageState.dispatch({ reason: "actor-created" });
-    this.#maybeDetectLanguagesIfDocumentReady(isSelectedTab);
-  }
-
-  /**
-   * If the document is already in an interactive or complete state, run language detection.
-   * Otherwise, do nothing, since the language detection will trigger when the page loads.
-   *
-   * This is needed when the feature is re-enabled on pages that are already loaded.
-   *
-   * @param {boolean} isSelectedTab
-   */
-  async #maybeDetectLanguagesIfDocumentReady(isSelectedTab) {
-    if (this.languageState.detectedLanguages || this.#languageDetectionReason) {
-      // Detection already completed or is in progress.
-      return;
-    }
-
-    let isDocumentReady;
-    try {
-      isDocumentReady = await this.sendQuery("Translations:IsDocumentReady");
-    } catch (error) {
-      lazy.console.error("Failed to check document readiness.", error);
-      return;
-    }
-
-    if (this.#isDestroyed) {
-      return;
-    }
-
-    if (!isDocumentReady) {
-      // The document is not ready yet. Language detection will be triggered when the page loads.
-      return;
-    }
-
-    if (this.#languageDetectionReason) {
-      // The document is ready, but the DOMContentLoaded path already triggered language detection.
-      return;
-    }
-
-    this.#languageDetectionReason = Promise.withResolvers();
-    this.#languageDetectionReason.resolve("actor-created");
-
-    await this.#languageDetectionReason.promise.then(async reason => {
-      try {
-        if (this.#isDestroyed) {
-          return;
-        }
-
-        const htmlLangAttribute = await this.queryDocumentElementLang();
-        if (this.#isDestroyed) {
-          return;
-        }
-
-        if (isSelectedTab) {
-          await this.#reactToPageLanguage(htmlLangAttribute, reason);
-        } else {
-          const detectedLanguages =
-            await this.getDetectedLanguages(htmlLangAttribute);
-
-          if (this.#isDestroyed || !detectedLanguages) {
-            return;
-          }
-
-          this.languageState.detectedLanguages = detectedLanguages;
-        }
-      } catch (error) {
-        lazy.console.error("Failed to run language detection.", error);
-      }
-    });
   }
 
   /**
@@ -2099,109 +1992,12 @@ export class TranslationsParent extends JSWindowActorParent {
     return port2;
   }
 
-  /**
-   * Reacts to the page's language tag by considering the HTML lang attribute
-   * and also scraping a sample of the visible text on the page.
-   *
-   * An action is taken based on the agreement between the detected language
-   * and the HTML lang attribute (or lack thereof).
-   *
-   * @param {string} htmlLangAttribute
-   * @param {string} reason
-   */
-  async #reactToPageLanguage(htmlLangAttribute, reason) {
-    lazy.console.debug(`Reacting to page language due to "${reason}".`);
-
-    const detectedLanguages = await this.getDetectedLanguages(
-      htmlLangAttribute
-    ).catch(error => {
-      // Detecting the languages can fail if the page gets destroyed before it
-      // can be completed. This runs on every page that doesn't have a lang tag,
-      // so only report the error if you have Translations logging turned on to
-      // avoid console spam.
-      lazy.console.log("Failed to get the detected languages.", error);
-    });
-
-    if (this.#isDestroyed) {
-      return;
-    }
-
-    if (!detectedLanguages) {
-      // The actor was already destroyed, and the detectedLanguages weren't reported
-      // in time.
-      return;
-    }
-
-    this.languageState.detectedLanguages = detectedLanguages;
-
-    if (await this.shouldAutoTranslate(detectedLanguages)) {
-      if (this.#isDestroyed) {
-        return;
-      }
-
-      this.translate(
-        {
-          sourceLanguage: detectedLanguages.docLangTag,
-          targetLanguage: detectedLanguages.userLangTag,
-        },
-        true // reportAsAutoTranslate
-      );
-    } else {
-      if (this.#isDestroyed) {
-        return;
-      }
-
-      this.maybeOfferTranslations(detectedLanguages).catch(error =>
-        lazy.console.error(error)
-      );
-    }
-  }
-
-  async receiveMessage({ name, data }) {
+  async receiveMessage({ name }) {
     if (this.#isDestroyed) {
       return undefined;
     }
 
     switch (name) {
-      case "Translations:DOMContentLoaded": {
-        if (!this.isTopLevelActor()) {
-          await this.#maybeStartSubFrameTranslation();
-          return undefined;
-        }
-
-        if (
-          this.languageState?.detectedLanguages ||
-          this.#languageDetectionReason
-        ) {
-          return undefined;
-        }
-
-        const { htmlLangAttribute } = data;
-        this.#languageDetectionReason = Promise.withResolvers();
-        const { promise, resolve } = this.#languageDetectionReason;
-
-        promise.then(async reason => {
-          if (this.#isDestroyed) {
-            return;
-          }
-          await this.#reactToPageLanguage(htmlLangAttribute, reason);
-        });
-
-        lazy.setTimeout(() => {
-          resolve("timeout");
-        }, TranslationsParent.#REACT_TO_PAGE_LANGUAGE_TIMEOUT);
-
-        return undefined;
-      }
-      case "Translations:Load": {
-        if (!this.isTopLevelActor()) {
-          await this.#maybeStartSubFrameTranslation();
-          return undefined;
-        }
-
-        this.#languageDetectionReason?.resolve("load");
-        return undefined;
-      }
       case "Translations:RequestPort": {
         if (!this.languageState) {
           lazy.console.error(
@@ -4227,15 +4023,6 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
-   * Returns the language from the document element.
-   *
-   * @returns {Promise<string>}
-   */
-  queryDocumentElementLang() {
-    return this.sendQuery("Translations:GetDocumentElementLang");
-  }
-
-  /**
    *
    * Keep this table up to date with:
    * browser/components/translations/tests/browser/browser_translations_full_page_language_id_behavior.js
@@ -4625,14 +4412,7 @@ export class TranslationsParent extends JSWindowActorParent {
       return this.languageState.detectedLanguages;
     }
 
-    const htmlLangAttribute = await this.queryDocumentElementLang();
-
-    if (this.#isDestroyed) {
-      return null;
-    }
-
-    const detectedLanguages =
-      await this.getDetectedLanguages(htmlLangAttribute);
+    const detectedLanguages = await this.getDetectedLanguages("");
 
     if (this.#isDestroyed) {
       return null;
