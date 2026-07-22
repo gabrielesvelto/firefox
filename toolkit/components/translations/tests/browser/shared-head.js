@@ -103,6 +103,16 @@ const ALWAYS_TRANSLATE_LANGS_PREF =
 const NEVER_TRANSLATE_LANGS_PREF =
   "browser.translations.neverTranslateLanguages";
 const USE_LEXICAL_SHORTLIST_PREF = "browser.translations.useLexicalShortlist";
+const DOCUMENT_LANGUAGE_METADATA_LOAD_TIMEOUT_MS_PREF =
+  "dom.document_language_metadata.load_timeout_ms";
+const DOCUMENT_LANGUAGE_METADATA_RETRY_DELAY_BASE_MS_PREF =
+  "dom.document_language_metadata.retry_delay_base_ms";
+const DOCUMENT_LANGUAGE_METADATA_TEXT_SAMPLE_MIN_CODE_UNITS = 1500;
+const DOCUMENT_LANGUAGE_METADATA_TEXT_SAMPLE_TARGET_CODE_UNITS = 4096;
+const DOCUMENT_LANGUAGE_METADATA_TEST_PREFS = [
+  [DOCUMENT_LANGUAGE_METADATA_RETRY_DELAY_BASE_MS_PREF, 10],
+  [DOCUMENT_LANGUAGE_METADATA_LOAD_TIMEOUT_MS_PREF, 50],
+];
 
 /**
  * Provide a uniform way to log actions. This abuses the Error stack to get the callers
@@ -255,6 +265,108 @@ async function loadNewPage(browser, url) {
 }
 
 /**
+ * @param {MozBrowser} browser
+ * @returns {Promise<DocumentLanguageMetadata | null>}
+ */
+async function requestDocumentLanguageMetadata(browser) {
+  const windowGlobal = browser.browsingContext?.currentWindowGlobal;
+  if (!windowGlobal) {
+    return null;
+  }
+
+  return windowGlobal.requestDocumentLanguageMetadata({
+    textSampleMinCodeUnits:
+      DOCUMENT_LANGUAGE_METADATA_TEXT_SAMPLE_MIN_CODE_UNITS,
+    textSampleTargetCodeUnits:
+      DOCUMENT_LANGUAGE_METADATA_TEXT_SAMPLE_TARGET_CODE_UNITS,
+  });
+}
+
+/**
+ * Waits for document-language metadata to become available for the current page.
+ *
+ * @param {MozBrowser} browser
+ * @param {object} [options]
+ * @param {string | null} [options.htmlLangAttribute]
+ */
+async function waitForDocumentLanguageMetadata(
+  browser,
+  { htmlLangAttribute = null } = {}
+) {
+  let metadata = null;
+  await TestUtils.waitForCondition(async () => {
+    metadata = await requestDocumentLanguageMetadata(browser);
+    if (!metadata || metadata.textSample == null) {
+      return false;
+    }
+    return (
+      htmlLangAttribute == null ||
+      metadata.htmlLangAttribute === htmlLangAttribute
+    );
+  }, "Waiting for document-language metadata.");
+
+  return metadata;
+}
+
+/**
+ * Waits for the TranslationsParent actor to resolve language tags for the current page.
+ *
+ * @param {MozBrowser} browser
+ * @returns {Promise<LangTags>}
+ */
+async function waitForTranslationsLanguageState(browser) {
+  let langTags = null;
+  await TestUtils.waitForCondition(async () => {
+    let actor;
+    try {
+      actor = TranslationsParent.getTranslationsActor(browser);
+    } catch {
+      return false;
+    }
+
+    langTags = await actor.getLangTags();
+    return !!langTags;
+  }, "Waiting for TranslationsParent language state.");
+
+  return langTags;
+}
+
+/**
+ * Loads a new test page with the given initial HTML language tag and resolves
+ * lang tags from the TranslationsParent actor for that page.
+ *
+ * @param {MozBrowser} browser
+ * @param {string} langTag
+ * @returns {Promise<LangTags>}
+ */
+async function getLangTagsForLangTagTestPage(browser, langTag) {
+  const html = String.raw;
+  const { url, serverClosed } = serveOnce(html`
+    <!doctype html>
+    <html lang=${langTag}>
+      <head>
+        <meta charset="utf-8" />
+        <title>Translations Lang Tag Test</title>
+      </head>
+      <body>
+        <h1>Translations language tag test page</h1>
+        <p>
+          This page provides stable text while tests vary the initial HTML
+          language tag.
+        </p>
+      </body>
+    </html>
+  `);
+
+  await loadNewPage(browser, url);
+  await serverClosed;
+  await waitForDocumentLanguageMetadata(browser, {
+    htmlLangAttribute: langTag,
+  });
+  return waitForTranslationsLanguageState(browser);
+}
+
+/**
  * The mochitest runs in the parent process. This function opens up a new tab,
  * opens up about:translations, and passes the test requirements into the content process.
  *
@@ -306,8 +418,9 @@ async function openAboutTranslations({
       ["browser.translations.logLevel", "All"],
       ["browser.translations.mostRecentTargetLanguages", ""],
       ["dom.events.testing.asyncClipboard", true],
-      [USE_LEXICAL_SHORTLIST_PREF, false],
       ["layout.css.text-transform.uppercase-eszett.enabled", false],
+      [USE_LEXICAL_SHORTLIST_PREF, false],
+      ...DOCUMENT_LANGUAGE_METADATA_TEST_PREFS,
       ...(prefs ?? []),
     ],
   });
@@ -2133,6 +2246,7 @@ async function createTranslationsDoc(
       ["browser.translations.enable", true],
       ["browser.translations.logLevel", "All"],
       [USE_LEXICAL_SHORTLIST_PREF, false],
+      ...DOCUMENT_LANGUAGE_METADATA_TEST_PREFS,
     ],
   });
 
@@ -2442,6 +2556,93 @@ function getTranslationsParent(win = window) {
 }
 
 /**
+ * Returns true if the given browsing context has an existing
+ * TranslationsParent actor, otherwise false.
+ *
+ * @param {BrowsingContext} browsingContext
+ * @returns {boolean}
+ */
+function hasTranslationParentActor(browsingContext) {
+  return !!browsingContext?.currentWindowGlobal?.getExistingActor(
+    "Translations"
+  );
+}
+
+/**
+ * Returns true if the given browser's content window has an existing
+ * TranslationsChild actor, otherwise false.
+ *
+ * @param {MozBrowser} [browser=gBrowser.selectedBrowser]
+ * @returns {Promise<boolean>}
+ */
+function hasTranslationChildActor(browser = gBrowser.selectedBrowser) {
+  return SpecialPowers.spawn(browser, [], () => {
+    return !!content.windowGlobalChild.getExistingActor("Translations");
+  });
+}
+
+/**
+ * Returns true if the given browsing context has an existing
+ * TranslationsChild actor, otherwise false.
+ *
+ * @param {BrowsingContext} browsingContext
+ * @returns {Promise<boolean>}
+ */
+function hasTranslationChildActorInBrowsingContext(browsingContext) {
+  return SpecialPowers.spawn(browsingContext, [], () => {
+    return !!content.windowGlobalChild.getExistingActor("Translations");
+  });
+}
+
+/**
+ * Waits for the given browser's content window to have an existing TranslationsChild actor.
+ *
+ * @param {MozBrowser} browser
+ * @param {string} message
+ * @returns {Promise<void>}
+ */
+function waitForTranslationChildActor(browser, message) {
+  return waitForCondition(
+    async () => hasTranslationChildActor(browser),
+    message
+  );
+}
+
+/**
+ * Waits for a browsing context to have an existing TranslationsParent actor.
+ *
+ * @param {BrowsingContext} browsingContext
+ * @param {string} message
+ * @returns {Promise<void>}
+ */
+function waitForTranslationParentActorInBrowsingContext(
+  browsingContext,
+  message
+) {
+  return waitForCondition(
+    () => hasTranslationParentActor(browsingContext),
+    message
+  );
+}
+
+/**
+ * Waits for a browsing context to have an existing TranslationsChild actor.
+ *
+ * @param {BrowsingContext} browsingContext
+ * @param {string} message
+ * @returns {Promise<void>}
+ */
+function waitForTranslationChildActorInBrowsingContext(
+  browsingContext,
+  message
+) {
+  return waitForCondition(
+    async () => hasTranslationChildActorInBrowsingContext(browsingContext),
+    message
+  );
+}
+
+/**
  * Closes all open panels and menu popups related to Translations.
  *
  * @param {ChromeWindow} [win]
@@ -2542,6 +2743,7 @@ async function setupActorTest({
       ["browser.translations.enable", true],
       ["browser.translations.logLevel", "All"],
       [USE_LEXICAL_SHORTLIST_PREF, false],
+      ...DOCUMENT_LANGUAGE_METADATA_TEST_PREFS,
       ...(prefs ?? []),
     ],
   });
@@ -2930,6 +3132,7 @@ async function loadTestPage({
         ["browser.translations.neverTranslateLanguages", ""],
         ["browser.translations.mostRecentTargetLanguages", ""],
         [USE_LEXICAL_SHORTLIST_PREF, false],
+        ...DOCUMENT_LANGUAGE_METADATA_TEST_PREFS,
         // Bug 1893100 - This is needed to ensure that switching focus
         // with tab works in tests independent of macOS settings that
         // would otherwise disable keyboard navigation at the OS level.
@@ -4315,6 +4518,7 @@ async function setupAboutPreferences(
       ["identity.fxaccounts.account.device.name", ""],
       [USE_LEXICAL_SHORTLIST_PREF, false],
       ["browser.settings-redesign.enabled", true],
+      ...DOCUMENT_LANGUAGE_METADATA_TEST_PREFS,
       ...prefs,
     ],
   });
