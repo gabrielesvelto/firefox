@@ -1532,9 +1532,7 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
-   * Only translate pages that match certain protocols, that way internal pages like
-   * about:* pages will not be translated. Keep this logic up to date with the "matches"
-   * array in the `toolkit/modules/ActorManagerParent.sys.mjs` definition.
+   * Restrict full-page translation offers to only top-level pages with supported schemes.
    *
    * @param {object} gBrowser
    * @returns {boolean}
@@ -1547,14 +1545,21 @@ export class TranslationsParent extends JSWindowActorParent {
       return true;
     }
 
-    // Keep this logic up to date with the "matches" array in the
-    // `toolkit/modules/ActorManagerParent.sys.mjs` definition.
     switch (scheme) {
+      // This list should be kept in sync with the schemes for which the actor
+      // may be created, listed in `toolkit/modules/ActorManagerParent.sys.mjs`,
+      // with a couple exceptions.
+      //
+      // The actor itself may be created for `about:blank` or `about:srcdoc` pages
+      // so that <iframe> content may correctly participate in the full-page Translation
+      // process, but we still do not want to offer translation for those kinds of pages
+      // at the top level.
       case "https":
       case "http":
       case "file":
-      case "moz-extension":
+      case "moz-extension": {
         return false;
+      }
     }
     return true;
   }
