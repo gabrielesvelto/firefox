@@ -10,6 +10,7 @@ support-files = [
   "translations-tester-es-mismatch-short.html",
   "translations-tester-es-mismatch.html",
   "translations-tester-es-short.html",
+  "translations-tester-iframe-es.html",
   "translations-tester-es-undeclared-short.html",
   "translations-tester-es-undeclared.html",
   "translations-tester-es-2.html",
