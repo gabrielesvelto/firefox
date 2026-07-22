@@ -578,6 +578,30 @@ export class TranslationsParent extends JSWindowActorParent {
     return this.#findBar;
   }
 
+  /**
+   * Returns whether the FindBar is currently open for the top-level tab.
+   *
+   * @returns {boolean}
+   */
+  #isFindBarOpen() {
+    if (this.#findBar) {
+      return !this.#findBar.hidden;
+    }
+
+    if (AppConstants.platform === "android") {
+      return false;
+    }
+
+    const browser = this.#getBrowserFromContext();
+    if (!browser) {
+      return false;
+    }
+
+    const tabBrowser = browser.getTabBrowser();
+    const findBar = tabBrowser.getCachedFindBar();
+    return findBar ? !findBar.hidden : false;
+  }
+
   actorCreated() {
     const browser = this.browsingContext?.top?.embedderElement;
     if (!browser) {
@@ -3758,31 +3782,10 @@ export class TranslationsParent extends JSWindowActorParent {
 
     TranslationsParent.storeMostRecentTargetLanguage(targetLanguage);
 
-    let isFindBarOpen;
-
-    if (this.#findBar) {
-      isFindBarOpen = !this.#findBar.hidden;
-    }
-
-    if (isFindBarOpen === undefined && AppConstants.platform !== "android") {
-      /* eslint-disable-next-line no-shadow */
-      const browser = this.#getBrowserFromContext();
-      if (browser) {
-        const tabBrowser = browser.getTabBrowser();
-        const findBar = tabBrowser.getCachedFindBar();
-
-        if (findBar) {
-          isFindBarOpen = findBar.hidden;
-        } else {
-          isFindBarOpen = false;
-        }
-      }
-    }
-
     this.sendAsyncMessage(
       "Translations:TranslatePage",
       {
-        isFindBarOpen,
+        isFindBarOpen: this.#isFindBarOpen(),
         languagePair,
         port,
       },
