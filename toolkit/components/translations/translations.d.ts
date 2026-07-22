@@ -290,6 +290,14 @@ interface TranslationsEnginePayload {
 export type NodeVisibility = "in-viewport" | "beyond-viewport" | "hidden";
 
 /**
+ * Document-language metadata collected from the content page.
+ */
+export interface DocumentLanguageMetadata {
+  htmlLangAttribute: string;
+  textSample: string;
+}
+
+/**
  * Used to decide how to translate a page for full page translations.
  */
 export interface LangTags {

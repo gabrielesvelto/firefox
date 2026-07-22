@@ -53,6 +53,7 @@ const USE_LEXICAL_SHORTLIST_PREF = "browser.translations.useLexicalShortlist";
  * @import {TranslationsFeature} from "chrome://global/content/translations/TranslationsFeature.sys.mjs"
  * @import {
  *   DetectionResult,
+ *   DocumentLanguageMetadata,
  *   LangTags,
  *   LanguagePair,
  *   LanguageTranslationModelFiles,
@@ -469,6 +470,20 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
+   * The text-sample length that is sufficient to stop retrying extraction.
+   *
+   * @type {number}
+   */
+  static #TEXT_SAMPLE_MIN_CODE_UNITS = 1500;
+
+  /**
+   * The target text-sample length requested for language identification.
+   *
+   * @type {number}
+   */
+  static #TEXT_SAMPLE_TARGET_CODE_UNITS = 4096;
+
+  /**
    * The shorter the text, the less confidence we should have in the result of the language
    * identification. Add another heuristic to report the ID as not confident if the length
    * of the code units of the text is less than this threshold.
@@ -862,11 +877,10 @@ export class TranslationsParent extends JSWindowActorParent {
       return;
     }
 
-    // On Android there is no gBrowser, but there is effectively only one tab visible
-    // at a time, so treat Android as always having the selected tab.
     const isSelectedTab =
-      AppConstants.platform === "android" ||
-      browser === browser.documentGlobal?.gBrowser?.selectedBrowser;
+      AppConstants.platform === "android"
+        ? browser.docShellIsActive
+        : browser === browser.documentGlobal?.gBrowser?.selectedBrowser;
 
     if (tabState.needsReloadBeforeTranslation && isSelectedTab) {
       tabState.needsReloadBeforeTranslation = false;
@@ -875,6 +889,15 @@ export class TranslationsParent extends JSWindowActorParent {
     }
 
     this.languageState.dispatch({ reason: "actor-created" });
+
+    if (TranslationsParent.AIFeature.isEnabled) {
+      this.#handleTranslationsEnabled().catch(error =>
+        lazy.console.error(
+          "Failed to identify languages after actor creation.",
+          error
+        )
+      );
+    }
   }
 
   /**
@@ -3926,12 +3949,71 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
-   * Extracts a substring of visible text from the content document and
-   * runs it through the language detector to determine the page's language.
+   * Initializes the language state for the current document when Translations is enabled.
+   * Active tabs may offer or auto-translate immediately. Background tabs only cache language
+   * state until they become active.
    *
+   * @returns {Promise<void>}
+   */
+  async #handleTranslationsEnabled() {
+    if (!this.isTopLevelActor() || this.languageState?.detectedLanguages) {
+      return;
+    }
+
+    const browser = this.#getBrowserFromContext();
+    if (!browser) {
+      return;
+    }
+
+    const detectedLanguages = await this.getDetectedLanguages().catch(error => {
+      lazy.console.log("Failed to get the detected languages.", error);
+    });
+
+    if (this.#isDestroyed || !detectedLanguages) {
+      return;
+    }
+
+    this.languageState.detectedLanguages = detectedLanguages;
+
+    const isSelectedTab =
+      AppConstants.platform === "android"
+        ? browser.docShellIsActive
+        : browser === browser.documentGlobal?.gBrowser?.selectedBrowser;
+
+    if (!isSelectedTab) {
+      return;
+    }
+
+    if (await this.shouldAutoTranslate(detectedLanguages)) {
+      if (this.#isDestroyed) {
+        return;
+      }
+
+      this.translate(
+        {
+          sourceLanguage: detectedLanguages.docLangTag,
+          targetLanguage: detectedLanguages.userLangTag,
+        },
+        true // reportAsAutoTranslate
+      );
+    } else {
+      if (this.#isDestroyed) {
+        return;
+      }
+
+      this.maybeOfferTranslations(detectedLanguages).catch(error =>
+        lazy.console.error(error)
+      );
+    }
+  }
+
+  /**
+   * Identifies the page language from the current document's text sample.
+   *
+   * @param {{ htmlLangAttribute: string, textSample: string } | null} [metadata]
    * @returns {Promise<DetectionResult>}
    */
-  async #identifyPageLanguage() {
+  async #identifyPageLanguage(metadata = null) {
     if (this.languageState?.detectedLanguages?.identified) {
       return this.languageState.detectedLanguages.identified;
     }
@@ -3942,14 +4024,13 @@ export class TranslationsParent extends JSWindowActorParent {
     );
 
     const extractionStartTime = ChromeUtils.now();
-    const pageText = await this.sendQuery("Translations:ExtractPageText", {
-      sufficientLength: 4096,
-    });
+    metadata ??= await this.#requestDocumentLanguageMetadata();
 
-    if (this.#isDestroyed) {
+    if (this.#isDestroyed || !metadata) {
       return { language: "en", confident: false, languages: [] };
     }
 
+    const pageText = metadata.textSample;
     const extractionTime = ChromeUtils.now() - extractionStartTime;
 
     lazy.console.debug(
@@ -4225,14 +4306,70 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
+   * Gets document-language metadata for language identification.
+   *
+   * @returns {Promise<DocumentLanguageMetadata | null>}
+   */
+  async #requestDocumentLanguageMetadata() {
+    if (
+      !this.isTopLevelActor() ||
+      this.#isDestroyed ||
+      !TranslationsParent.AIFeature.isEnabled
+    ) {
+      return null;
+    }
+
+    let windowGlobal = null;
+    try {
+      windowGlobal = this.browsingContext?.currentWindowGlobal ?? null;
+      if (
+        !windowGlobal ||
+        windowGlobal.isClosed ||
+        !windowGlobal.isCurrentGlobal ||
+        windowGlobal.isInitialDocument
+      ) {
+        return null;
+      }
+    } catch (error) {
+      lazy.console.warn(
+        "Unable to access WindowGlobalParent for language metadata.",
+        error
+      );
+      return null;
+    }
+
+    try {
+      const metadata = await windowGlobal.requestDocumentLanguageMetadata({
+        textSampleMinCodeUnits: TranslationsParent.#TEXT_SAMPLE_MIN_CODE_UNITS,
+        textSampleTargetCodeUnits:
+          TranslationsParent.#TEXT_SAMPLE_TARGET_CODE_UNITS,
+      });
+
+      if (this.#isDestroyed || !metadata) {
+        return null;
+      }
+
+      lazy.console.debug("Received document-language metadata:", {
+        htmlLangAttribute: metadata.htmlLangAttribute,
+        textSampleLength: metadata.textSample.length,
+        textSample: metadata.textSample,
+      });
+
+      return metadata;
+    } catch (error) {
+      lazy.console.warn("Unable to request document-language metadata.", error);
+      return null;
+    }
+  }
+
+  /**
    * Returns the lang tags that should be offered for translation. This is in the parent
    * rather than the child to remove the per-content process memory allocation amount.
    *
-   * @param {string} [htmlLangAttribute]
    * @returns {Promise<LangTags | null>} - Returns null if the actor was destroyed before
    *   the result could be resolved.
    */
-  async getDetectedLanguages(htmlLangAttribute) {
+  async getDetectedLanguages() {
     if (this.languageState.detectedLanguages) {
       return this.languageState.detectedLanguages;
     }
@@ -4241,6 +4378,12 @@ export class TranslationsParent extends JSWindowActorParent {
       return null;
     }
 
+    const metadata = await this.#requestDocumentLanguageMetadata();
+    if (this.#isDestroyed || !metadata) {
+      return null;
+    }
+
+    let htmlLangAttribute = metadata.htmlLangAttribute;
     if (htmlLangAttribute) {
       htmlLangAttribute =
         lazy.LanguageDetector.maybeRefineMacroLanguageTag(htmlLangAttribute);
@@ -4308,7 +4451,7 @@ export class TranslationsParent extends JSWindowActorParent {
     if (!langTags.docLangTag) {
       // If the document's markup had no specified langTag, attempt to identify the
       // page's language.
-      langTags.identified = await this.#identifyPageLanguage();
+      langTags.identified = await this.#identifyPageLanguage(metadata);
       langTags.docLangTag = langTags.identified.language;
       maybeNormalizeDocLangTag();
       langTags.identified.language = langTags.docLangTag;
@@ -4412,7 +4555,7 @@ export class TranslationsParent extends JSWindowActorParent {
       return this.languageState.detectedLanguages;
     }
 
-    const detectedLanguages = await this.getDetectedLanguages("");
+    const detectedLanguages = await this.getDetectedLanguages();
 
     if (this.#isDestroyed) {
       return null;
