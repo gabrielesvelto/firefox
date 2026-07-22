@@ -438,9 +438,20 @@ var FullPageTranslationsPanel = new (class {
       gBrowser.selectedBrowser
     ).languageState
   ) {
-    const { translateButton, toMenuList, fromMenuList, header, cancelButton } =
-      this.elements;
+    const {
+      translateButton,
+      toMenuList,
+      fromMenuList,
+      header,
+      cancelButton,
+      intro,
+    } = this.elements;
     const { requestedLanguagePair, isEngineReady } = languageState;
+
+    if (TranslationsPanelShared.getLangListsInitState(this) === "error") {
+      translateButton.disabled = true;
+      return;
+    }
 
     // Remove the model variant. e.g. "ru,base" -> "ru"
     const selectedFrom = fromMenuList.value.split(",")[0];
@@ -501,6 +512,12 @@ var FullPageTranslationsPanel = new (class {
         fromLanguage: languageDisplayNames.of(sourceLanguage),
         toLanguage: languageDisplayNames.of(targetLanguage),
       });
+    } else if (
+      !requestedLanguagePair &&
+      !intro.hidden &&
+      !TranslationsParent.hasUserEverTranslated()
+    ) {
+      document.l10n.setAttributes(header, "translations-panel-intro-header");
     } else {
       document.l10n.setAttributes(header, "translations-panel-header");
     }
@@ -561,10 +578,10 @@ var FullPageTranslationsPanel = new (class {
       header,
     } = this.elements;
 
-    this.#updateViewFromTranslationStatus();
-
     // Unconditionally hide the intro text in case the panel is re-shown.
     intro.hidden = true;
+
+    this.#updateViewFromTranslationStatus();
 
     if (TranslationsPanelShared.getLangListsInitState(this) === "error") {
       // There was an error, display it in the view rather than the language
@@ -583,6 +600,7 @@ var FullPageTranslationsPanel = new (class {
       cancelButton.hidden = false;
       langSelection.hidden = true;
       errorHintAction.disabled = false;
+      document.l10n.setAttributes(header, "translations-panel-header");
       return;
     }
 
