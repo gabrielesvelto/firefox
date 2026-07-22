@@ -515,6 +515,15 @@ mozilla::ipc::IPCResult WindowGlobalChild::RecvDrawSnapshot(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult WindowGlobalChild::RecvRequestDocumentLanguageMetadata(
+    uint32_t aTextSampleMinCodeUnits, uint32_t aTextSampleTargetCodeUnits,
+    RequestDocumentLanguageMetadataResolver&& aResolver) {
+  MOZ_ASSERT(aTextSampleMinCodeUnits <= aTextSampleTargetCodeUnits);
+
+  aResolver(Nothing());
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult
 WindowGlobalChild::RecvSaveStorageAccessPermissionGranted() {
   nsCOMPtr<nsPIDOMWindowInner> inner = GetWindowGlobal();

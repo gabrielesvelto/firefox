@@ -176,6 +176,10 @@ class WindowGlobalChild final : public WindowGlobalActor,
                                            const CrossProcessPaintFlags& aFlags,
                                            DrawSnapshotResolver&& aResolve);
 
+  mozilla::ipc::IPCResult RecvRequestDocumentLanguageMetadata(
+      uint32_t aTextSampleMinCodeUnits, uint32_t aTextSampleTargetCodeUnits,
+      RequestDocumentLanguageMetadataResolver&& aResolver);
+
   mozilla::ipc::IPCResult RecvDispatchSecurityPolicyViolation(
       const nsString& aViolationEventJSON, const nsString& aReportGroupName);
 

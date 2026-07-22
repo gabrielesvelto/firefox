@@ -196,6 +196,10 @@ class WindowGlobalParent final : public WindowContext,
       const DOMRect* aRect, double aScale, const nsACString& aBackgroundColor,
       bool aResetScrollPosition, mozilla::ErrorResult& aRv);
 
+  already_AddRefed<mozilla::dom::Promise> RequestDocumentLanguageMetadata(
+      const DocumentLanguageMetadataRequestOptions& aOptions,
+      mozilla::ErrorResult& aRv);
+
   static already_AddRefed<WindowGlobalParent> CreateDisconnected(
       const WindowGlobalInit& aInit, ContentParent* aForProcess);
 

@@ -96,6 +96,7 @@ EXPORTS.mozilla.dom += [
     "VsyncWorkerChild.h",
     "WindowGlobalActor.h",
     "WindowGlobalChild.h",
+    "WindowGlobalMessageUtils.h",
     "WindowGlobalParent.h",
 ]
 
