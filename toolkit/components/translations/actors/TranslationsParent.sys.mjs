@@ -560,6 +560,13 @@ export class TranslationsParent extends JSWindowActorParent {
   #isDestroyed = false;
 
   /**
+   * Tracks an in-progress attempt to start document translation for this actor.
+   *
+   * @type {boolean}
+   */
+  #isTranslationStartupInProgress = false;
+
+  /**
    * The findBar associated with this TranslationsParent actor instance.
    * This will be null until the findBar is initialized in the current tab.
    * If the find-in-page functionality is never used, this will never be initialized.
@@ -600,6 +607,69 @@ export class TranslationsParent extends JSWindowActorParent {
     const tabBrowser = browser.getTabBrowser();
     const findBar = tabBrowser.getCachedFindBar();
     return findBar ? !findBar.hidden : false;
+  }
+
+  /**
+   * Starts document translation for this actor if one is not already in progress.
+   *
+   * @param {LanguagePair} languagePair
+   * @param {boolean} [isFindBarOpen=false]
+   * @returns {Promise<boolean>} Returns true if translation startup was initiated,
+   *                            otherwise false.
+   */
+  async #startDocumentTranslation(languagePair, isFindBarOpen = false) {
+    if (this.languageState.requestedLanguagePair) {
+      // This document already has a requested language pair, so do not start it again.
+      return false;
+    }
+
+    if (this.#isTranslationStartupInProgress) {
+      // Startup is already in progress, so do not start it again.
+      return false;
+    }
+
+    this.#isTranslationStartupInProgress = true;
+
+    try {
+      if (!this.innerWindowId) {
+        lazy.console.error(
+          "The innerWindowId for the TranslationsParent was not available."
+        );
+        return false;
+      }
+
+      const port = await TranslationsParent.requestTranslationsPort(
+        languagePair,
+        this
+      );
+
+      if (this.#isDestroyed) {
+        return false;
+      }
+
+      if (!port) {
+        lazy.console.error(
+          `Failed to create a translations port for language pair: (${lazy.TranslationsUtils.serializeLanguagePair(languagePair)})`
+        );
+        return false;
+      }
+
+      this.languageState.requestedLanguagePair = languagePair;
+
+      this.sendAsyncMessage(
+        "Translations:TranslatePage",
+        {
+          isFindBarOpen,
+          languagePair,
+          port,
+        },
+        [port]
+      );
+
+      return true;
+    } finally {
+      this.#isTranslationStartupInProgress = false;
+    }
   }
 
   actorCreated() {
@@ -3745,32 +3815,14 @@ export class TranslationsParent extends JSWindowActorParent {
     }
 
     const { docLangTag } = detectedLanguages;
-
-    if (!this.innerWindowId) {
-      throw new Error(
-        "The innerWindowId for the TranslationsParent was not available."
-      );
-    }
-
-    // The MessageChannel will be used for communicating directly between the content
-    // process and the engine's process.
-    const port = await TranslationsParent.requestTranslationsPort(
+    const didStartDocumentTranslation = await this.#startDocumentTranslation(
       languagePair,
-      this
+      this.#isFindBarOpen()
     );
 
-    if (this.#isDestroyed) {
+    if (!didStartDocumentTranslation || this.#isDestroyed) {
       return;
     }
-
-    if (!port) {
-      lazy.console.error(
-        `Failed to create a translations port for language pair: (${lazy.TranslationsUtils.serializeLanguagePair(languagePair)})`
-      );
-      return;
-    }
-
-    this.languageState.requestedLanguagePair = languagePair;
 
     TranslationsParent.telemetry().onTranslate({
       docLangTag,
@@ -3781,18 +3833,6 @@ export class TranslationsParent extends JSWindowActorParent {
     });
 
     TranslationsParent.storeMostRecentTargetLanguage(targetLanguage);
-
-    this.sendAsyncMessage(
-      "Translations:TranslatePage",
-      {
-        isFindBarOpen: this.#isFindBarOpen(),
-        languagePair,
-        port,
-      },
-      // https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Transferable_objects
-      // Mark the MessageChannel port as transferable.
-      [port]
-    );
   }
 
   /**
