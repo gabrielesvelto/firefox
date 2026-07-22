@@ -10,6 +10,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "chrome://global/content/translations/translations-document.sys.mjs",
 });
 
+ChromeUtils.defineLazyGetter(lazy, "console", () => {
+  return console.createInstance({
+    maxLogLevelPref: "browser.translations.logLevel",
+    prefix: "Translations",
+  });
+});
+
 /**
  * This file is extremely sensitive to memory size and performance!
  */
@@ -32,6 +39,16 @@ export class TranslationsChild extends JSWindowActorChild {
   static #translationsCache = null;
 
   #isDestroyed = false;
+
+  actorCreated() {
+    const isTopLevelActor = this.browsingContext === this.browsingContext?.top;
+    const innerWindowId = this.contentWindow?.windowGlobalChild?.innerWindowId;
+
+    lazy.console.debug(
+      `Created ${isTopLevelActor ? "top-level" : "sub-frame"} TranslationsChild actor.`,
+      { innerWindowId }
+    );
+  }
 
   didDestroy() {
     this.#isDestroyed = true;

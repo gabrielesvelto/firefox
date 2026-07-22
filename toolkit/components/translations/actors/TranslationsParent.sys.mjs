@@ -332,31 +332,39 @@ class StatePerTab {
  * abstraction, like `this.getWindowState().myState`. This layer also consists of a
  * `FullPageTranslationsPanel` instance per top ChromeWindow (at least on Desktop).
  *
- * The final layer consists of the TranslationsParent actor instances, which exist per tab
- * and are recreated on page reload. Data for this layer is safe to store on the
- * TranslationsParent instance, like `this.myState`. However, any data related to the actor
- * instance that needs to persist between page loads or navigation should be stored in the
- * StatePerTab map.
+ * The final layer consists of the top-level TranslationsParent actor instances, which exist
+ * per tab and are recreated on page reload. During full-page translation, additional
+ * TranslationsParent actor instances are created lazily for eligible sub frames. Data for
+ * this layer is safe to store on the TranslationsParent instance, like `this.myState`.
+ * However, any data related to the top-level actor instance that needs to persist between
+ * page loads or navigation should be stored in the StatePerTab map.
  *
  * Below is an ascii diagram of this relationship.
  *
- *   ┌─────────────────────────────────────────────────────────────────────────────┐
- *   │                           static TranslationsParent                         │
- *   └─────────────────────────────────────────────────────────────────────────────┘
- *                    |                                         |
- *                    v                                         v
- * ┌──────────────────────────────────────┐   ┌──────────────────────────────────────┐
- * │         top ChromeWindow             │   │        top ChromeWindow              │
- * │ (FullPageTranslationsPanel instance) │   │ (FullPageTranslationsPanel instance) │
- * │ + (Translations URL Button instance) │   │ + (Translations URL Button instance) │
- * └──────────────────────────────────────┘   └──────────────────────────────────────┘
- *             |               |       |                |              |       |
- *             v               v       v                v              v       v
- *   ┌────────────────────┐ ┌─────┐ ┌─────┐  ┌────────────────────┐ ┌─────┐ ┌─────┐
- *   │ TranslationsParent │ │ ... │ │ ... │  │ TranslationsParent │ │ ... │ │ ... │
- *   │  (actor instance)  │ │     │ │     │  │  (actor instance)  │ │     │ │     │
- *   │   + StatePerTab    │ │     │ │     │  │   + StatePerTab    │ │     │ │     │
- *   └────────────────────┘ └─────┘ └─────┘  └────────────────────┘ └─────┘ └─────┘
+ * ┌────────────────────────────────────────────────────────────────────────────────────┐
+ * │                               static TranslationsParent                            │
+ * └────────────────────────────────────────────────────────────────────────────────────┘
+ *                    |                                            |
+ *                    v                                            v
+ * ┌──────────────────────────────────────┐      ┌──────────────────────────────────────┐
+ * │         top ChromeWindow             │      │        top ChromeWindow              │
+ * │ (FullPageTranslationsPanel instance) │      │ (FullPageTranslationsPanel instance) │
+ * │ + (Translations URL Button instance) │      │ + (Translations URL Button instance) │
+ * └──────────────────────────────────────┘      └──────────────────────────────────────┘
+ *            |              |       |                      |              |       |
+ *            v              v       v                      v              v       v
+ * ┌────────────────────┐ ┌─────┐ ┌─────┐        ┌────────────────────┐ ┌─────┐ ┌─────┐
+ * │ TranslationsParent │ │ ... │ │ ... │        │ TranslationsParent │ │ ... │ │ ... │
+ * │ (top-level actor)  │ │     │ │     │        │  (top-level actor) │ │     │ │     │
+ * │   + StatePerTab    │ │     │ │     │        │   + StatePerTab    │ │     │ │     │
+ * └─────────┬──────────┘ └─────┘ └─────┘        └─────────┬──────────┘ └─────┘ └─────┘
+ *           |                                             |
+ *           ├──────────────────────┐                      ├──────────────────────┐
+ *           v                      v                      v                      v
+ * ┌────────────────────┐ ┌────────────────────┐ ┌────────────────────┐ ┌────────────────────┐
+ * │ TranslationsParent │ │ TranslationsParent │ │ TranslationsParent │ │ TranslationsParent │
+ * │ (sub-frame actor)  │ │ (sub-frame actor)  │ │ (sub-frame actor)  │ │ (sub-frame actor)  │
+ * └────────────────────┘ └────────────────────┘ └────────────────────┘ └────────────────────┘
  */
 export class TranslationsParent extends JSWindowActorParent {
   /**
@@ -505,7 +513,7 @@ export class TranslationsParent extends JSWindowActorParent {
   static #DOC_CONFIDENCE_THRESHOLD = 150;
 
   /**
-   * Tracks the next subframe scheduler id for each top-level document.
+   * Tracks the next sub-frame scheduler id for each top-level document.
    *
    * Each number value represents a monotonically increasing id that will
    * be incremented for each translatable <iframe> within the page.
@@ -555,6 +563,20 @@ export class TranslationsParent extends JSWindowActorParent {
    * @type {boolean}
    */
   #isTranslationStartupInProgress = false;
+
+  /**
+   * The web progress that owns the sub-frame translation progress listener.
+   *
+   * @type {nsIWebProgress | null}
+   */
+  #subFrameTranslationWebProgress = null;
+
+  /**
+   * The listener that watches for newly loaded sub frames during translation.
+   *
+   * @type {nsIWebProgressListener | null}
+   */
+  #subFrameTranslationProgressListener = null;
 
   /**
    * The findBar associated with this TranslationsParent actor instance.
@@ -651,29 +673,33 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
-   * Starts translation for a sub frame if the top-level actor is already translating.
+   * Starts translation for this sub frame if the top-level actor is already translating.
    *
+   * @param {LanguagePair} [languagePair]
    * @returns {Promise<boolean>}
    */
-  async #maybeStartSubFrameTranslation() {
+  async #translateSubFrameFromTopLevelLanguagePair(languagePair) {
     if (this.isTopLevelActor()) {
-      return false;
+      throw new Error(
+        "Sub-frame translation cannot be started on a top-level actor."
+      );
     }
 
     if (this.languageState?.requestedLanguagePair) {
       return false;
     }
 
-    const topLevelActor = this.#getTopLevelTranslationsActor();
-    const requestedLanguagePair =
-      topLevelActor?.languageState?.requestedLanguagePair;
+    if (!languagePair) {
+      const topLevelActor = this.#getTopLevelTranslationsActor();
+      languagePair = topLevelActor?.languageState?.requestedLanguagePair;
+    }
 
-    if (!requestedLanguagePair) {
+    if (!languagePair) {
       // There is no requested language pair, so there is no active translation.
       return false;
     }
 
-    return this.#translateSubFrame(requestedLanguagePair);
+    return this.#startDocumentTranslation(languagePair, this.#isFindBarOpen());
   }
 
   /**
@@ -765,12 +791,18 @@ export class TranslationsParent extends JSWindowActorParent {
   }
 
   /**
-   * Invokes the callback for each existing sub-frame actor beneath the given browsing context.
+   * Invokes the callback for each sub-frame actor beneath the given browsing context.
+   * Existing actor lookup is used unless actor creation is explicitly requested.
    *
    * @param {(actor: TranslationsParent) => void} callback
-   * @param {BrowsingContext | null} [browsingContext=this.browsingContext]
+   * @param {object} [options]
+   * @param {BrowsingContext | null} [options.browsingContext=this.browsingContext]
+   * @param {boolean} [options.createActors=false]
    */
-  #forEachSubFrameActor(callback, browsingContext = this.browsingContext) {
+  #forEachSubFrameActor(
+    callback,
+    { browsingContext = this.browsingContext, createActors = false } = {}
+  ) {
     if (!browsingContext) {
       return;
     }
@@ -779,10 +811,10 @@ export class TranslationsParent extends JSWindowActorParent {
       let actor = null;
 
       try {
-        actor =
-          childBrowsingContext.currentWindowGlobal?.getExistingActor(
-            "Translations"
-          ) ?? null;
+        const windowGlobal = childBrowsingContext.currentWindowGlobal;
+        actor = createActors
+          ? windowGlobal?.getActor("Translations")
+          : windowGlobal?.getExistingActor("Translations");
       } catch (error) {
         lazy.console.warn("Unable to access child Translations actor.", error);
       }
@@ -791,29 +823,214 @@ export class TranslationsParent extends JSWindowActorParent {
         callback(actor);
       }
 
-      this.#forEachSubFrameActor(callback, childBrowsingContext);
+      this.#forEachSubFrameActor(callback, {
+        browsingContext: childBrowsingContext,
+        createActors,
+      });
     }
   }
 
   /**
-   * Starts translation for all sub-frame actors beneath this actor.
+   * Creates sub-frame actors under this top-level actor and starts translation
+   * for each sub frame when full-page translation is active.
    *
    * @param {LanguagePair} languagePair
-   *
    * @returns {Promise<void>}
    */
-  async #translateSubFrames(languagePair) {
+  async #createSubFrameActorsForActiveTranslation(languagePair) {
+    if (!this.isTopLevelActor()) {
+      throw new Error(
+        "Sub-frame actors can only be created by a top-level actor."
+      );
+    }
+
     /** @type {Array<Promise<boolean>>} */
     const translationPromises = [];
 
-    this.#forEachSubFrameActor(actor => {
-      if (actor === this) {
-        return;
-      }
-      translationPromises.push(actor.#translateSubFrame(languagePair));
-    });
+    this.#forEachSubFrameActor(
+      actor => {
+        translationPromises.push(
+          actor.#translateSubFrameFromTopLevelLanguagePair(languagePair)
+        );
+      },
+      { createActors: true }
+    );
 
     await Promise.allSettled(translationPromises);
+  }
+
+  /**
+   * Starts watching for newly loaded sub frames during translation.
+   */
+  #startSubFrameTranslationProgressListener() {
+    if (!this.isTopLevelActor()) {
+      throw new Error(
+        "The sub-frame progress listener can only be started by a top-level actor."
+      );
+    }
+
+    let webProgress = null;
+    try {
+      webProgress = this.browsingContext?.webProgress;
+    } catch (error) {
+      lazy.console.warn(
+        "Unable to access web progress for Translations.",
+        error
+      );
+      return;
+    }
+
+    if (!webProgress) {
+      lazy.console.debug(
+        "Unable to watch sub-frame loads without web progress."
+      );
+      return;
+    }
+
+    const listener = {
+      onStateChange: (progress, _request, stateFlags) => {
+        this.#onSubFrameWindowLoadStateChange(progress, stateFlags);
+      },
+      QueryInterface: ChromeUtils.generateQI([
+        "nsIWebProgressListener",
+        "nsISupportsWeakReference",
+      ]),
+    };
+
+    try {
+      webProgress.addProgressListener(
+        listener,
+        Ci.nsIWebProgress.NOTIFY_STATE_WINDOW
+      );
+    } catch (error) {
+      lazy.console.warn(
+        "Unable to watch sub-frame loads for Translations.",
+        error
+      );
+      return;
+    }
+
+    this.#subFrameTranslationWebProgress = webProgress;
+    this.#subFrameTranslationProgressListener = listener;
+  }
+
+  /**
+   * Stops watching for newly loaded sub frames during translation.
+   */
+  #removeSubFrameTranslationProgressListener() {
+    const webProgress = this.#subFrameTranslationWebProgress;
+    const listener = this.#subFrameTranslationProgressListener;
+    this.#subFrameTranslationWebProgress = null;
+    this.#subFrameTranslationProgressListener = null;
+
+    if (!webProgress || !listener) {
+      return;
+    }
+
+    try {
+      webProgress.removeProgressListener(listener);
+    } catch (error) {
+      lazy.console.warn(
+        "Unable to stop watching sub-frame loads for Translations.",
+        error
+      );
+    }
+  }
+
+  /**
+   * Activates sub-frame translation for the current translated top-level document.
+   *
+   * @returns {Promise<void>}
+   */
+  async #activateSubFrameTranslationForCurrentDocument() {
+    if (this.#isDestroyed) {
+      return;
+    }
+
+    if (!this.isTopLevelActor()) {
+      throw new Error(
+        "Sub-frame translation can only be activated by a top-level actor."
+      );
+    }
+
+    const languagePair = this.languageState?.requestedLanguagePair;
+    if (
+      !languagePair ||
+      !this.manager?.isCurrentGlobal ||
+      this.#subFrameTranslationProgressListener
+    ) {
+      return;
+    }
+
+    this.#startSubFrameTranslationProgressListener();
+    await this.#createSubFrameActorsForActiveTranslation(languagePair);
+  }
+
+  /**
+   * Starts translation after a sub-frame window finishes loading.
+   *
+   * @param {nsIWebProgress} webProgress
+   * @param {number} stateFlags
+   */
+  #onSubFrameWindowLoadStateChange(webProgress, stateFlags) {
+    const languagePair = this.languageState?.requestedLanguagePair;
+    if (this.#isDestroyed || !languagePair) {
+      return;
+    }
+
+    if (!this.manager?.isCurrentGlobal) {
+      this.#removeSubFrameTranslationProgressListener();
+      return;
+    }
+
+    // Wait for the window-level STATE_STOP emitted when the document request
+    // completes, so that translation starts only after the sub frame loads.
+    // https://searchfox.org/firefox-main/rev/d951c4a19a6958816b35a228ff38fc6ae2c34f13/uriloader/base/nsIWebProgressListener.idl#110-123
+    const { STATE_STOP, STATE_IS_WINDOW } = Ci.nsIWebProgressListener;
+    const requiredStateFlags = STATE_STOP | STATE_IS_WINDOW;
+    if ((stateFlags & requiredStateFlags) !== requiredStateFlags) {
+      return;
+    }
+
+    if (webProgress?.isTopLevel) {
+      return;
+    }
+
+    let browsingContext = null;
+    try {
+      browsingContext = webProgress?.browsingContext;
+      if (!browsingContext) {
+        return;
+      }
+    } catch (error) {
+      lazy.console.warn(
+        "Unable to inspect sub-frame load for Translations.",
+        error
+      );
+      return;
+    }
+
+    let subFrameActor = null;
+    try {
+      subFrameActor =
+        browsingContext.currentWindowGlobal?.getActor("Translations");
+    } catch (error) {
+      lazy.console.warn(
+        "Unable to access Translations actor for sub-frame load.",
+        error
+      );
+      return;
+    }
+
+    if (!subFrameActor) {
+      return;
+    }
+
+    subFrameActor
+      .#translateSubFrameFromTopLevelLanguagePair(languagePair)
+      .catch(error =>
+        lazy.console.error("Failed to translate loaded sub frame.", error)
+      );
   }
 
   actorCreated() {
@@ -828,14 +1045,22 @@ export class TranslationsParent extends JSWindowActorParent {
       browser.innerWindowID;
 
     if (!this.isTopLevelActor()) {
+      lazy.console.debug("Created sub-frame TranslationsParent actor.", {
+        innerWindowId: this.innerWindowId,
+      });
+
       this.languageState = new TranslationsLanguageState(this);
 
-      this.#maybeStartSubFrameTranslation().catch(error =>
+      this.#translateSubFrameFromTopLevelLanguagePair().catch(error =>
         lazy.console.error("Failed to translate sub frame.", error)
       );
 
       return;
     }
+
+    lazy.console.debug("Created top-level TranslationsParent actor.", {
+      innerWindowId: this.innerWindowId,
+    });
 
     const tabState = StatePerTab.getOrCreate(browser);
 
@@ -3870,21 +4095,7 @@ export class TranslationsParent extends JSWindowActorParent {
 
     TranslationsParent.storeMostRecentTargetLanguage(targetLanguage);
 
-    await this.#translateSubFrames(languagePair);
-  }
-
-  /**
-   * Starts translation for a subframe actor using the current top-level FindBar state.
-   *
-   * @param {LanguagePair} languagePair
-   * @returns {Promise<boolean>}
-   */
-  async #translateSubFrame(languagePair) {
-    if (this.isTopLevelActor()) {
-      return false;
-    }
-
-    return this.#startDocumentTranslation(languagePair, this.#isFindBarOpen());
+    await this.#activateSubFrameTranslationForCurrentDocument();
   }
 
   /**
@@ -3911,6 +4122,7 @@ export class TranslationsParent extends JSWindowActorParent {
     tabState.url = browser.currentURI?.spec;
     this.languageState.hasVisibleChange = false;
     this.languageState.requestedLanguagePair = null;
+    this.#removeSubFrameTranslationProgressListener();
 
     browser.reload();
   }
@@ -3945,7 +4157,17 @@ export class TranslationsParent extends JSWindowActorParent {
       // The actor may not be supported on this page, which throws an error.
     }
 
-    actor?.languageState.locationChanged();
+    if (actor) {
+      actor.languageState.locationChanged();
+      actor
+        .#activateSubFrameTranslationForCurrentDocument()
+        .catch(error =>
+          lazy.console.error(
+            "Failed to activate sub-frame translation for the current document.",
+            error
+          )
+        );
+    }
   }
 
   /**
@@ -4982,6 +5204,7 @@ export class TranslationsParent extends JSWindowActorParent {
 
     this.#ensureTranslationsDiscarded();
     if (this.isTopLevelActor()) {
+      this.#removeSubFrameTranslationProgressListener();
       this.#removeFindBarEventListeners();
     }
 
