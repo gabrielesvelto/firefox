@@ -691,6 +691,7 @@ let JSWINDOWACTORS = {
     },
     matches: ["http://*/*", "https://*/*", "file:///*", "moz-extension://*"],
     messageManagerGroups: ["browsers"],
+    allFrames: true,
     enablePreference: "browser.translations.enable",
     onPreferenceChanged(isEnabled) {
       const { TranslationsParent } = ChromeUtils.importESModule(
