@@ -82,6 +82,13 @@ class AudioSinkWrapper : public MediaSink {
     // The stream is paused, a constant time is reported.
     Paused
   } mLastClockSource = ClockSource::Paused;
+
+  // True while a seek resume is in progress. The reported clock is paused at
+  // the seek target and then follows the audio stream's play cursor, which
+  // trails the write cursor by the output latency, rather than advancing on the
+  // system clock, so it does not lead the audible audio. Cleared once the audio
+  // callback is running and driving the clock.
+  bool mClockPausedDuringSeek = false;
   static already_AddRefed<TaskQueue> CreateAsyncInitTaskQueue();
   bool IsMuted() const;
   void OnMuted(bool aMuted);
@@ -122,6 +129,11 @@ class AudioSinkWrapper : public MediaSink {
   // the audio is muted, or when the media has no audio track. Otherwise, the
   // media's position is based on the clock of the AudioStream.
   media::TimeUnit GetSystemClockPosition(TimeStamp aNow) const;
+
+  // Compute the reported position while an audio sink exists: use the audio
+  // stream clock, or the system clock until the stream's callback starts, and
+  // re-anchor the sink start time on that handoff.
+  media::TimeUnit PositionFromAudioSink(TimeStamp aNow);
   bool CheckIfEnded() const;
 
   void OnAudioEnded(const EndedPromise::ResolveOrRejectValue& aValue);
