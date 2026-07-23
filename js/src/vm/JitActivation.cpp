@@ -241,8 +241,16 @@ void js::jit::JitActivation::startWasmTrap(wasm::Trap trap,
   void* pc = unwindState.pc;
   const wasm::Frame* fp = wasm::Frame::fromUntaggedWasmExitFP(unwindState.fp);
 
-  const wasm::Code& code = wasm::GetNearestEffectiveInstance(fp)->code();
-  MOZ_RELEASE_ASSERT(&code == wasm::LookupCode(pc));
+  // Look up the code from the unwound PC itself rather than the frame's
+  // effective instance: a return_call_indirect signature mismatch in a
+  // continuation's entry function leaves the PC in the ContBaseFrame stub.
+  // In this case, its instance (the cont.new creator) can differ from the
+  // frame's when the continuation runs an imported function. In all other cases
+  // it should be equivalent, as asserted below.
+  const wasm::Code* code = wasm::LookupCode(pc);
+  MOZ_RELEASE_ASSERT(code);
+  MOZ_ASSERT_IF(!unwound,
+                code == &wasm::GetNearestEffectiveInstance(fp)->code());
 
   // Keep the trapping code alive across a GC. For an IndirectCallBadSig trap
   // reached through a tail call, this code can belong to a different instance
@@ -262,7 +270,7 @@ void js::jit::JitActivation::startWasmTrap(wasm::Trap trap,
   // callsite so that it is accurate.
   if (unwound) {
     wasm::CallSite site;
-    MOZ_ALWAYS_TRUE(code.lookupCallSite(pc, &site));
+    MOZ_ALWAYS_TRUE(code->lookupCallSite(pc, &site));
     wasmTrapData_->trapSite.bytecodeOffset =
         wasm::BytecodeOffset(site.lineOrBytecode());
     wasmTrapData_->trapSite.inlinedCallerOffsets = site.inlinedCallerOffsets();
