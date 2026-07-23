@@ -27,6 +27,7 @@
 #include "mozilla/StaticPrefs_network.h"
 #include "mozilla/StoragePrincipalHelper.h"
 #include "mozilla/css/Loader.h"
+#include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/HTMLDNSPrefetch.h"
 #include "mozilla/dom/LinkStyle.h"
@@ -962,6 +963,9 @@ void nsContentSink::WillBuildModelImpl() {
 /* static */
 void nsContentSink::NotifyDocElementCreated(Document* aDoc) {
   MOZ_ASSERT(nsContentUtils::IsSafeToRunScript());
+
+  // This process just created a document. Ensure it's been marked as untrusted.
+  mozilla::dom::ContentChild::MaybeBecomeUntrusted();
 
   nsCOMPtr<nsIObserverService> observerService =
       mozilla::services::GetObserverService();
