@@ -311,11 +311,14 @@ class AudioSinkWrapperReuseTest : public ::testing::Test {
 
   // Drive one manual data callback for aFrames, stepping past any transient
   // not-yet-started state as the stream start hops to the cubeb operation
-  // thread. aFrames must stay under the mock's per-callback frame cap.
+  // thread. aFrames must stay under the mock's per-callback frame cap. Drains
+  // the owner-thread event queue before returning, so callers observe settled
+  // state (frame/state-event listeners) without a trailing ProcessPending().
   MockCubebStream::KeepProcessing DriveCallback(long aFrames) {
     for (int i = 0; i < kMaxStartRetries; ++i) {
       auto r = mStream->ManualDataCallback(aFrames);
       if (r != MockCubebStream::KeepProcessing::InvalidState) {
+        ProcessPending();
         return r;
       }
       ProcessPending();
@@ -340,7 +343,6 @@ class AudioSinkWrapperReuseTest : public ::testing::Test {
     for (int i = 0;
          i < kMaxDrainCallbacks && played.Length() < aExpectedSamples; ++i) {
       auto r = DriveCallback(kCallbackFrames);
-      ProcessPending();
       played.AppendElements(TakeRecorded());
       if (r != MockCubebStream::KeepProcessing::Yes) {
         break;
@@ -375,7 +377,6 @@ class AudioSinkWrapperReuseTest : public ::testing::Test {
     MOZ_RELEASE_ASSERT(mStream);
     mStream->SetOutputRecordingEnabled(true);
     DriveCallback(aPlayFrames);
-    ProcessPending();
     nsTArray<AudioDataValue> prePlayed = TakeRecorded();
     SeekAndSupplyPostSeekAudio(aPostFrames, aPostValue, aTarget);
     return prePlayed;
