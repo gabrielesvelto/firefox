@@ -775,7 +775,9 @@ auto DocumentLoadListener::Open(nsDocShellLoadState* aLoadState,
 
   if (aLoadState->GetRemoteTypeOverride()) {
     if (!mIsDocumentLoad || !NS_IsAboutBlank(aLoadState->URI()) ||
-        !loadingContext->IsTopContent()) {
+        !loadingContext->IsTopContent() ||
+        aLoadState->GetEffectiveTriggeringRemoteType() != NOT_REMOTE_TYPE ||
+        aLoadState->LoadIsFromSessionHistory()) {
       LOG(
           ("DocumentLoadListener::Open with invalid remoteTypeOverride "
            "[this=%p]",
