@@ -3697,24 +3697,26 @@ Maybe<int32_t> nsContentUtils::CompareChildNodes(
 
   if constexpr (aKind == TreeKind::FlatForSelection) {
     // If we're handling flattened tree for selection, aChild1 and/or aChild2
-    // may be fallback content of a <slot> which has some assigned nodes.
-    // Then, the fallback content is not part of the flattened tree, but the
-    // fallback content is also valid for range boundaries. Therefore, we need
-    // to handle the case here.
-    if (aParent.GetAsHTMLSlotElementIfFilledForSelection()) {
+    // may be:
+    // - fallback content of a <slot> which has some assigned nodes
+    // - unassigned child node of a shadow host
+    // Even though they are not part of the flattened tree, but they are also
+    // valid for range boundaries. Therefore, we need to handle the case here.
+    if (aParent.GetAsHTMLSlotElementIfFilledForSelection() ||
+        aParent.GetShadowRootForSelection()) {
       if (aChild1->GetParentNode() == &aParent) {
         if (aChild2->GetParentNode() == &aParent) {
-          // If both aChild1 and aChild2 are the fallback content, compare them
-          // in the DOM.
+          // If both aChild1 and aChild2 are the fallback content or the
+          // unassigned children of a shadow host, compare them in the DOM.
           return CompareChildNodes<TreeKind::DOM>(aParent, aChild1, aChild2);
         }
-        // If only aChild1 is the fallback content, let's treat it as after the
-        // last assigned node.
+        // If only aChild1 is the fallback content or the unassigned child,
+        // let's treat it as after the last assigned node.
         return Some(1);
       }
       if (aChild2->GetParentNode() == &aParent) {
-        // If only aChild2 is the fallback content, let's treat it as after the
-        // last assigned node for now.
+        // If only aChild2 is the fallback content or the unassigned child,
+        // let's treat it as after the last assigned node for now.
         return Some(-1);
       }
     }
@@ -3974,13 +3976,21 @@ Maybe<int32_t> nsContentUtils::CompareClosestCommonAncestorChildren(
   const DebugOnly<bool> eitherIsNAC =
       (aChild1 && aChild1->IsRootOfNativeAnonymousSubtree()) ||
       (aChild2 && aChild2->IsRootOfNativeAnonymousSubtree());
+  const DebugOnly<bool> eitherIsNotPartOfTree =
+      ShouldHandleAssignedNodesOnSlot<aKind>() &&
+      ((aParent.GetShadowRoot<aKind>() &&
+        ((aChild1 && aChild1->GetParentNode() == &aParent) ||
+         (aChild2 && aChild2->GetParentNode() == &aParent))) ||
+       ((aParent.GetAsHTMLSlotElementIfFilled<aKind>() &&
+         ((aChild1 && !aChild1->GetAssignedSlot<aKind>()) ||
+          (aChild2 && !aChild2->GetAssignedSlot<aKind>())))));
   MOZ_ASSERT_IF(!eitherIsNAC && !*comp,
                 ChildrenHaveSameIndex(aChild1, aChild2));
   MOZ_ASSERT_IF(
-      !eitherIsNAC && *comp < 0,
+      !eitherIsNAC && !eitherIsNotPartOfTree && *comp < 0,
       ChildIndexIsLessThanTheOtherChildIndex(aParent, aChild1, aChild2));
   MOZ_ASSERT_IF(
-      !eitherIsNAC && *comp > 0,
+      !eitherIsNAC && !eitherIsNotPartOfTree && *comp > 0,
       ChildIndexIsLessThanTheOtherChildIndex(aParent, aChild2, aChild1));
 #endif  // #ifdef DEBUG
   return comp;
@@ -4022,13 +4032,15 @@ Maybe<int32_t> nsContentUtils::CompareChildOffsetAndChildNode(
 
   if constexpr (aKind == TreeKind::FlatForSelection) {
     // If we're handling flattened tree for selection, aChild2 may be a fallback
-    // content of a <slot> which has some assigned nodes. Then, the fallback
-    // content is not part of the flattened tree, but the fallback content is
-    // also valid for range boundaries. Therefore, we need to handle the case
-    // here.
-    if (aParent.GetAsHTMLSlotElementIfFilledForSelection() &&
-        aChild2.GetParentNode() == &aParent) {
-      // Treat the fallback content is after the last assigned node.
+    // content of a <slot> which has some assigned nodes or an unassigned child
+    // node of a shadow host. Then, aChild2 is not part of the flattened tree,
+    // but it is also valid for range boundaries. Therefore, we need to handle
+    // the case here.
+    if (aChild2.GetParentNode() == &aParent &&
+        (aParent.GetAsHTMLSlotElementIfFilledForSelection() ||
+         aParent.GetShadowRootForSelection())) {
+      // Treat the fallback content and the unassigned node is after the last
+      // assigned node or the shadow.
       // XXX I'm not sure whether we should treat the end of aParent and a
       // fallback content node are the same position or not. For now, we treat
       // them as the same, but if you find a bug and you know better result in
