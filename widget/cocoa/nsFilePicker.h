@@ -44,6 +44,11 @@ class nsFilePicker final : public nsBaseFilePicker {
    */
   NSArray* GetFilterList();
 
+  // Exposed for the panel delegate (MOZFilePickerInputProtector), which lives
+  // outside the class, so it can veto confirmations that arrive before the
+  // input-protection window elapses.
+  using nsBaseFilePicker::IsPickerInputProtected;
+
  protected:
   virtual ~nsFilePicker();
 

@@ -175,37 +175,42 @@ namespace {
 
 static RefPtr<FDPromise<Maybe<filedialog::Results>>> ShowFilePickerRemote(
     HWND parent, filedialog::FileDialogType type,
-    nsTArray<filedialog::Command> const& commands) {
+    nsTArray<filedialog::Command> const& commands, bool needsInputProtection) {
   using mozilla::widget::filedialog::sLogFileDialog;
-  return mozilla::detail::ShowRemote(
-      [parent, type,
-       commands = commands.Clone()](filedialog::WinFileDialogParent* p) {
-        MOZ_LOG(sLogFileDialog, LogLevel::Info,
-                ("%s: p = [%p]", __PRETTY_FUNCTION__, p));
-        return p->ShowFileDialogImpl(parent, type, commands);
-      });
-}
-
-static RefPtr<FDPromise<Maybe<nsString>>> ShowFolderPickerRemote(
-    HWND parent, nsTArray<filedialog::Command> const& commands) {
-  using mozilla::widget::filedialog::sLogFileDialog;
-  return mozilla::detail::ShowRemote([parent, commands = commands.Clone()](
+  return mozilla::detail::ShowRemote([parent, type, needsInputProtection,
+                                      commands = commands.Clone()](
                                          filedialog::WinFileDialogParent* p) {
     MOZ_LOG(sLogFileDialog, LogLevel::Info,
             ("%s: p = [%p]", __PRETTY_FUNCTION__, p));
-    return p->ShowFolderDialogImpl(parent, commands);
+    return p->ShowFileDialogImpl(parent, type, commands, needsInputProtection);
   });
+}
+
+static RefPtr<FDPromise<Maybe<nsString>>> ShowFolderPickerRemote(
+    HWND parent, nsTArray<filedialog::Command> const& commands,
+    bool needsInputProtection) {
+  using mozilla::widget::filedialog::sLogFileDialog;
+  return mozilla::detail::ShowRemote(
+      [parent, needsInputProtection,
+       commands = commands.Clone()](filedialog::WinFileDialogParent* p) {
+        MOZ_LOG(sLogFileDialog, LogLevel::Info,
+                ("%s: p = [%p]", __PRETTY_FUNCTION__, p));
+        return p->ShowFolderDialogImpl(parent, commands, needsInputProtection);
+      });
 }
 
 static RefPtr<FDPromise<Maybe<filedialog::Results>>> ShowFilePickerLocal(
     HWND parent, filedialog::FileDialogType type,
-    nsTArray<filedialog::Command> const& commands) {
-  return filedialog::SpawnFilePicker(parent, type, commands.Clone());
+    nsTArray<filedialog::Command> const& commands, bool needsInputProtection) {
+  return filedialog::SpawnFilePicker(parent, type, commands.Clone(),
+                                     needsInputProtection);
 }
 
 static RefPtr<FDPromise<Maybe<nsString>>> ShowFolderPickerLocal(
-    HWND parent, nsTArray<filedialog::Command> const& commands) {
-  return filedialog::SpawnFolderPicker(parent, commands.Clone());
+    HWND parent, nsTArray<filedialog::Command> const& commands,
+    bool needsInputProtection) {
+  return filedialog::SpawnFolderPicker(parent, commands.Clone(),
+                                       needsInputProtection);
 }
 
 }  // namespace
@@ -495,7 +500,8 @@ nsFilePicker::ShowFolderPicker(const nsString& aInitialDir) {
 
   return mozilla::detail::AsyncExecute(&mozilla::detail::ShowFolderPickerLocal,
                                        &mozilla::detail::ShowFolderPickerRemote,
-                                       shim.get(), commands)
+                                       shim.get(), commands,
+                                       IsContentInitiated())
       ->Map(NS_GetCurrentThread(), __PRETTY_FUNCTION__,
             [self = RefPtr(this), shim = std::move(shim),
              awps = std::move(awps)](Maybe<nsString> val) {
@@ -638,7 +644,8 @@ nsFilePicker::ShowFilePicker(const nsString& aInitialDir) {
 
   auto promise = mozilla::detail::AsyncExecute(
       &mozilla::detail::ShowFilePickerLocal,
-      &mozilla::detail::ShowFilePickerRemote, shim.get(), type, commands);
+      &mozilla::detail::ShowFilePickerRemote, shim.get(), type, commands,
+      IsContentInitiated());
 
   return promise->Map(
       mozilla::GetMainThreadSerialEventTarget(), __PRETTY_FUNCTION__,

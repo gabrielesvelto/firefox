@@ -797,6 +797,7 @@ void nsFilePicker::OpenNonPortal() {
                    this);
   g_signal_connect(file_chooser, "destroy", G_CALLBACK(OnNonPortalDestroy),
                    this);
+  RecordLastShownTime();
   gtk_widget_show(GTK_WIDGET(file_chooser));
 }
 
@@ -873,6 +874,15 @@ bool nsFilePicker::WarnForNonReadableFile() {
 }
 
 void nsFilePicker::DoneNonPortal(GtkWidget* file_chooser, gint response) {
+  // Ignore a confirmation that arrives before the input-protection time range
+  // has passed, leaving the dialog open. (GTK emits GTK_RESPONSE_ACCEPT on a
+  // double-click.)
+  if ((response == GTK_RESPONSE_OK || response == GTK_RESPONSE_ACCEPT ||
+       response == kFilePickerAccept) &&
+      IsPickerInputProtected()) {
+    return;
+  }
+
   mFileChooser = nullptr;
 
   nsIFilePicker::ResultCode result;
