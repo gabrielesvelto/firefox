@@ -317,54 +317,47 @@ addAboutKbTask(async function testChange(tab) {
   await SpecialPowers.spawn(tab, [consts], async _consts => {
     await content.selected;
     is(content.input.value, "Invalid", "Input shows invalid");
-    content.selected = ContentTaskUtils.waitForEvent(
-      content.input.inputEl,
-      "select"
-    );
   });
-  info(`Pressing ${consts.unusedModifiersDisplay}`);
-  EventUtils.synthesizeKey(...consts.unusedModifiersArgs, window);
-  await SpecialPowers.spawn(tab, [consts], async _consts => {
-    await content.selected;
-    is(
-      content.input.value,
-      _consts.unusedModifiersDisplay,
-      "Input shows modifiers as they're pressed"
-    );
-    content.selected = ContentTaskUtils.waitForEvent(
-      content.input.inputEl,
-      "select"
-    );
-  });
-  info(`Pressing Shift+${consts.unusedKey}`);
-  EventUtils.synthesizeKey(consts.unusedKey, { shiftKey: true }, window);
-  await SpecialPowers.spawn(tab, [consts], async _consts => {
-    await content.selected;
-    is(content.input.value, "Invalid", "Input shows invalid");
-    content.selected = ContentTaskUtils.waitForEvent(
-      content.input.inputEl,
-      "select"
-    );
-  });
-  info(`Pressing ${consts.unusedModifiersDisplay}`);
-  EventUtils.synthesizeKey(...consts.unusedModifiersArgs, window);
-  await SpecialPowers.spawn(tab, [consts], async _consts => {
-    await content.selected;
-    is(
-      content.input.value,
-      _consts.unusedModifiersDisplay,
-      "Input shows modifiers as they're pressed"
-    );
-    content.selected = ContentTaskUtils.waitForEvent(
-      content.input.inputEl,
-      "select"
-    );
-  });
-  info("Pressing Backspace");
-  EventUtils.synthesizeKey("KEY_Backspace", {}, window);
-  await SpecialPowers.spawn(tab, [consts], async _consts => {
-    await content.selected;
-    is(content.input.value, "Invalid", "Input shows invalid");
+  // We can't test two invalid keys consecutively because the "invalid" text
+  // won't change, so we can't detect whether the key was correctly treated as
+  // invalid. So, this presses the unused modifiers first to clear the invalid
+  // state and confirm the modifiers are shown, then presses the key being
+  // tested and confirms it's treated as invalid.
+  async function checkInvalid(label, keyArgs) {
+    await SpecialPowers.spawn(tab, [], async () => {
+      content.selected = ContentTaskUtils.waitForEvent(
+        content.input.inputEl,
+        "select"
+      );
+    });
+    info(`Pressing ${consts.unusedModifiersDisplay}`);
+    EventUtils.synthesizeKey(...consts.unusedModifiersArgs, window);
+    await SpecialPowers.spawn(tab, [consts], async _consts => {
+      await content.selected;
+      is(
+        content.input.value,
+        _consts.unusedModifiersDisplay,
+        "Input shows modifiers as they're pressed"
+      );
+      content.selected = ContentTaskUtils.waitForEvent(
+        content.input.inputEl,
+        "select"
+      );
+    });
+    info(`Pressing ${label}`);
+    EventUtils.synthesizeKey(...keyArgs, window);
+    await SpecialPowers.spawn(tab, [consts], async _consts => {
+      await content.selected;
+      is(content.input.value, "Invalid", "Input shows invalid");
+    });
+  }
+  await checkInvalid(`Shift+${consts.unusedKey}`, [
+    consts.unusedKey,
+    { shiftKey: true },
+  ]);
+  await checkInvalid("Backspace", ["KEY_Backspace", {}]);
+  await checkInvalid("Enter", ["KEY_Enter", {}]);
+  await SpecialPowers.spawn(tab, [], async () => {
     content.focused = ContentTaskUtils.waitForEvent(content.change, "focus");
   });
   info(`Pressing ${consts.unusedDisplay}`);
