@@ -1759,7 +1759,7 @@ popupnotificationcontent {
     display: none;
   }
 
-  #TabsToolbar > .toolbar-items {
+  #TabsToolbar-customization-target > *:not(#ai-window-toggle) {
     /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens -- to be addressed in 2033919 */
     opacity: 0.2;
     pointer-events: none;
