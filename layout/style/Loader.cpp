@@ -1573,14 +1573,19 @@ void Loader::NotifyObservers(SheetLoadData& aData, nsresult aStatus,
   RefPtr loadDispatcher = aData.PrepareLoadEventIfNeeded();
   if (aData.mURI) {
     aData.NotifyStop(aStatus);
-    // NOTE(emilio): This needs to happen before notifying observers, as
-    // FontFaceSet for example checks for pending sheet loads from the
-    // StyleSheetLoaded callback.
+    // NOTE(emilio): DecrementOngoingLoadCountAndMaybeUnblockOnload() needs to
+    // happen before notifying observers, as FontFaceSet for example checks for
+    // pending sheet loads from the StyleSheetLoaded callback.
     if (aData.BlocksLoadEvent()) {
       DecrementOngoingLoadCountAndMaybeUnblockOnload();
       if (mPendingLoadCount && mPendingLoadCount == mOngoingLoadCount) {
         LOG(("  No more loading sheets; starting deferred loads"));
-        StartDeferredLoads();
+        if (aCanFireEvents) {
+          StartDeferredLoads();
+        } else {
+          NS_DispatchToMainThread(NewRunnableMethod(
+              "Loader::StartDeferredLoads", this, &Loader::StartDeferredLoads));
+        }
       }
     }
   }
