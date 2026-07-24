@@ -952,9 +952,7 @@ void Selection::SetAnchorFocusRange(size_t aIndex) {
   mAnchorFocusRange = anchorFocusRange->AsDynamicRange();
 }
 
-template <TreeKind aKind, typename PT, typename RT,
-          typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
-                                      aKind == TreeKind::FlatForSelection>>
+template <typename PT, typename RT>
 static int32_t CompareToRangeStart(
     const RangeBoundaryBase<PT, RT>& aCompareBoundary, RangeBoundaryFor aFor,
     const AbstractRange& aRange, nsContentUtils::NodeIndexCache* aCache) {
@@ -969,63 +967,41 @@ static int32_t CompareToRangeStart(
         "`CompareToRangeStart` couldn't compare nodes, pretending some order.");
     return 1;
   }
-  if constexpr (aKind == TreeKind::ShadowIncludingDOM) {
-    const Maybe<int32_t> order =
-        nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
-            aCompareBoundary.AsConstRaw().AsRangeBoundaryInDOMTree(),
-            startRef.AsConstRaw().AsRangeBoundaryInDOMTree(), aCache);
-    NS_WARNING_ASSERTION(
-        order.isSome(),
-        fmt::format("\naCompareBoundary={}\n"
-                    "  .AsRangeBoundaryInDOMTree()={}\n"
-                    "startRef={}\n"
-                    "  .AsRangeBoundaryInDOM()={}\n",
-                    aCompareBoundary,
-                    aCompareBoundary.AsConstRaw().AsRangeBoundaryInDOMTree(),
-                    startRef, startRef.AsConstRaw().AsRangeBoundaryInDOMTree())
-            .c_str());
-    return order.valueOr(1);
-  } else {
-    const auto rangeBoundaryFor =
-        aRange.AreNormalRangeAndCrossShadowBoundaryRangeCollapsed()
-            ? RangeBoundaryFor::Collapsed
-            : RangeBoundaryFor::Start;
-    const Maybe<int32_t> order =
-        nsContentUtils::ComparePoints<TreeKind::FlatForSelection>(
-            aCompareBoundary.AsRangeBoundaryInFlatTreeOrNonFlattenedNode(aFor),
-            startRef.AsRangeBoundaryInFlatTreeOrNonFlattenedNode(
-                rangeBoundaryFor),
-            aCache);
-    NS_WARNING_ASSERTION(
-        order.isSome(),
-        fmt::format(
-            "\naCompareBoundary={}\n"
-            "  .AsRangeBoundaryInFlatTreeOrNonFlattenedNode({})={}\n"
-            "startRef={}\n"
-            "  .AsRangeBoundaryInFlatTreeOrNonFlattenedNode({})={}\n",
-            aCompareBoundary, aFor,
-            aCompareBoundary.AsConstRaw()
-                .AsRangeBoundaryInFlatTreeOrNonFlattenedNode(aFor),
-            startRef, rangeBoundaryFor,
-            startRef.AsConstRaw().AsRangeBoundaryInFlatTreeOrNonFlattenedNode(
-                rangeBoundaryFor))
-            .c_str());
-    return order.valueOr(1);
-  }
+  const auto rangeBoundaryFor =
+      aRange.AreNormalRangeAndCrossShadowBoundaryRangeCollapsed()
+          ? RangeBoundaryFor::Collapsed
+          : RangeBoundaryFor::Start;
+  const Maybe<int32_t> order =
+      nsContentUtils::ComparePoints<TreeKind::FlatForSelection>(
+          aCompareBoundary.AsRangeBoundaryInFlatTreeOrNonFlattenedNode(aFor),
+          startRef.AsRangeBoundaryInFlatTreeOrNonFlattenedNode(
+              rangeBoundaryFor),
+          aCache);
+  NS_WARNING_ASSERTION(
+      order.isSome(),
+      fmt::format(
+          "\naCompareBoundary={}\n"
+          "  .AsRangeBoundaryInFlatTreeOrNonFlattenedNode({})={}\n"
+          "startRef={}\n"
+          "  .AsRangeBoundaryInFlatTreeOrNonFlattenedNode({})={}\n",
+          aCompareBoundary, aFor,
+          aCompareBoundary.AsConstRaw()
+              .AsRangeBoundaryInFlatTreeOrNonFlattenedNode(aFor),
+          startRef, rangeBoundaryFor,
+          startRef.AsConstRaw().AsRangeBoundaryInFlatTreeOrNonFlattenedNode(
+              rangeBoundaryFor))
+          .c_str());
+  return order.valueOr(1);
 }
 
-template <TreeKind aKind, typename PT, typename RT,
-          typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
-                                      aKind == TreeKind::FlatForSelection>>
+template <typename PT, typename RT>
 static int32_t CompareToRangeStart(
     const RangeBoundaryBase<PT, RT>& aCompareBoundary, RangeBoundaryFor aFor,
     const AbstractRange& aRange) {
-  return CompareToRangeStart<aKind>(aCompareBoundary, aFor, aRange, nullptr);
+  return CompareToRangeStart(aCompareBoundary, aFor, aRange, nullptr);
 }
 
-template <TreeKind aKind, typename PT, typename RT,
-          typename = std::enable_if_t<aKind == TreeKind::ShadowIncludingDOM ||
-                                      aKind == TreeKind::FlatForSelection>>
+template <typename PT, typename RT>
 static int32_t CompareToRangeEnd(
     const RangeBoundaryBase<PT, RT>& aCompareBoundary, RangeBoundaryFor aFor,
     const AbstractRange& aRange) {
@@ -1040,48 +1016,29 @@ static int32_t CompareToRangeEnd(
         "`CompareToRangeEnd` couldn't compare nodes, pretending some order.");
     return 1;
   }
-  if constexpr (aKind == TreeKind::ShadowIncludingDOM) {
-    const Maybe<int32_t> order =
-        nsContentUtils::ComparePoints<TreeKind::ShadowIncludingDOM>(
-            aCompareBoundary.AsConstRaw().AsRangeBoundaryInDOMTree(),
-            endRef.AsConstRaw().AsRangeBoundaryInDOMTree());
-    NS_WARNING_ASSERTION(
-        order.isSome(),
-        fmt::format("\naCompareBoundary={}\n"
-                    "  .AsRangeBoundaryInDOMTree()={}\n"
-                    "endRef={}\n"
-                    "  .AsRangeBoundaryInDOM()={}\n",
-                    aCompareBoundary,
-                    aCompareBoundary.AsConstRaw().AsRangeBoundaryInDOMTree(),
-                    endRef, endRef.AsConstRaw().AsRangeBoundaryInDOMTree())
-            .c_str());
-    return order.valueOr(1);
-  } else {
-    const auto rangeBoundaryFor =
-        aRange.AreNormalRangeAndCrossShadowBoundaryRangeCollapsed()
-            ? RangeBoundaryFor::Collapsed
-            : RangeBoundaryFor::End;
-    const Maybe<int32_t> order =
-        nsContentUtils::ComparePoints<TreeKind::FlatForSelection>(
-            aCompareBoundary.AsRangeBoundaryInFlatTreeOrNonFlattenedNode(aFor),
-            endRef.AsRangeBoundaryInFlatTreeOrNonFlattenedNode(
-                rangeBoundaryFor));
-    NS_WARNING_ASSERTION(
-        order.isSome(),
-        fmt::format(
-            "\naCompareBoundary={}\n"
-            "  .AsRangeBoundaryInFlatTreeOrNonFlattenedNode({})={}\n"
-            "endRef={}\n"
-            "  .AsRangeBoundaryInFlatTreeOrNonFlattenedNode({})={}\n",
-            aCompareBoundary, aFor,
-            aCompareBoundary.AsConstRaw()
-                .AsRangeBoundaryInFlatTreeOrNonFlattenedNode(aFor),
-            endRef, rangeBoundaryFor,
-            endRef.AsConstRaw().AsRangeBoundaryInFlatTreeOrNonFlattenedNode(
-                rangeBoundaryFor))
-            .c_str());
-    return order.valueOr(1);
-  }
+  const auto rangeBoundaryFor =
+      aRange.AreNormalRangeAndCrossShadowBoundaryRangeCollapsed()
+          ? RangeBoundaryFor::Collapsed
+          : RangeBoundaryFor::End;
+  const Maybe<int32_t> order =
+      nsContentUtils::ComparePoints<TreeKind::FlatForSelection>(
+          aCompareBoundary.AsRangeBoundaryInFlatTreeOrNonFlattenedNode(aFor),
+          endRef.AsRangeBoundaryInFlatTreeOrNonFlattenedNode(rangeBoundaryFor));
+  NS_WARNING_ASSERTION(
+      order.isSome(),
+      fmt::format(
+          "\naCompareBoundary={}\n"
+          "  .AsRangeBoundaryInFlatTreeOrNonFlattenedNode({})={}\n"
+          "endRef={}\n"
+          "  .AsRangeBoundaryInFlatTreeOrNonFlattenedNode({})={}\n",
+          aCompareBoundary, aFor,
+          aCompareBoundary.AsConstRaw()
+              .AsRangeBoundaryInFlatTreeOrNonFlattenedNode(aFor),
+          endRef, rangeBoundaryFor,
+          endRef.AsConstRaw().AsRangeBoundaryInFlatTreeOrNonFlattenedNode(
+              rangeBoundaryFor))
+          .c_str());
+  return order.valueOr(1);
 }
 
 // Helper to extract AbstractRange* from array elements.
@@ -1164,14 +1121,14 @@ nsresult Selection::StyledRanges::SubtractRange(
   }
 
   // First we want to compare to the range start
-  int32_t cmp = CompareToRangeStart<TreeKind::FlatForSelection>(
-      range->StartRef(),
-      range->Collapsed() ? RangeBoundaryFor::Collapsed
-                         : RangeBoundaryFor::Start,
-      aSubtract);
+  int32_t cmp =
+      CompareToRangeStart(range->StartRef(),
+                          range->Collapsed() ? RangeBoundaryFor::Collapsed
+                                             : RangeBoundaryFor::Start,
+                          aSubtract);
 
   // Also, make a comparison to the range end
-  int32_t cmp2 = CompareToRangeEnd<TreeKind::FlatForSelection>(
+  int32_t cmp2 = CompareToRangeEnd(
       range->EndRef(),
       range->Collapsed() ? RangeBoundaryFor::Collapsed : RangeBoundaryFor::End,
       aSubtract);
@@ -1550,7 +1507,7 @@ nsresult Selection::StyledRanges::MaybeAddRangeAndTruncateOverlaps(
       FindInsertionPoint(temp, aRange->StartRef(),
                          aRange->Collapsed() ? RangeBoundaryFor::Collapsed
                                              : RangeBoundaryFor::Start,
-                         CompareToRangeStart<TreeKind::FlatForSelection>);
+                         CompareToRangeStart);
 
   temp.InsertElementAt(insertionPoint, StyledRange(aRange));
 
@@ -1777,18 +1734,29 @@ nsresult Selection::StyledRanges::ReorderRangesIfNecessary() {
     // the cache, which is reused by the sort call).
     nsContentUtils::NodeIndexCache cache;
     bool rangeOrderHasChanged = false;
-    RawRangeBoundary previousStartRef;
+    RawRangeBoundary previousStartRef{TreeKind::FlatForSelection};
     for (const auto& range : mRanges.Ranges()) {
       if (!previousStartRef.IsSet()) {
-        previousStartRef = range->StartRef().AsRaw();
+        previousStartRef =
+            range->StartRef()
+                .AsRaw()
+                .AsRangeBoundaryInFlatTreeOrNonFlattenedNode(
+                    range->Collapsed() ? RangeBoundaryFor::Collapsed
+                                       : RangeBoundaryFor::Start);
         continue;
       }
       // Calling ComparePoints here saves one call of
       // AbstractRange::StartOffset() per iteration (which is surprisingly
       // expensive).
+      const RawRangeBoundary startRef =
+          range->MayCrossShadowBoundaryStartRef()
+              .AsRaw()
+              .AsRangeBoundaryInFlatTreeOrNonFlattenedNode(
+                  range->Collapsed() ? RangeBoundaryFor::Collapsed
+                                     : RangeBoundaryFor::Start);
       const Maybe<int32_t> compareResult =
           nsContentUtils::ComparePoints<TreeKind::FlatForSelection>(
-              range->StartRef(), previousStartRef, &cache);
+              startRef, previousStartRef, &cache);
       // If the nodes are in different subtrees, the Maybe is empty.
       // Since CompareToRangeStart pretends ranges to be ordered, this aligns
       // to that behavior.
@@ -1796,15 +1764,14 @@ nsresult Selection::StyledRanges::ReorderRangesIfNecessary() {
         rangeOrderHasChanged = true;
         break;
       }
-      previousStartRef = range->StartRef().AsRaw();
+      previousStartRef = startRef;
     }
     if (rangeOrderHasChanged) {
       const auto compare = [&cache](const auto& a, const auto& b) {
-        return CompareToRangeStart<TreeKind::FlatForSelection>(
-            a->StartRef(),
-            a->Collapsed() ? RangeBoundaryFor::Collapsed
-                           : RangeBoundaryFor::Start,
-            *b, &cache);
+        return CompareToRangeStart(a->StartRef(),
+                                   a->Collapsed() ? RangeBoundaryFor::Collapsed
+                                                  : RangeBoundaryFor::Start,
+                                   *b, &cache);
       };
       mRanges.Sort(compare);
     }
@@ -1846,7 +1813,7 @@ nsresult Selection::StyledRanges::GetIndicesForInterval(
       mRanges.Ranges(),
       ConstRawRangeBoundary(aEndNode, aEndOffset, RangeBoundarySetBy::Offset),
       intervalIsCollapsed ? RangeBoundaryFor::Collapsed : RangeBoundaryFor::End,
-      &CompareToRangeStart<TreeKind::FlatForSelection>);
+      &CompareToRangeStart);
 
   if (endsBeforeIndex == 0) {
     const AbstractRange* endRange = GetAbstractRangeAt(endsBeforeIndex);
@@ -1873,7 +1840,7 @@ nsresult Selection::StyledRanges::GetIndicesForInterval(
                                                RangeBoundarySetBy::Offset),
                          intervalIsCollapsed ? RangeBoundaryFor::Collapsed
                                              : RangeBoundaryFor::Start,
-                         &CompareToRangeEnd<TreeKind::FlatForSelection>);
+                         &CompareToRangeEnd);
 
   if (beginsAfterIndex == mRanges.Length()) {
     return NS_OK;  // optimization: all ranges are strictly before us
