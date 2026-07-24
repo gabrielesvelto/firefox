@@ -153,6 +153,8 @@ class CompositorBridgeParentBase : public PCompositorBridgeParent,
 
   bool OwnsExternalImageId(const wr::ExternalImageId& aId) const;
 
+  bool OwnsPipelineId(const wr::PipelineId& aPipelineId) const;
+
   CompositorManagerParent* GetCompositorManager() const {
     return mCompositorManager;
   }
