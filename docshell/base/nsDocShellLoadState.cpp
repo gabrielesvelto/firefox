@@ -1428,8 +1428,15 @@ const char* nsDocShellLoadState::ValidateWithOriginalState(
   if (!uriEq(mOriginalURI, aOriginalState->mOriginalURI)) {
     return "OriginalURI";
   }
+  if (!uriEq(mResultPrincipalURI, aOriginalState->mResultPrincipalURI)) {
+    return "mResultPrincipalURI";
+  }
   if (!uriEq(mBaseURI, aOriginalState->mBaseURI)) {
     return "BaseURI";
+  }
+
+  if (mSrcdocData != aOriginalState->mSrcdocData) {
+    return "SrcdocData";
   }
 
   if (!mTriggeringPrincipal->Equals(aOriginalState->mTriggeringPrincipal)) {
