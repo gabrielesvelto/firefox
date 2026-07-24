@@ -793,15 +793,19 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(EventStateManager)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(EventStateManager)
 
-NS_IMPL_CYCLE_COLLECTION_WEAK(EventStateManager, mCurrentTargetContent,
-                              mGestureDownContent, mGestureDownFrameOwner,
-                              mLastLeftMouseDownInfo.mLastMouseDownContent,
-                              mLastMiddleMouseDownInfo.mLastMouseDownContent,
-                              mLastRightMouseDownInfo.mLastMouseDownContent,
-                              mActiveContent, mHoverContent, mURLTargetContent,
-                              mPopoverPointerDownTarget, mMouseEnterLeaveHelper,
-                              mPointersEnterLeaveHelper, mDocument,
-                              mIMEContentObserver, mAccessKeys)
+NS_IMPL_CYCLE_COLLECTION_WEAK(
+    EventStateManager, mCurrentTargetContent, mGestureDownContent,
+    mGestureDownFrameOwner, mLastPrimaryButtonPressInfo.mConnectedDownContent,
+    mLastPrimaryButtonPressInfo.mDownContent,
+    mLastPrimaryButtonPressInfo.mUpContent,
+    mLastMiddleButtonPressInfo.mConnectedDownContent,
+    mLastMiddleButtonPressInfo.mDownContent,
+    mLastMiddleButtonPressInfo.mUpContent,
+    mLastSecondaryButtonPressInfo.mConnectedDownContent,
+    mLastSecondaryButtonPressInfo.mDownContent,
+    mLastSecondaryButtonPressInfo.mUpContent, mActiveContent, mHoverContent,
+    mURLTargetContent, mPopoverPointerDownTarget, mMouseEnterLeaveHelper,
+    mPointersEnterLeaveHelper, mDocument, mIMEContentObserver, mAccessKeys)
 
 void EventStateManager::ReleaseCurrentIMEContentObserver() {
   if (mIMEContentObserver) {
@@ -1106,16 +1110,16 @@ nsresult EventStateManager::PreHandleEvent(nsPresContext* aPresContext,
       switch (mouseEvent->mButton) {
         case MouseButton::ePrimary:
           BeginTrackingDragGesture(aPresContext, *mouseEvent, aTargetFrame);
-          mLastLeftMouseDownInfo.mClickCount = mouseEvent->mClickCount;
+          mLastPrimaryButtonPressInfo.mClickCount = mouseEvent->mClickCount;
           PrepareForFollowingClickEvent(*mouseEvent);
           sNormalLMouseEventInProcess = true;
           break;
         case MouseButton::eMiddle:
-          mLastMiddleMouseDownInfo.mClickCount = mouseEvent->mClickCount;
+          mLastMiddleButtonPressInfo.mClickCount = mouseEvent->mClickCount;
           PrepareForFollowingClickEvent(*mouseEvent);
           break;
         case MouseButton::eSecondary:
-          mLastRightMouseDownInfo.mClickCount = mouseEvent->mClickCount;
+          mLastSecondaryButtonPressInfo.mClickCount = mouseEvent->mClickCount;
           PrepareForFollowingClickEvent(*mouseEvent);
           break;
         case MouseButton::eX1:
@@ -1740,18 +1744,18 @@ already_AddRefed<EventStateManager> EventStateManager::ESMFromContentOrThis(
   return esm.forget();
 }
 
-EventStateManager::LastMouseDownInfo& EventStateManager::GetLastMouseDownInfo(
-    int16_t aButton) {
+auto EventStateManager::GetLastMouseButtonPressInfo(int16_t aButton) const
+    -> const LastMouseButtonPressInfo& {
   switch (aButton) {
     case MouseButton::ePrimary:
-      return mLastLeftMouseDownInfo;
+      return mLastPrimaryButtonPressInfo;
     case MouseButton::eMiddle:
-      return mLastMiddleMouseDownInfo;
+      return mLastMiddleButtonPressInfo;
     case MouseButton::eSecondary:
-      return mLastRightMouseDownInfo;
+      return mLastSecondaryButtonPressInfo;
     default:
       MOZ_ASSERT_UNREACHABLE("This button shouldn't use this method");
-      return mLastLeftMouseDownInfo;
+      return mLastPrimaryButtonPressInfo;
   }
 }
 
@@ -2571,10 +2575,7 @@ void EventStateManager::FireContextClick() {
 
       // we need to forget the clicking content and click count for the
       // following eMouseUp event when click-holding context menus
-      LastMouseDownInfo& mouseDownInfo = GetLastMouseDownInfo(event.mButton);
-      mouseDownInfo.mLastMouseDownContent = nullptr;
-      mouseDownInfo.mClickCount = 0;
-      mouseDownInfo.mLastMouseDownInputControlType = Nothing();
+      GetLastMouseButtonPressInfo(event.mButton).Clear();
 
       // stop selection tracking, we're in control now
       if (mCurrentTarget) {
@@ -4129,11 +4130,7 @@ nsresult EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
           case MouseButton::ePrimary:
           case MouseButton::eSecondary:
           case MouseButton::eMiddle: {
-            LastMouseDownInfo& mouseDownInfo =
-                GetLastMouseDownInfo(mouseEvent->mButton);
-            mouseDownInfo.mLastMouseDownContent = nullptr;
-            mouseDownInfo.mClickCount = 0;
-            mouseDownInfo.mLastMouseDownInputControlType = Nothing();
+            GetLastMouseButtonPressInfo(mouseEvent->mButton).Clear();
             break;
           }
 
@@ -4325,13 +4322,24 @@ nsresult EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
       if (NeedsActiveContentChange(mouseUpEvent)) {
         ClearGlobalActiveContent(this);
       }
-      if (mouseUpEvent && EventCausesClickEvents(*mouseUpEvent)) {
-        // Make sure to dispatch the click even if there is no frame for
-        // the current target element. This is required for Web compatibility.
-        RefPtr<EventStateManager> esm =
-            ESMFromContentOrThis(aOverrideClickTarget);
-        ret =
-            esm->PostHandleMouseUp(mouseUpEvent, aStatus, aOverrideClickTarget);
+      if (mouseUpEvent) {
+        if (EventCausesClickEvents(*mouseUpEvent)) {
+          // Make sure to dispatch the click even if there is no frame for
+          // the current target element. This is required for Web compatibility.
+          RefPtr<EventStateManager> esm =
+              ESMFromContentOrThis(aOverrideClickTarget);
+          ret = esm->PostHandleMouseUp(mouseUpEvent, aStatus,
+                                       aOverrideClickTarget);
+        }
+        switch (mouseUpEvent->mButton) {
+          case MouseButton::ePrimary:
+          case MouseButton::eSecondary:
+          case MouseButton::eMiddle:
+            GetLastMouseButtonPressInfo(mouseUpEvent->mButton).Clear();
+            break;
+          default:
+            break;
+        }
       }
 
       // After dispatching click events for this eMouseUp, nobody needs to refer
@@ -6309,30 +6317,33 @@ void EventStateManager::PrepareForFollowingClickEvent(
           ? aOverrideClickTarget->GetInclusiveFlattenedTreeAncestorElement()
           : (mCurrentTarget ? mCurrentTarget->GetEventTargetContent(aEvent)
                             : nullptr);
-  LastMouseDownInfo& mouseDownInfo = GetLastMouseDownInfo(aEvent.mButton);
+  LastMouseButtonPressInfo& lastButtonPressInfo =
+      GetLastMouseButtonPressInfo(aEvent.mButton);
   if (aEvent.mMessage == eMouseDown) {
-    mouseDownInfo.mLastMouseDownContent =
-        !aEvent.mClickEventPrevented ? mouseContent : nullptr;
+    lastButtonPressInfo.mConnectedDownContent =
+        lastButtonPressInfo.mDownContent =
+            !aEvent.mClickEventPrevented ? mouseContent : nullptr;
+    lastButtonPressInfo.mUpContent = nullptr;
 
-    if (mouseDownInfo.mLastMouseDownContent) {
+    if (lastButtonPressInfo.mDownContent) {
       if (HTMLInputElement* input = HTMLInputElement::FromNodeOrNull(
-              mouseDownInfo.mLastMouseDownContent)) {
-        mouseDownInfo.mLastMouseDownInputControlType =
-            Some(input->ControlType());
-      } else if (mouseDownInfo.mLastMouseDownContent
+              lastButtonPressInfo.mDownContent)) {
+        lastButtonPressInfo.mDownInputControlType = Some(input->ControlType());
+      } else if (lastButtonPressInfo.mDownContent
                      ->IsInNativeAnonymousSubtree()) {
         if (HTMLInputElement* input = HTMLInputElement::FromNodeOrNull(
-                mouseDownInfo.mLastMouseDownContent
-                    ->GetFlattenedTreeParent())) {
-          mouseDownInfo.mLastMouseDownInputControlType =
+                lastButtonPressInfo.mDownContent->GetFlattenedTreeParent())) {
+          lastButtonPressInfo.mDownInputControlType =
               Some(input->ControlType());
         }
       }
     }
   } else {
     MOZ_ASSERT(aEvent.mMessage == eMouseUp);
+    lastButtonPressInfo.mUpContent = mouseContent;
     aEvent.mClickTarget = [&]() -> EventTarget* {
-      if (aEvent.mClickEventPrevented || !mouseDownInfo.mLastMouseDownContent) {
+      if (aEvent.mClickEventPrevented ||
+          !lastButtonPressInfo.mConnectedDownContent) {
         return nullptr;
       }
       // If an element was capturing the pointer at dispatching ePointerUp, we
@@ -6349,17 +6360,15 @@ void EventStateManager::PrepareForFollowingClickEvent(
         }
       }
       return GetCommonAncestorForMouseUp(
-          mouseContent, mouseDownInfo.mLastMouseDownContent,
-          mouseDownInfo.mLastMouseDownInputControlType);
+          mouseContent, lastButtonPressInfo.mConnectedDownContent,
+          lastButtonPressInfo.mDownInputControlType);
     }();
     if (aEvent.mClickTarget) {
-      aEvent.mClickCount = mouseDownInfo.mClickCount;
-      mouseDownInfo.mClickCount = 0;
+      aEvent.mClickCount = lastButtonPressInfo.mClickCount;
     } else {
       aEvent.mClickCount = 0;
     }
-    mouseDownInfo.mLastMouseDownContent = nullptr;
-    mouseDownInfo.mLastMouseDownInputControlType = Nothing();
+    // We'll clear lastButtonPressInfo in PostHandleEvent().
   }
 }
 
@@ -7002,7 +7011,7 @@ void EventStateManager::NativeAnonymousContentRemoved(nsIContent* aContent) {
   RemoveNodeFromChainIfNeeded(ElementState::ACTIVE, aContent, false);
 
   nsCOMPtr<nsIContent>& lastLeftMouseDownContent =
-      mLastLeftMouseDownInfo.mLastMouseDownContent;
+      mLastPrimaryButtonPressInfo.mConnectedDownContent;
   if (lastLeftMouseDownContent &&
       nsContentUtils::ContentIsFlattenedTreeDescendantOf(
           lastLeftMouseDownContent, aContent)) {
@@ -7010,7 +7019,7 @@ void EventStateManager::NativeAnonymousContentRemoved(nsIContent* aContent) {
   }
 
   nsCOMPtr<nsIContent>& lastMiddleMouseDownContent =
-      mLastMiddleMouseDownInfo.mLastMouseDownContent;
+      mLastMiddleButtonPressInfo.mConnectedDownContent;
   if (lastMiddleMouseDownContent &&
       nsContentUtils::ContentIsFlattenedTreeDescendantOf(
           lastMiddleMouseDownContent, aContent)) {
@@ -7018,7 +7027,7 @@ void EventStateManager::NativeAnonymousContentRemoved(nsIContent* aContent) {
   }
 
   nsCOMPtr<nsIContent>& lastRightMouseDownContent =
-      mLastRightMouseDownInfo.mLastMouseDownContent;
+      mLastSecondaryButtonPressInfo.mConnectedDownContent;
   if (lastRightMouseDownContent &&
       nsContentUtils::ContentIsFlattenedTreeDescendantOf(
           lastRightMouseDownContent, aContent)) {
