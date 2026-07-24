@@ -1962,9 +1962,16 @@ void WorkerPrivate::EnableRemoteDebugger() {
   // Wait for register done
   {
     MutexAutoLock lock(mMutex);
+    // While we block here, let a nested sync loop on the worker thread service
+    // the registration handshake reply (RecvRegisterDone), which is delivered
+    // on the worker's debugger queue. Without this, a worker stuck in a sync
+    // loop that needs this (parent) thread would deadlock, since a sync loop
+    // does not otherwise drain the debugger queue (bug 2053827).
+    mProcessDebuggerIPCHandshake = true;
     if (!mRemoteDebuggerRegistered) {
       mDebuggerBindingCondVar.Wait();
     }
+    mProcessDebuggerIPCHandshake = false;
     // Warning the case if the Worker shutdown before remote debugger
     // registration down.
     (void)NS_WARN_IF(!mRemoteDebuggerRegistered);
@@ -1983,9 +1990,15 @@ void WorkerPrivate::DisableRemoteDebugger() {
 
   if (r->Dispatch(this)) {
     MutexAutoLock lock(mMutex);
+    // Same as EnableRemoteDebugger: let a nested sync loop service the
+    // unregister handshake reply (RecvUnregisterDone) while we block, so a
+    // worker in a sync loop that needs this thread does not deadlock
+    // (bug 2053827).
+    mProcessDebuggerIPCHandshake = true;
     if (mRemoteDebuggerRegistered) {
       mDebuggerBindingCondVar.Wait();
     }
+    mProcessDebuggerIPCHandshake = false;
   }
 }
 
@@ -2894,6 +2907,7 @@ WorkerPrivate::WorkerPrivate(
       mChildEp(std::move(aChildEp)),
       mRemoteDebuggerRegistered(false),
       mRemoteDebuggerReady(true),
+      mProcessDebuggerIPCHandshake(false),
       mIsQueued(false),
       // Route the worker through the RemoteWorkerDebugger, including top-level
       // and nested parent-process workers (nested parent workers register via
@@ -4921,6 +4935,60 @@ void WorkerPrivate::ProcessSingleDebuggerRunnable() {
   ccjs->PerformDebuggerMicroTaskCheckpoint();
 }
 
+bool WorkerPrivate::HasPendingDebuggerIPCHandshakeRunnable() {
+  if (!mProcessDebuggerIPCHandshake || !UseRemoteDebugger()) {
+    return false;
+  }
+  return mDebuggerQueue.AnyElement([](WorkerRunnable* aRunnable) {
+    return aRunnable && aRunnable->IsIPCMessageDebuggerRunnable();
+  });
+}
+
+WorkerRunnable* WorkerPrivate::TakeFirstDebuggerIPCHandshakeRunnable() {
+  // Drain the queue, keep the first IPC handshake runnable, and re-queue the
+  // rest (debugger script/message runnables, and any later IPC runnables) in
+  // their original order. This lets an IPC handshake reply run even when it is
+  // queued behind a deferred debugger runnable, without reordering those.
+  WorkerRunnable* ipcRunnable = nullptr;
+  AutoTArray<WorkerRunnable*, 8> others;
+  WorkerRunnable* runnable = nullptr;
+  while (mDebuggerQueue.Pop(runnable)) {
+    if (!ipcRunnable && runnable->IsIPCMessageDebuggerRunnable()) {
+      ipcRunnable = runnable;
+    } else {
+      others.AppendElement(runnable);
+    }
+  }
+  for (WorkerRunnable* other : others) {
+    mDebuggerQueue.Push(other);
+  }
+  return ipcRunnable;
+}
+
+void WorkerPrivate::ProcessNextDebuggerIPCHandshakeRunnable() {
+  AssertIsOnWorkerThread();
+
+  WorkerRunnable* runnable = nullptr;
+  // Move the timer out with the mutex held but only drop the ref when the mutex
+  // is not held (see ProcessSingleDebuggerRunnable).
+  nsCOMPtr<nsITimer> timer;
+  {
+    MutexAutoLock lock(mMutex);
+    runnable = TakeFirstDebuggerIPCHandshakeRunnable();
+    if (!runnable) {
+      return;
+    }
+    mDebuggerInterruptTimer.swap(timer);
+  }
+  timer = nullptr;
+
+  {
+    AUTO_PROFILE_FOLLOWING_RUNNABLE(runnable);
+    static_cast<nsIRunnable*>(runnable)->Run();
+  }
+  runnable->Release();
+}
+
 void WorkerPrivate::ClearDebuggerEventQueue() {
   bool debuggerRunnablesPending = false;
   {
@@ -5515,6 +5583,10 @@ nsresult WorkerPrivate::RunCurrentSyncLoop() {
   {
     while (!loopInfo->mCompleted) {
       bool normalRunnablesPending = false;
+      // Set when a RemoteWorkerDebugger IPC handshake runnable is waiting to be
+      // serviced so a parent thread blocked in Enable/DisableRemoteDebugger can
+      // make progress (bug 2053827).
+      bool debuggerHandshakePending = false;
 
       // Don't block with the periodic GC timer running.
       if (!NS_HasPendingEvents(thread)) {
@@ -5527,7 +5599,9 @@ nsresult WorkerPrivate::RunCurrentSyncLoop() {
 
         for (;;) {
           while (mControlQueue.IsEmpty() && !normalRunnablesPending &&
-                 !(normalRunnablesPending = NS_HasPendingEvents(thread))) {
+                 !(normalRunnablesPending = NS_HasPendingEvents(thread)) &&
+                 !(debuggerHandshakePending =
+                       HasPendingDebuggerIPCHandshakeRunnable())) {
             WaitForWorkerEvents();
           }
 
@@ -5550,10 +5624,22 @@ nsresult WorkerPrivate::RunCurrentSyncLoop() {
           // If we *didn't* run any control runnables, this should be unchanged.
           MOZ_ASSERT(!loopInfo->mCompleted);
 
-          if (normalRunnablesPending) {
+          if (normalRunnablesPending || debuggerHandshakePending) {
             break;
           }
         }
+      }
+
+      // Service a single RemoteWorkerDebugger IPC handshake runnable, then loop
+      // back to re-check the control queue. Processing one at a time keeps
+      // control runnables at their normal priority: a control runnable
+      // dispatched while this one runs must not wait behind further debugger
+      // runnables. IPC handshake runnables take priority over deferred debugger
+      // script/message runnables (which run JavaScript we must not run here),
+      // so ProcessNext runs the queued handshake reply even when it sits behind
+      // such a runnable, leaving the rest deferred until DoRunLoop.
+      if (debuggerHandshakePending) {
+        ProcessNextDebuggerIPCHandshakeRunnable();
       }
 
       if (normalRunnablesPending) {
