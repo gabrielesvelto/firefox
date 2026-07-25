@@ -1255,13 +1255,14 @@ bool SharedContextWebgl::ReadInto(uint8_t* aDstData, int32_t aDstStride,
   desc.srcOffset = *ivec2::From(aBounds);
   desc.size = *uvec2::FromSize(aBounds);
   desc.packState.rowLength = aDstStride / BytesPerPixel(aFormat);
+  bool success = true;
   if (aBuffer) {
     mWebgl->BindBuffer(LOCAL_GL_PIXEL_PACK_BUFFER, aBuffer);
     mWebgl->ReadPixelsPbo(desc, 0);
     mWebgl->BindBuffer(LOCAL_GL_PIXEL_PACK_BUFFER, 0);
   } else {
     Range<uint8_t> range = {aDstData, size_t(aDstStride) * aBounds.height};
-    mWebgl->ReadPixelsInto(desc, range);
+    success = !mWebgl->ReadPixelsInto(desc, range).subrect.IsEmpty();
   }
 
   // Restore the actual framebuffer after reading is done.
@@ -1269,7 +1270,7 @@ bool SharedContextWebgl::ReadInto(uint8_t* aDstData, int32_t aDstStride,
     RestoreCurrentTarget();
   }
 
-  return true;
+  return success;
 }
 
 already_AddRefed<DataSourceSurface> SharedContextWebgl::ReadSnapshot(
@@ -2778,6 +2779,10 @@ void SharedContextWebgl::BindScratchFramebuffer(TextureHandle* aHandle,
 already_AddRefed<TextureHandle> SharedContextWebgl::AllocateTextureHandle(
     SurfaceFormat aFormat, const IntSize& aSize, bool aAllowShared,
     bool aRenderable, const WebGLTexture* aAvoid) {
+  // Don't allow allocating textures bigger than the reported limit.
+  if (size_t(std::max(aSize.width, aSize.height)) > mMaxTextureSize) {
+    return nullptr;
+  }
   RefPtr<TextureHandle> handle;
   // Calculate the bytes that would be used by this texture handle, and prune
   // enough other textures to ensure we have that much usable texture space
