@@ -3989,6 +3989,13 @@ HttpBaseChannel::HTTPUpgrade(const nsACString& aProtocolName,
   NS_ENSURE_ARG(!aProtocolName.IsEmpty());
   NS_ENSURE_ARG_POINTER(aListener);
 
+  // The protocol name is emitted verbatim into the Upgrade request header, so
+  // reject anything that could inject additional headers or requests (e.g. an
+  // embedded CRLF from a compromised child process).
+  if (!nsHttp::IsReasonableHeaderValue(aProtocolName)) {
+    return NS_ERROR_ILLEGAL_VALUE;
+  }
+
   mUpgradeProtocol = aProtocolName;
   mUpgradeProtocolCallback = aListener;
   return NS_OK;

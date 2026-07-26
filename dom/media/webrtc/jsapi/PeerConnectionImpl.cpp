@@ -4848,7 +4848,6 @@ std::unique_ptr<NrSocketProxyConfig> PeerConnectionImpl::GetProxyConfig()
     return nullptr;
   }
 
-  nsCString alpn = "webrtc,c-webrtc"_ns;
   auto* browserChild = BrowserChild::GetFrom(mWindow);
   if (!browserChild) {
     // Android doesn't have browser child apparently...
@@ -4875,7 +4874,7 @@ std::unique_ptr<NrSocketProxyConfig> PeerConnectionImpl::GetProxyConfig()
   MOZ_ALWAYS_SUCCEEDS(
       mozilla::ipc::LoadInfoToLoadInfoArgs(loadInfo, &loadInfoArgs));
   return std::make_unique<NrSocketProxyConfig>(
-      net::WebrtcProxyConfig(id, alpn, loadInfoArgs, mForceProxy));
+      net::WebrtcProxyConfig(id, loadInfoArgs, mForceProxy));
 }
 
 MOZ_RUNINIT std::map<uint64_t, PeerConnectionAutoTimer>
