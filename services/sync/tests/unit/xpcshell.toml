@@ -253,6 +253,8 @@ run-if = [
 ["test_resource_ua.js"]
 # Generic Sync types.
 
+["test_rust_password_engine_mp_locked.js"]
+
 ["test_rust_password_engine_selection.js"]
 
 ["test_rust_password_tracker.js"]
