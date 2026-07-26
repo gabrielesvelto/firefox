@@ -719,7 +719,7 @@ let ShellServiceInternal = {
       );
 
       // Then check if we're already pinned.
-      return !(await this.shellService.isCurrentAppPinnedToTaskbarAsync(
+      return !(await this.shellService.isCurrentAppPinnedToTaskbar(
         privateBrowsing
           ? winTaskbar.defaultPrivateGroupId
           : winTaskbar.defaultGroupId
@@ -744,7 +744,7 @@ let ShellServiceInternal = {
     if (await this.doesAppNeedPin(privateBrowsing)) {
       try {
         if (AppConstants.platform == "win") {
-          await this.shellService.pinCurrentAppToTaskbarAsync(
+          await this.shellService.pinCurrentAppToTaskbar(
             privateBrowsing,
             fireAndForget
           );
@@ -767,12 +767,11 @@ let ShellServiceInternal = {
   async pinToStartMenu() {
     if (await this.doesAppNeedStartMenuPin()) {
       try {
-        let pinSuccess =
-          await this.shellService.pinCurrentAppToStartMenuAsync();
+        let pinSuccess = await this.shellService.pinCurrentAppToStartMenu();
         Services.prefs.setBoolPref(MSIX_PREVIOUSLY_PINNED_PREF, pinSuccess);
         return pinSuccess;
       } catch (err) {
-        lazy.log.warn("Error thrown during pinCurrentAppToStartMenuAsync", err);
+        lazy.log.warn("Error thrown during pinCurrentAppToStartMenu", err);
         Services.prefs.setBoolPref(MSIX_PREVIOUSLY_PINNED_PREF, false);
       }
     }
@@ -808,7 +807,7 @@ let ShellServiceInternal = {
       return (
         AppConstants.platform === "win" &&
         Services.sysinfo.getProperty("hasWinPackageId") &&
-        !(await this.shellService.isCurrentAppPinnedToStartMenuAsync())
+        !(await this.shellService.isCurrentAppPinnedToStartMenu())
       );
     } catch (ex) {}
     return false;
@@ -825,7 +824,7 @@ let ShellServiceInternal = {
     if (!Services.sysinfo.getProperty("hasWinPackageId")) {
       return;
     }
-    let isPinned = await this.shellService.isCurrentAppPinnedToStartMenuAsync();
+    let isPinned = await this.shellService.isCurrentAppPinnedToStartMenu();
     if (
       !isPinned &&
       Services.prefs.getBoolPref(MSIX_PREVIOUSLY_PINNED_PREF, false)

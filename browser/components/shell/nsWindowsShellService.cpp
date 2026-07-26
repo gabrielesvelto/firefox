@@ -1958,9 +1958,10 @@ static Result<nsString, nsresult> EnsurePinnableShortcutExists(
   return shortcutPath;
 }
 
-static nsresult PinCurrentAppToTaskbarAsyncImpl(
-    bool aPrivateBrowsing, JSContext* aCx, dom::Promise** aPromise,
-    const bool aFireAndForget = false) {
+static nsresult PinCurrentAppToTaskbarImpl(bool aPrivateBrowsing,
+                                           JSContext* aCx,
+                                           dom::Promise** aPromise,
+                                           const bool aFireAndForget = false) {
   if (!NS_IsMainThread()) {
     return NS_ERROR_NOT_SAME_THREAD;
   }
@@ -2021,11 +2022,11 @@ static nsresult PinCurrentAppToTaskbarAsyncImpl(
       MOZ_TRY(GetShortcutPaths(nsString(L"Programs"), shortcutName));
 
   auto promiseHolder = MakeRefPtr<nsMainThreadPtrHolder<dom::Promise>>(
-      "PinCurrentAppToTaskbarAsyncImpl promise", promise);
+      "PinCurrentAppToTaskbarImpl promise", promise);
 
   NS_DispatchBackgroundTask(
       NS_NewRunnableFunction(
-          "PinCurrentAppToTaskbarAsyncImpl",
+          "PinCurrentAppToTaskbarImpl",
           [aPrivateBrowsing, aFireAndForget, shortcutName,
            aumid = nsString{aumid}, greDir, location = std::move(location),
            promiseHolder = std::move(promiseHolder)] {
@@ -2036,7 +2037,7 @@ static nsresult PinCurrentAppToTaskbarAsyncImpl(
                 greDir.get(), location);
 
             NS_DispatchToMainThread(NS_NewRunnableFunction(
-                "PinCurrentAppToTaskbarAsyncImpl callback",
+                "PinCurrentAppToTaskbarImpl callback",
                 [aFireAndForget, aumid, rv = std::move(rv),
                  promiseHolder = std::move(promiseHolder)] {
                   dom::Promise* promise = promiseHolder.get()->get();
@@ -2056,12 +2057,12 @@ static nsresult PinCurrentAppToTaskbarAsyncImpl(
 }
 
 NS_IMETHODIMP
-nsWindowsShellService::PinCurrentAppToTaskbarAsync(bool aPrivateBrowsing,
-                                                   bool aFireAndForget,
-                                                   JSContext* aCx,
-                                                   dom::Promise** aPromise) {
-  return PinCurrentAppToTaskbarAsyncImpl(aPrivateBrowsing, aCx, aPromise,
-                                         aFireAndForget);
+nsWindowsShellService::PinCurrentAppToTaskbar(bool aPrivateBrowsing,
+                                              bool aFireAndForget,
+                                              JSContext* aCx,
+                                              dom::Promise** aPromise) {
+  return PinCurrentAppToTaskbarImpl(aPrivateBrowsing, aCx, aPromise,
+                                    aFireAndForget);
 }
 
 NS_IMETHODIMP
@@ -2075,7 +2076,7 @@ nsWindowsShellService::CanPinToTaskbar() {
 }
 
 NS_IMETHODIMP
-nsWindowsShellService::IsCurrentAppPinnedToTaskbarAsync(
+nsWindowsShellService::IsCurrentAppPinnedToTaskbar(
     const nsAString& aumid, JSContext* aCx, /* out */ dom::Promise** aPromise) {
   if (!NS_IsMainThread()) {
     return NS_ERROR_NOT_SAME_THREAD;
@@ -2091,20 +2092,19 @@ nsWindowsShellService::IsCurrentAppPinnedToTaskbarAsync(
   // A holder to pass the promise through the background task and back to
   // the main thread when finished.
   auto promiseHolder = MakeRefPtr<nsMainThreadPtrHolder<dom::Promise>>(
-      "IsCurrentAppPinnedToTaskbarAsync promise", promise);
+      "IsCurrentAppPinnedToTaskbar promise", promise);
 
   // nsAString can't be captured by a lambda because it does not have a
   // public copy constructor
   nsAutoString capturedAumid(aumid);
   NS_DispatchBackgroundTask(
       NS_NewRunnableFunction(
-          "IsCurrentAppPinnedToTaskbarAsync",
+          "IsCurrentAppPinnedToTaskbar",
           [capturedAumid, promiseHolder = std::move(promiseHolder)] {
             bool isPinned = IsCurrentAppPinnedToTaskbarSync(capturedAumid);
 
-            // Dispatch back to the main thread to resolve the promise.
             NS_DispatchToMainThread(NS_NewRunnableFunction(
-                "IsCurrentAppPinnedToTaskbarAsync callback",
+                "IsCurrentAppPinnedToTaskbar callback",
                 [isPinned, promiseHolder = std::move(promiseHolder)] {
                   promiseHolder.get()->get()->MaybeResolve(isPinned);
                 }));
@@ -2130,7 +2130,7 @@ nsWindowsShellService::IsCurrentAppPinnedToTaskbarAsync(
         }));                                                        \
     return RETURN
 
-static void EnableLaunchOnLoginMSIXAsyncImpl(
+static void EnableLaunchOnLoginMSIXImpl(
     const nsString& capturedTaskId,
     const RefPtr<nsMainThreadPtrHolder<dom::Promise>> promiseHolder) {
   ComPtr<IStartupTaskStatics> startupTaskStatics;
@@ -2188,7 +2188,7 @@ static void EnableLaunchOnLoginMSIXAsyncImpl(
   }
 }
 
-static void DisableLaunchOnLoginMSIXAsyncImpl(
+static void DisableLaunchOnLoginMSIXImpl(
     const nsString& capturedTaskId,
     const RefPtr<nsMainThreadPtrHolder<dom::Promise>> promiseHolder) {
   ComPtr<IStartupTaskStatics> startupTaskStatics;
@@ -2228,7 +2228,7 @@ static void DisableLaunchOnLoginMSIXAsyncImpl(
   }
 }
 
-static void GetLaunchOnLoginEnabledMSIXAsyncImpl(
+static void GetLaunchOnLoginEnabledMSIXImpl(
     const nsString& capturedTaskId,
     const RefPtr<nsMainThreadPtrHolder<dom::Promise>> promiseHolder) {
   ComPtr<IStartupTaskStatics> startupTaskStatics;
@@ -2299,7 +2299,7 @@ static void GetLaunchOnLoginEnabledMSIXAsyncImpl(
 }
 
 NS_IMETHODIMP
-nsWindowsShellService::EnableLaunchOnLoginMSIXAsync(
+nsWindowsShellService::EnableLaunchOnLoginMSIX(
     const nsAString& aTaskId, JSContext* aCx,
     /* out */ dom::Promise** aPromise) {
   if (!widget::WinUtils::HasPackageIdentity()) {
@@ -2319,12 +2319,11 @@ nsWindowsShellService::EnableLaunchOnLoginMSIXAsync(
   // A holder to pass the promise through the background task and back to
   // the main thread when finished.
   auto promiseHolder = MakeRefPtr<nsMainThreadPtrHolder<dom::Promise>>(
-      "EnableLaunchOnLoginMSIXAsync promise", promise);
+      "EnableLaunchOnLoginMSIX promise", promise);
 
   NS_DispatchBackgroundTask(NS_NewRunnableFunction(
-      "EnableLaunchOnLoginMSIXAsync",
-      [taskId = nsString(aTaskId), promiseHolder] {
-        EnableLaunchOnLoginMSIXAsyncImpl(taskId, promiseHolder);
+      "EnableLaunchOnLoginMSIX", [taskId = nsString(aTaskId), promiseHolder] {
+        EnableLaunchOnLoginMSIXImpl(taskId, promiseHolder);
       }));
 
   promise.forget(aPromise);
@@ -2332,7 +2331,7 @@ nsWindowsShellService::EnableLaunchOnLoginMSIXAsync(
 }
 
 NS_IMETHODIMP
-nsWindowsShellService::DisableLaunchOnLoginMSIXAsync(
+nsWindowsShellService::DisableLaunchOnLoginMSIX(
     const nsAString& aTaskId, JSContext* aCx,
     /* out */ dom::Promise** aPromise) {
   if (!widget::WinUtils::HasPackageIdentity()) {
@@ -2352,12 +2351,11 @@ nsWindowsShellService::DisableLaunchOnLoginMSIXAsync(
   // A holder to pass the promise through the background task and back to
   // the main thread when finished.
   auto promiseHolder = MakeRefPtr<nsMainThreadPtrHolder<dom::Promise>>(
-      "DisableLaunchOnLoginMSIXAsync promise", promise);
+      "DisableLaunchOnLoginMSIX promise", promise);
 
   NS_DispatchBackgroundTask(NS_NewRunnableFunction(
-      "DisableLaunchOnLoginMSIXAsync",
-      [taskId = nsString(aTaskId), promiseHolder] {
-        DisableLaunchOnLoginMSIXAsyncImpl(taskId, promiseHolder);
+      "DisableLaunchOnLoginMSIX", [taskId = nsString(aTaskId), promiseHolder] {
+        DisableLaunchOnLoginMSIXImpl(taskId, promiseHolder);
       }));
 
   promise.forget(aPromise);
@@ -2365,7 +2363,7 @@ nsWindowsShellService::DisableLaunchOnLoginMSIXAsync(
 }
 
 NS_IMETHODIMP
-nsWindowsShellService::GetLaunchOnLoginEnabledMSIXAsync(
+nsWindowsShellService::GetLaunchOnLoginEnabledMSIX(
     const nsAString& aTaskId, JSContext* aCx,
     /* out */ dom::Promise** aPromise) {
   if (!widget::WinUtils::HasPackageIdentity()) {
@@ -2385,12 +2383,12 @@ nsWindowsShellService::GetLaunchOnLoginEnabledMSIXAsync(
   // A holder to pass the promise through the background task and back to
   // the main thread when finished.
   auto promiseHolder = MakeRefPtr<nsMainThreadPtrHolder<dom::Promise>>(
-      "GetLaunchOnLoginEnabledMSIXAsync promise", promise);
+      "GetLaunchOnLoginEnabledMSIX promise", promise);
 
   NS_DispatchBackgroundTask(NS_NewRunnableFunction(
-      "GetLaunchOnLoginEnabledMSIXAsync",
+      "GetLaunchOnLoginEnabledMSIX",
       [taskId = nsString(aTaskId), promiseHolder] {
-        GetLaunchOnLoginEnabledMSIXAsyncImpl(taskId, promiseHolder);
+        GetLaunchOnLoginEnabledMSIXImpl(taskId, promiseHolder);
       }));
 
   promise.forget(aPromise);
@@ -2446,7 +2444,7 @@ static HRESULT GetStartScreenManager(
   return hr;
 }
 
-static void PinCurrentAppToStartMenuAsyncImpl(
+static void PinCurrentAppToStartMenuImpl(
     const RefPtr<nsMainThreadPtrHolder<dom::Promise>> promiseHolder) {
   ComPtr<IPackage3> package3;
   HRESULT hr = GetPackage3(package3);
@@ -2544,8 +2542,8 @@ static void PinCurrentAppToStartMenuAsyncImpl(
 }
 
 NS_IMETHODIMP
-nsWindowsShellService::PinCurrentAppToStartMenuAsync(JSContext* aCx,
-                                                     dom::Promise** aPromise) {
+nsWindowsShellService::PinCurrentAppToStartMenu(JSContext* aCx,
+                                                dom::Promise** aPromise) {
   if (!NS_IsMainThread()) {
     return NS_ERROR_NOT_SAME_THREAD;
   }
@@ -2564,15 +2562,15 @@ nsWindowsShellService::PinCurrentAppToStartMenuAsync(JSContext* aCx,
   // A holder to pass the promise through the background task and back to
   // the main thread when finished.
   auto promiseHolder = MakeRefPtr<nsMainThreadPtrHolder<dom::Promise>>(
-      "PinCurrentAppToStartMenuAsync promise", promise);
+      "PinCurrentAppToStartMenu promise", promise);
   NS_DispatchBackgroundTask(NS_NewRunnableFunction(
-      "PinCurrentAppToStartMenuAsync",
-      [promiseHolder] { PinCurrentAppToStartMenuAsyncImpl(promiseHolder); }));
+      "PinCurrentAppToStartMenu",
+      [promiseHolder] { PinCurrentAppToStartMenuImpl(promiseHolder); }));
   promise.forget(aPromise);
   return NS_OK;
 }
 
-static void IsCurrentAppPinnedToStartMenuAsyncImpl(
+static void IsCurrentAppPinnedToStartMenuImpl(
     const RefPtr<nsMainThreadPtrHolder<dom::Promise>> promiseHolder) {
   ComPtr<IPackage3> package3;
   HRESULT hr = GetPackage3(package3);
@@ -2646,8 +2644,8 @@ static void IsCurrentAppPinnedToStartMenuAsyncImpl(
 }
 
 NS_IMETHODIMP
-nsWindowsShellService::IsCurrentAppPinnedToStartMenuAsync(
-    JSContext* aCx, dom::Promise** aPromise) {
+nsWindowsShellService::IsCurrentAppPinnedToStartMenu(JSContext* aCx,
+                                                     dom::Promise** aPromise) {
   if (!NS_IsMainThread()) {
     return NS_ERROR_NOT_SAME_THREAD;
   }
@@ -2666,46 +2664,45 @@ nsWindowsShellService::IsCurrentAppPinnedToStartMenuAsync(
   // A holder to pass the promise through the background task and back to
   // the main thread when finished.
   auto promiseHolder = MakeRefPtr<nsMainThreadPtrHolder<dom::Promise>>(
-      "IsCurrentAppPinnedToStartMenuAsync promise", promise);
+      "IsCurrentAppPinnedToStartMenu promise", promise);
   NS_DispatchBackgroundTask(NS_NewRunnableFunction(
-      "IsCurrentAppPinnedToStartMenuAsync", [promiseHolder] {
-        IsCurrentAppPinnedToStartMenuAsyncImpl(promiseHolder);
-      }));
+      "IsCurrentAppPinnedToStartMenu",
+      [promiseHolder] { IsCurrentAppPinnedToStartMenuImpl(promiseHolder); }));
   promise.forget(aPromise);
   return NS_OK;
 }
 
 #else
 NS_IMETHODIMP
-nsWindowsShellService::EnableLaunchOnLoginMSIXAsync(
+nsWindowsShellService::EnableLaunchOnLoginMSIX(
     const nsAString& aTaskId, JSContext* aCx,
     /* out */ dom::Promise** aPromise) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsWindowsShellService::DisableLaunchOnLoginMSIXAsync(
+nsWindowsShellService::DisableLaunchOnLoginMSIX(
     const nsAString& aTaskId, JSContext* aCx,
     /* out */ dom::Promise** aPromise) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsWindowsShellService::GetLaunchOnLoginEnabledMSIXAsync(
+nsWindowsShellService::GetLaunchOnLoginEnabledMSIX(
     const nsAString& aTaskId, JSContext* aCx,
     /* out */ dom::Promise** aPromise) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsWindowsShellService::PinCurrentAppToStartMenuAsync(JSContext* aCx,
+nsWindowsShellService::PinCurrentAppToStartMenu(JSContext* aCx,
+                                                dom::Promise** aPromise) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+nsWindowsShellService::IsCurrentAppPinnedToStartMenu(JSContext* aCx,
                                                      dom::Promise** aPromise) {
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
-nsWindowsShellService::IsCurrentAppPinnedToStartMenuAsync(
-    JSContext* aCx, dom::Promise** aPromise) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 #endif
