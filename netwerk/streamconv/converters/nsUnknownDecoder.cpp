@@ -414,10 +414,11 @@ void nsUnknownDecoder::DetermineContentType(nsIRequest* aRequest) {
   // Check if data are compressed.
   nsAutoCString decodedData;
 
+  nsresult rv = NS_OK;
   if (channel) {
     // ConvertEncodedData is always called only on a single thread for each
     // instance of an object.
-    nsresult rv = ConvertEncodedData(aRequest, mBuffer, mBufferLen);
+    rv = ConvertEncodedData(aRequest, mBuffer, mBufferLen);
     if (NS_SUCCEEDED(rv)) {
       MutexAutoLock lock(mMutex);
       decodedData = mDecodedData;
@@ -428,10 +429,30 @@ void nsUnknownDecoder::DetermineContentType(nsIRequest* aRequest) {
     }
   }
 
+  // https://mimesniff.spec.whatwg.org/#sniffing-a-mislabeled-binary-resource
   if (httpChannel) {
     nsAutoCString contentType;
     httpChannel->GetContentType(contentType);
     if (contentType.EqualsLiteral("text/plain")) {
+      auto isEncoded = [&]() -> bool {
+        nsAutoCString contentEncoding;
+        return NS_SUCCEEDED(httpChannel->GetResponseHeader(
+                   "Content-Encoding"_ns, contentEncoding)) &&
+               !contentEncoding.IsEmpty();
+      };
+
+      // Do not sniff if the response is content-encoded but decoding produced
+      // no data. This happens when the compressed stream is larger than our
+      // sniffing buffer and the encoding (like zstd) only emits output once it
+      // has a full block. Compressed bytes always look like binary data, so
+      // sniffing them would turn a valid text/plain document into a download.
+      // A genuine decompression failure (NS_FAILED(rv)) also leaves decodedData
+      // empty; in that case we still fall through to SniffBinary.
+      if (decodedData.IsEmpty() && isEncoded() && NS_SUCCEEDED(rv)) {
+        MutexAutoLock lock(mMutex);
+        mContentType = TEXT_PLAIN;
+        return;
+      }
       SniffBinary(aRequest);
       return;
     }
