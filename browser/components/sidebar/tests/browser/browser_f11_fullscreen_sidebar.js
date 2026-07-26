@@ -1,8 +1,10 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-// This test verifies that the sidebar is hidden when the nav toolbox is
-// autohidden in F11 fullscreen mode, and restored when exiting fullscreen.
+// This test verifies that the sidebar launcher (tools and vertical tabs) is
+// hidden when the nav toolbox is autohidden in F11 fullscreen mode, and
+// restored when exiting fullscreen, while sidebar panels (bookmarks, history,
+// etc.) stay visible and toggleable like they do with horizontal tabs.
 // This should not be run on macOS because we don't hide the toolbars there.
 
 "use strict";
@@ -213,6 +215,43 @@ add_task(async function test_mouse_target_rect_has_initial_value() {
   );
 
   await exitFullscreen();
+});
+
+// Regression test for Bug 2052711: sidebar panels (bookmarks, history, etc.)
+// must stay visible and appear when toggled in F11 fullscreen, like they do
+// with horizontal tabs. Only the sidebar launcher (vertical tabs / tools) hides
+// with the nav toolbox.
+add_task(async function test_f11_keeps_panel_sidebar_visible() {
+  await SidebarTestUtils.ensureLauncherVisible(window);
+
+  const sidebarPanel = document.getElementById("sidebar-box");
+  const sidebarLauncher = SidebarController.sidebarContainer;
+
+  await enterFullscreenAndWaitForHiddenToolbox();
+  ok(
+    document.documentElement.hasAttribute("fullscreenNavToolboxHidden"),
+    "Nav toolbox is hidden in fullscreen"
+  );
+
+  ok(
+    !BrowserTestUtils.isVisible(sidebarLauncher),
+    "Sidebar launcher is hidden when the nav toolbox is hidden"
+  );
+
+  await SidebarTestUtils.showPanel(window, "viewBookmarksSidebar");
+  ok(SidebarController.isOpen, "Bookmarks panel opened in fullscreen");
+  ok(
+    BrowserTestUtils.isVisible(sidebarPanel),
+    "Sidebar panel is visible in fullscreen when the toolbox is hidden"
+  );
+
+  await exitFullscreen();
+  ok(
+    BrowserTestUtils.isVisible(sidebarPanel),
+    "Sidebar panel is still visible after exiting fullscreen"
+  );
+
+  SidebarTestUtils.closePanel(window);
 });
 
 add_task(async function test_exit_fullscreen_restores_sidebar() {
