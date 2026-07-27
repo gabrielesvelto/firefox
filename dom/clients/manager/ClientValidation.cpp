@@ -5,6 +5,7 @@
 #include "ClientValidation.h"
 
 #include "mozilla/StaticPrefs_security.h"
+#include "mozilla/dom/ClientIPCTypes.h"
 #include "mozilla/dom/ProcessIsolation.h"
 #include "mozilla/ipc/PBackgroundSharedTypes.h"
 #include "mozilla/net/MozURL.h"
@@ -87,6 +88,57 @@ bool ClientIsValidPrincipalInfo(const PrincipalInfo& aPrincipalInfo,
 
   // Windows and workers should not have expanded URLs, etc.
   return false;
+}
+
+bool IsValidClientOpConstructorArgs(const ClientOpConstructorArgs& aArgs,
+                                    const nsACString& aRemoteType) {
+  switch (aArgs.type()) {
+    case ClientOpConstructorArgs::TClientControlledArgs:
+      return ClientIsValidPrincipalInfo(
+          aArgs.get_ClientControlledArgs().serviceWorker().principalInfo(),
+          aRemoteType);
+
+    case ClientOpConstructorArgs::TClientNavigateArgs: {
+      const ClientNavigateArgs& args = aArgs.get_ClientNavigateArgs();
+      return ClientIsValidPrincipalInfo(args.target().principalInfo(),
+                                        aRemoteType) &&
+             ClientIsValidPrincipalInfo(args.serviceWorker().principalInfo(),
+                                        aRemoteType);
+    }
+
+    case ClientOpConstructorArgs::TClientPostMessageArgs:
+      return ClientIsValidPrincipalInfo(
+          aArgs.get_ClientPostMessageArgs().serviceWorker().principalInfo(),
+          aRemoteType);
+
+    case ClientOpConstructorArgs::TClientMatchAllArgs:
+      return ClientIsValidPrincipalInfo(
+          aArgs.get_ClientMatchAllArgs().serviceWorker().principalInfo(),
+          aRemoteType);
+
+    case ClientOpConstructorArgs::TClientClaimArgs:
+      return ClientIsValidPrincipalInfo(
+          aArgs.get_ClientClaimArgs().serviceWorker().principalInfo(),
+          aRemoteType);
+
+    case ClientOpConstructorArgs::TClientGetInfoAndStateArgs:
+      return ClientIsValidPrincipalInfo(
+          aArgs.get_ClientGetInfoAndStateArgs().principalInfo(), aRemoteType);
+
+    case ClientOpConstructorArgs::TClientOpenWindowArgs:
+      return ClientIsValidPrincipalInfo(
+          aArgs.get_ClientOpenWindowArgs().principalInfo(), aRemoteType);
+
+    case ClientOpConstructorArgs::TClientFocusArgs:
+    case ClientOpConstructorArgs::TClientEvictBFCacheArgs:
+      // No principals.
+      return true;
+
+    case ClientOpConstructorArgs::T__None:
+      break;
+  }
+
+  MOZ_CRASH("Unhandled ClientOpConstructorArgs");
 }
 
 bool ClientIsValidCreationURL(const PrincipalInfo& aPrincipalInfo,
