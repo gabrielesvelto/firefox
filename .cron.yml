@@ -234,7 +234,7 @@ jobs:
           - mozilla-central
           - mozilla-beta
           - mozilla-release
-          - mozilla-esr140
+          - mozilla-esr153
       when:
           by-project:
               # No default branch
@@ -247,7 +247,7 @@ jobs:
               mozilla-release:
                   - {hour: 7, minute: 0}
                   - {hour: 19, minute: 0}
-              mozilla-esr140:
+              mozilla-esr153:
                   - {hour: 7, minute: 0}
                   - {hour: 19, minute: 0}
 
