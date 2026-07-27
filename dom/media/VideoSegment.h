@@ -51,6 +51,10 @@ class VideoFrame {
   // size is invalid or exceeds 16K in either dimension.
   already_AddRefed<Image> CloneAsBlackImage() const;
 
+  // Create a planar YCbCr black image at the given size. Returns nullptr if the
+  // size is invalid or exceeds 16K in either dimension.
+  static already_AddRefed<Image> CloneAsBlackImage(const gfx::IntSize& aSize);
+
  protected:
   // mImage can be null to indicate "no video" (aka "empty frame"). It can
   // still have an intrinsic size in this case.
