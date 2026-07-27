@@ -732,6 +732,13 @@ nsresult ConvertToRGBA(Image* aImage, const SurfaceFormat& aDestFormat,
     return NS_ERROR_FAILURE;
   }
 
+  // SwizzleData reads the source over the destination's extent, so the source
+  // surface must be at least as large as the destination.
+  if (src->GetSize().width < dest->GetSize().width ||
+      src->GetSize().height < dest->GetSize().height) {
+    return NS_ERROR_FAILURE;
+  }
+
   gfx::SwizzleData(srcMap.GetData(), srcMap.GetStride(), src->GetFormat(),
                    destMap.GetData(), destMap.GetStride(), dest->GetFormat(),
                    dest->GetSize());
