@@ -1720,6 +1720,11 @@ popupnotificationcontent {
   margin-inline-start: auto;
 }
 
+/* Smart Window Toolbar styling. */
+:root[ai-window] #nav-bar {
+  padding-inline-end: var(--toolbar-padding-inline);
+}
+
 /* AI window: hide nav bar on new window or firstrun */
 :root[ai-window][aiwindow-new-window],
 :root[ai-window][aiwindow-first-run] {
