@@ -87,7 +87,7 @@ Below are the options available:
 - **useMlock**: Whether to lock in memory the full model. Applies only to the wllama backend.
 - **numThreadsDecoding**: Number of threads used during decoding. Applies only to the wllama backend.
 - **modelFile**: The name of model file. Currently, only supported for the wllama backend.
-- **backend**: The backend to use, can be `onnx`, `wllama`, `onnx-native`, `llama.cpp`, `best-llama`, `openai`, or `static-embeddings`. Defaults to `onnx`.
+- **backend**: The backend to use, can be `onnx`, `wllama`, `onnx-native`, `llama.cpp`, `openai`, or `static-embeddings`. Defaults to `onnx`.
 
 **taskName** and **modelId** are required, the others are optional and will be filled automatically
 using values pulled from Remote Settings when the task id is recognized.

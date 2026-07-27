@@ -25,7 +25,6 @@ export const BACKENDS = Object.freeze({
   wllama: "wllama",
   onnxNative: "onnx-native",
   llamaCpp: "llama.cpp",
-  bestLlama: "best-llama",
   bestOnnx: "best-onnx",
   openai: "openai",
   staticEmbeddings: "static-embeddings",
