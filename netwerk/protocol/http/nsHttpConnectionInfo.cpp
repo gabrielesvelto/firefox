@@ -103,6 +103,7 @@ void nsHttpConnectionInfo::Init(const nsACString& host, int32_t port,
   mIPv6Disabled = false;
   mHttp3Disabled = false;
   mHasIPHintAddress = false;
+  mHttp3Only = false;
   mIsWildCard = host.Equals("*"_ns);
 
   mUsingHttpsProxy = (proxyInfo && proxyInfo->IsHTTPS());
@@ -358,6 +359,7 @@ already_AddRefed<nsHttpConnectionInfo> nsHttpConnectionInfo::Clone() const {
   clone->SetIPv6Disabled(GetIPv6Disabled());
   clone->SetHttp3Disabled(GetHttp3Disabled());
   clone->SetHasIPHintAddress(HasIPHintAddress());
+  clone->SetHttp3Only(GetHttp3Only());
   clone->SetEchConfig(GetEchConfig());
   clone->SetWebTransportId(GetWebTransportId());
   clone->SetHappyEyeballsEnabled(GetHappyEyeballsEnabled());
@@ -504,6 +506,7 @@ void nsHttpConnectionInfo::SerializeHttpConnectionInfo(
   aArgs.isHttp3Disabled() = aInfo->GetHttp3Disabled();
   aArgs.isHttp3() = aInfo->IsHttp3();
   aArgs.hasIPHintAddress() = aInfo->HasIPHintAddress();
+  aArgs.http3Only() = aInfo->GetHttp3Only();
   aArgs.echConfig() = aInfo->GetEchConfig();
   aArgs.webTransport() = aInfo->GetWebTransport();
   aArgs.webTransportId() = aInfo->GetWebTransportId();
@@ -557,6 +560,7 @@ nsHttpConnectionInfo::DeserializeHttpConnectionInfoCloneArgs(
   cinfo->SetIPv6Disabled(aInfoArgs.isIPv6Disabled());
   cinfo->SetHttp3Disabled(aInfoArgs.isHttp3Disabled());
   cinfo->SetHasIPHintAddress(aInfoArgs.hasIPHintAddress());
+  cinfo->SetHttp3Only(aInfoArgs.http3Only());
   cinfo->SetEchConfig(aInfoArgs.echConfig());
   cinfo->SetHappyEyeballsEnabled(aInfoArgs.happyEyeballsEnabled());
 
@@ -587,6 +591,7 @@ void nsHttpConnectionInfo::CloneAsDirectRoute(nsHttpConnectionInfo** outCI,
   clone->SetIPv6Disabled(GetIPv6Disabled());
   clone->SetHttp3Disabled(GetHttp3Disabled());
   clone->SetHasIPHintAddress(HasIPHintAddress());
+  clone->SetHttp3Only(GetHttp3Only());
   clone->SetEchConfig(GetEchConfig());
   clone->SetHappyEyeballsEnabled(GetHappyEyeballsEnabled());
 

@@ -145,8 +145,10 @@ function resetConnections() {
 // The alternate is made reachable (resolves to its server, no blocked connect)
 // so alt-svc validation succeeds and the mapping is marked validated. The
 // mapping is validated+applied once necko logs that it routes the origin to the
-// alternate; poll (dropping connections each round to re-resolve) until we see
-// it.
+// alternate; poll until we see it. We must NOT drop connections while waiting:
+// under Happy Eyeballs the h3 alternate is validated eagerly through an
+// AltSvcTransaction (bug 2051272), and cancelling connections each round would
+// abort that in-flight validation before it can mark the mapping validated.
 async function ensureAltSvcMapping() {
   override.clearHostOverride(ALT_HOST);
   override.addIPOverride(ALT_HOST, "127.0.0.1");
@@ -167,12 +169,15 @@ async function ensureAltSvcMapping() {
   Services.console.registerListener(mappingObserver);
 
   for (let i = 0; i < 10 && !sawMapping; i++) {
-    await resetConnections();
     let r = await openChan("http3-test", {
       altSvc: altRoute,
       flags: CL_ALLOW_UNKNOWN_CL,
     });
     info(`attempt ${i}: status=${r.status} Alt-Used="${r.altUsed}"`);
+    if (!sawMapping) {
+      // eslint-disable-next-line mozilla/no-arbitrary-setTimeout
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
   }
 
   Services.console.unregisterListener(mappingObserver);

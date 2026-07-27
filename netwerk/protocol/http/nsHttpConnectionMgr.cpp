@@ -3710,11 +3710,18 @@ void nsHttpConnectionMgr::DoSpeculativeConnectionInternal(
   bool allow1918 = aTrans->Allow1918() ? *aTrans->Allow1918() : false;
 
   bool keepAlive = aTrans->Caps() & NS_HTTP_ALLOW_KEEPALIVE;
+  // An h3 connection can't reuse the entry's h2 connection, so an active h2
+  // (which makes RestrictConnections() true) must not block the first h3
+  // connection -- e.g. eager Alt-Svc validation. Allow it explicitly instead of
+  // relying on the transaction omitting NS_HTTP_ALLOW_KEEPALIVE;
+  // AtActiveConnectionLimit() below still enforces one h3 per entry.
+  bool wantsFirstH3Connection =
+      aTrans->ConnectionInfo()->IsHttp3() && !aEnt->HasActiveH3Connection();
   if (mNumDnsAndConnectSockets < parallelSpeculativeConnectLimit &&
       ((ignoreIdle &&
         (aEnt->IdleConnectionsLength() < parallelSpeculativeConnectLimit)) ||
        !aEnt->IdleConnectionsLength()) &&
-      !(keepAlive && aEnt->RestrictConnections()) &&
+      (wantsFirstH3Connection || !(keepAlive && aEnt->RestrictConnections())) &&
       !AtActiveConnectionLimit(aEnt, aTrans->Caps())) {
     nsresult rv = aEnt->CreateDnsAndConnectSocket(aTrans, aTrans->Caps(), true,
                                                   false, allow1918, nullptr);

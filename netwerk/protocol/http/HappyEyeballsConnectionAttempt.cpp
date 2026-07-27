@@ -192,10 +192,13 @@ nsresult HappyEyeballsConnectionAttempt::CreateHappyEyeballs(
   // enabled by prefs, so disabled protocols are never raced (from HTTPS
   // records, IP hints, or alt-svc). NS_HTTP_DISALLOW_HTTP3 is set for
   // transactions that can't use HTTP/3 (e.g. WebSocket upgrades), so honor it
-  // here too.
+  // here too. An http3Only conn info (eager Alt-Svc h3 validation) must not
+  // race h1/h2: the point is to warm an h3 connection, and racing could settle
+  // on h2 instead.
+  const bool http3Only = mConnInfo->GetHttp3Only();
   happy_eyeballs::HttpVersions httpVersions{
-      /* h1 */ true,
-      /* h2 */ StaticPrefs::network_http_http2_enabled(),
+      /* h1 */ !http3Only,
+      /* h2 */ !http3Only && StaticPrefs::network_http_http2_enabled(),
       /* h3 */ nsHttpHandler::IsHttp3Enabled() &&
           !(mCaps & NS_HTTP_DISALLOW_HTTP3),
   };
