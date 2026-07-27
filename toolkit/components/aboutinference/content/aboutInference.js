@@ -65,7 +65,7 @@ const TASKS = [
   "depth-estimation",
   "feature-extraction",
   "image-feature-extraction",
-  "wllama-text-generation",
+  "llama-text-generation",
   "moz-text-to-goal",
 ];
 
@@ -368,7 +368,7 @@ const INFERENCE_PAD_PRESETS = {
     runOptions: {
       nPredict: 100,
     },
-    task: "wllama-text-generation",
+    task: "llama-text-generation",
     modelId:
       "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/smollm2-360m-instruct-q8_0.gguf",
     modelRevision: "main",
@@ -836,9 +836,9 @@ async function runInference() {
     return;
   }
 
-  const isWllama = taskName.includes("wllama");
+  const isLlama = taskName == "llama-text-generation";
 
-  if (isWllama) {
+  if (isLlama) {
     const lastSlashIndex = modelId.lastIndexOf("/");
 
     const modelFile = modelId.substring(lastSlashIndex + 1);
@@ -913,7 +913,7 @@ async function runInference() {
 
   let request = { args: inputData.inputArgs, options: inputData.runOptions };
 
-  if (isWllama) {
+  if (isLlama) {
     request = { prompt: inputData.inputArgs, ...inputData.runOptions };
   }
 
@@ -1235,7 +1235,7 @@ async function runBenchmark() {
         nPredict: 100,
       },
       pipelineOptions: {
-        taskName: "wllama-text-generation",
+        taskName: "llama-text-generation",
         modelId: "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
         modelFile: "smollm2-360m-instruct-q8_0.gguf",
         modelRevision: "main",

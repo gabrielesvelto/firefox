@@ -33,7 +33,7 @@ const SMOLLM2_OPTIONS = {
   backend: "llama.cpp",
   engineId: "link-preview-smoke-smollm2",
   featureId: "link-preview",
-  taskName: "wllama-text-generation",
+  taskName: "llama-text-generation",
   modelId: "HuggingFaceTB/SmolLM2-360M-Instruct-GGUF",
   modelFile: "smollm2-360m-instruct-q8_0.gguf",
   modelRevision: "main",

@@ -45,7 +45,7 @@ add_task(async function test_e2e_engine_can_be_cancelled() {
       createEngine(
         {
           engineId: "main5",
-          taskName: "real-wllama-text-generation",
+          taskName: "real-llama-text-generation",
           featureId: "link-preview",
           backend: BACKENDS.llamaCpp,
           modelId: "acme/bert",
@@ -106,7 +106,7 @@ add_task(async function test_e2e_engine_can_be_cancelled_after_fetch() {
       createEngine(
         {
           engineId: "main5",
-          taskName: "real-wllama-text-generation",
+          taskName: "real-llama-text-generation",
           featureId: "link-preview",
           backend: BACKENDS.llamaCpp,
           modelId: "acme/bert",

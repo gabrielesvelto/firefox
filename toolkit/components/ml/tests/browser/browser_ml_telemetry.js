@@ -273,7 +273,7 @@ add_task(async function test_model_download_telemetry_success() {
 
   await createEngine({
     engineId: "main",
-    taskName: "real-wllama-text-generation",
+    taskName: "real-llama-text-generation",
     featureId: "link-preview",
     backend: "llama.cpp",
     modelId: "acme/bert",
@@ -344,7 +344,7 @@ add_task(async function test_model_download_telemetry_fail() {
   await EngineProcess.destroyMLEngine();
   await createEngine({
     engineId: "main",
-    taskName: "real-wllama-text-generation",
+    taskName: "real-llama-text-generation",
     featureId: "link-preview",
     backend: "llama.cpp",
     modelId: "acme-not-found/bert",
@@ -403,7 +403,7 @@ add_task(async function test_model_download_telemetry_mixed() {
 
   await createEngine({
     engineId: "main",
-    taskName: "real-wllama-text-generation",
+    taskName: "real-llama-text-generation",
     featureId: "link-preview",
     backend: "llama.cpp",
     modelId: "acme/bert",
