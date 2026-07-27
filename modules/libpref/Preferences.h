@@ -458,6 +458,11 @@ class Preferences final : public nsIPrefService,
   // Off main thread is only respected for the default aFile value (nullptr).
   nsresult SavePrefFileInternal(nsIFile* aFile, SaveMethod aSaveMethod);
 
+  // A non-null aPromise marks this as a backup write: it targets a file other
+  // than the profile prefs.js, carries a filtered pref set via
+  // aPrefOverrideMap, bypasses the shared sPendingWriteData coalescing, and
+  // settles aPromise when done. aPromise is non-null iff this is a backup
+  // write; normal profile prefs.js writes pass no promise.
   nsresult WritePrefFile(
       nsIFile* aFile, SaveMethod aSaveMethod,
       UniquePtr<MozPromiseHolder<WritePrefFilePromise>> aPromise = nullptr,
