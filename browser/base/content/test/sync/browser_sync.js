@@ -670,40 +670,129 @@ add_task(async function test_sync_promo_state() {
 
   // Iterate through cases we expect to see the promo
   const cases = [
-    { desc: "FxA disabled", fxaEnabled: false, expected: null },
     {
-      desc: "signed out",
+      desc: "history menu promo - FxA disabled",
+      fxaEnabled: false,
+      expected: null,
+      promoEngine: ["tabs"],
+    },
+    {
+      desc: "history menu promo - signed out",
       status: UIState.STATUS_NOT_CONFIGURED,
       expected: "signin",
+      promoEngine: ["tabs"],
     },
     {
-      desc: "unverified",
+      desc: "history menu promo - unverified",
       status: UIState.STATUS_NOT_VERIFIED,
       expected: "signin",
+      promoEngine: ["tabs"],
     },
     {
-      desc: "login failed",
+      desc: "history menu promo - login failed",
       status: UIState.STATUS_LOGIN_FAILED,
       expected: null,
+      promoEngine: ["tabs"],
     },
-    { desc: "sync disabled", syncEnabled: false, expected: "turnonsync" },
     {
-      desc: "tabs engine off in CWTS",
+      desc: "history menu promo - sync disabled",
+      syncEnabled: false,
+      expected: "turnonsync",
+      promoEngine: ["tabs"],
+    },
+    {
+      desc: "history menu promo - tabs engine off in CWTS",
       tabsEngine: false,
       expected: "turnonsync",
+      promoEngine: ["tabs"],
     },
     {
       desc: "history engine off does not gate tabs promo",
       historyEngine: false,
       expected: null,
+      promoEngine: ["tabs"],
     },
-    { desc: "device list still loading", devices: null, expected: null },
-    { desc: "no other devices", devices: SELF, expected: "connectdevice" },
-    { desc: "has another device", expected: null },
     {
-      desc: "only a remote device, current not yet in list",
+      desc: "history menu promo - device list still loading",
+      devices: null,
+      expected: null,
+      promoEngine: ["tabs"],
+    },
+    {
+      desc: "history menu promo - no other devices",
+      devices: SELF,
+      expected: "connectdevice",
+      promoEngine: ["tabs"],
+    },
+    {
+      desc: "history menu promo - has another device",
+      expected: null,
+      promoEngine: ["tabs"],
+    },
+    {
+      desc: "history menu promo - only a remote device, current not yet in list",
       devices: [{ isCurrentDevice: false }],
       expected: null,
+      promoEngine: ["tabs"],
+    },
+    {
+      desc: "bookmarks menu promo - FxA disabled",
+      fxaEnabled: false,
+      expected: null,
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - signed out",
+      status: UIState.STATUS_NOT_CONFIGURED,
+      expected: "signin",
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - unverified",
+      status: UIState.STATUS_NOT_VERIFIED,
+      expected: "signin",
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - login failed",
+      status: UIState.STATUS_LOGIN_FAILED,
+      expected: null,
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - sync disabled",
+      syncEnabled: false,
+      expected: "turnonsync",
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - bookmarks engine off in CWTS",
+      bookmarksEngine: false,
+      expected: "turnonsync",
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - device list still loading",
+      devices: null,
+      expected: null,
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - no other devices",
+      devices: SELF,
+      expected: "connectdevice",
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - has another device",
+      expected: null,
+      promoEngine: ["bookmarks"],
+    },
+    {
+      desc: "bookmarks menu promo - only a remote device, current not yet in list",
+      devices: [{ isCurrentDevice: false }],
+      expected: null,
+      promoEngine: ["bookmarks"],
     },
   ];
 
@@ -713,8 +802,10 @@ add_task(async function test_sync_promo_state() {
       fxaEnabled = true,
       status = UIState.STATUS_SIGNED_IN,
       syncEnabled = true,
+      bookmarksEngine = true,
       historyEngine = true,
       tabsEngine = true,
+      promoEngine = [],
       devices = SELF_AND_OTHER,
       expected,
     } = c;
@@ -723,16 +814,21 @@ add_task(async function test_sync_promo_state() {
     sandbox.stub(gSync, "FXA_ENABLED").get(() => fxaEnabled);
     sandbox.stub(UIState, "get").returns({ status, syncEnabled });
     sandbox.stub(fxAccounts.device, "recentDeviceList").get(() => devices);
+    Services.prefs.setBoolPref(
+      "services.sync.engine.bookmarks",
+      bookmarksEngine
+    );
     Services.prefs.setBoolPref("services.sync.engine.history", historyEngine);
     Services.prefs.setBoolPref("services.sync.engine.tabs", tabsEngine);
 
     Assert.equal(
-      gSync.getSyncPromoState(["tabs"]),
+      gSync.getSyncPromoState(promoEngine),
       expected,
       `Promo state when ${desc}`
     );
 
     sandbox.restore();
+    Services.prefs.clearUserPref("services.sync.engine.bookmarks");
     Services.prefs.clearUserPref("services.sync.engine.history");
     Services.prefs.clearUserPref("services.sync.engine.tabs");
   }
@@ -840,6 +936,57 @@ add_task(async function test_history_menu_remote_tabs_promo() {
     "Legacy item shares the 'Tabs from Other Devices' label"
   );
   await closeHistoryMenu();
+  sandbox.restore();
+});
+
+add_task(async function test_bookmarks_menu_remote_tabs_promo() {
+  if (AppConstants.platform === "macosx") {
+    info(
+      "skipping test because the bookmarks menu can't be opened in tests on mac"
+    );
+    return;
+  }
+
+  const bookmarksMenubarItem = document.getElementById("bookmarksMenu");
+  const bookmarksMenu = document.getElementById("bookmarksMenuPopup");
+  const promo = document.getElementById("bookmarksRemoteTabsPromo");
+
+  async function openBookmarksMenu() {
+    const shown = BrowserTestUtils.waitForEvent(bookmarksMenu, "popupshown");
+    bookmarksMenubarItem.openMenu(true);
+    await shown;
+  }
+  async function closeBookmarksMenu() {
+    const hidden = BrowserTestUtils.waitForEvent(bookmarksMenu, "popuphidden");
+    bookmarksMenu.hidePopup();
+    await hidden;
+  }
+
+  // Signed out: promo visible offering sign-in.
+  let uiState = sinon
+    .stub(UIState, "get")
+    .returns({ status: UIState.STATUS_NOT_CONFIGURED });
+  await openBookmarksMenu();
+  Assert.ok(!promo.hidden, "Promo is visible when signed out");
+  Assert.equal(
+    promo.dataset.action,
+    "signin",
+    "Promo offers sign-in when signed out"
+  );
+  await closeBookmarksMenu();
+  uiState.restore();
+
+  // Signed in with another device: promo hidden.
+  const sandbox = sinon.createSandbox();
+  sandbox
+    .stub(UIState, "get")
+    .returns({ status: UIState.STATUS_SIGNED_IN, syncEnabled: true });
+  sandbox
+    .stub(fxAccounts.device, "recentDeviceList")
+    .get(() => [{ isCurrentDevice: true }, { isCurrentDevice: false }]);
+  await openBookmarksMenu();
+  Assert.ok(promo.hidden, "Promo hidden when other devices are available");
+  await closeBookmarksMenu();
   sandbox.restore();
 });
 
