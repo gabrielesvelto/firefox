@@ -5,25 +5,22 @@
 #include "ClientManagerOpParent.h"
 
 #include "ClientManagerService.h"
-#include "ClientValidation.h"
-#include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/PClientManagerParent.h"
-#include "mozilla/dom/RemoteType.h"
 #include "mozilla/ipc/BackgroundParent.h"
 
 namespace mozilla::dom {
 
 using mozilla::ipc::BackgroundParent;
-using mozilla::ipc::IPCResult;
 
 template <typename Method, typename... Args>
-void ClientManagerOpParent::DoServiceOp(
-    Method aMethod, ThreadsafeContentParentHandle* aContentParentHandle,
-    Args&&... aArgs) {
+void ClientManagerOpParent::DoServiceOp(Method aMethod, Args&&... aArgs) {
+  ThreadsafeContentParentHandle* originContent =
+      BackgroundParent::GetContentParentHandle(Manager()->Manager());
+
   // Note, we need perfect forarding of the template type in order
   // to allow already_AddRefed<> to be passed as an arg.
   RefPtr<ClientOpPromise> p =
-      (mService->*aMethod)(aContentParentHandle, std::forward<Args>(aArgs)...);
+      (mService->*aMethod)(originContent, std::forward<Args>(aArgs)...);
 
   // Capturing `this` is safe here because we disconnect the promise in
   // ActorDestroy() which ensures neither lambda is called if the actor
@@ -50,38 +47,29 @@ ClientManagerOpParent::ClientManagerOpParent(ClientManagerService* aService)
   MOZ_DIAGNOSTIC_ASSERT(mService);
 }
 
-IPCResult ClientManagerOpParent::Init(
-    const ClientOpConstructorArgs& aArgs,
-    ThreadsafeContentParentHandle* aContentParentHandle) {
-  if (!IsValidClientOpConstructorArgs(
-          aArgs, aContentParentHandle ? aContentParentHandle->GetRemoteType()
-                                      : NOT_REMOTE_TYPE)) {
-    return IPC_FAIL(this, "Invalid ClientOpConstructorArgs!");
-  }
-
+void ClientManagerOpParent::Init(const ClientOpConstructorArgs& aArgs) {
   switch (aArgs.type()) {
     case ClientOpConstructorArgs::TClientNavigateArgs: {
-      DoServiceOp(&ClientManagerService::Navigate, aContentParentHandle,
+      DoServiceOp(&ClientManagerService::Navigate,
                   aArgs.get_ClientNavigateArgs());
       break;
     }
     case ClientOpConstructorArgs::TClientMatchAllArgs: {
-      DoServiceOp(&ClientManagerService::MatchAll, aContentParentHandle,
+      DoServiceOp(&ClientManagerService::MatchAll,
                   aArgs.get_ClientMatchAllArgs());
       break;
     }
     case ClientOpConstructorArgs::TClientClaimArgs: {
-      DoServiceOp(&ClientManagerService::Claim, aContentParentHandle,
-                  aArgs.get_ClientClaimArgs());
+      DoServiceOp(&ClientManagerService::Claim, aArgs.get_ClientClaimArgs());
       break;
     }
     case ClientOpConstructorArgs::TClientGetInfoAndStateArgs: {
-      DoServiceOp(&ClientManagerService::GetInfoAndState, aContentParentHandle,
+      DoServiceOp(&ClientManagerService::GetInfoAndState,
                   aArgs.get_ClientGetInfoAndStateArgs());
       break;
     }
     case ClientOpConstructorArgs::TClientOpenWindowArgs: {
-      DoServiceOp(&ClientManagerService::OpenWindow, aContentParentHandle,
+      DoServiceOp(&ClientManagerService::OpenWindow,
                   aArgs.get_ClientOpenWindowArgs());
       break;
     }
@@ -90,8 +78,6 @@ IPCResult ClientManagerOpParent::Init(
       break;
     }
   }
-
-  return IPC_OK();
 }
 
 }  // namespace mozilla::dom

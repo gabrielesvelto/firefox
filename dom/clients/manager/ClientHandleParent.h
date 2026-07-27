@@ -49,7 +49,7 @@ class ClientHandleParent final : public PClientHandleParent {
 
   ClientHandleParent();
 
-  mozilla::ipc::IPCResult Init(const IPCClientInfo& aClientInfo);
+  void Init(const IPCClientInfo& aClientInfo);
 
   void FoundSource(ClientSourceParent* aSource);
 
