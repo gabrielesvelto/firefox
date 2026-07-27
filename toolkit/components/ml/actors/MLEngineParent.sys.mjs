@@ -152,15 +152,10 @@ export class MLEngineParent extends JSProcessActorParent {
    * - 4 => Transformers >= 3.4.0
    * - 5 => Transformers >= 3.5.1
    *
-   * wllama:
-   * - 3 => wllama 2.2.x
-   * - 4 => wllama 2.3.x
-   *
    * @type {Record<string, number>}
    */
   static WASM_MAJOR_VERSION = {
     [lazy.BACKENDS.onnx]: 5,
-    [lazy.BACKENDS.wllama]: 4,
   };
 
   /**
@@ -173,7 +168,6 @@ export class MLEngineParent extends JSProcessActorParent {
    */
   static WASM_FILENAME = {
     [lazy.BACKENDS.onnx]: "ort-wasm-simd-threaded.jsep.wasm",
-    [lazy.BACKENDS.wllama]: "wllama.wasm",
   };
 
   /**

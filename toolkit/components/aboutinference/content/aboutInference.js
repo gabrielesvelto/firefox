@@ -849,7 +849,7 @@ async function runInference() {
     additionalEngineOptions = {
       modelFile,
       modelId,
-      backend: "wllama",
+      backend: "llama.cpp",
       numContext,
       numBatch,
       numUbatch: numBatch,
@@ -1229,7 +1229,7 @@ async function runBenchmark() {
     },
     {
       name: "link-preview",
-      compatibleBackends: [lazy.BACKENDS.wllama],
+      compatibleBackends: [lazy.BACKENDS.llamaCpp],
       inputArgs: `Summarize this: ${TINY_ARTICLE}`,
       runOptions: {
         nPredict: 100,
@@ -1295,7 +1295,7 @@ async function runBenchmark() {
           options: workload.runOptions,
         };
 
-        if (currentBackend == "wllama") {
+        if (currentBackend == "llama.cpp") {
           request = { prompt: workload.inputArgs, ...workload.runOptions };
         }
 

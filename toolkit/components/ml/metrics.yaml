@@ -366,7 +366,7 @@ firefox.ai.runtime:
           e.g. Xenova/all-MiniLM-L6-v2
       backend:
         type: string
-        description: The backend that is being used, e.g. onnx, onnx-native, wllama
+        description: The backend that is being used, e.g. onnx, onnx-native, llama.cpp
       token_count:
         description: The number of tokens generated for text generation tasks.
         type: quantity
