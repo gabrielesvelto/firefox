@@ -509,6 +509,9 @@ export const AutoTabGrouping = {
     if (state.computePromise) {
       return state.computePromise;
     }
+    if (!lazy.AutoTabGroupingSuggestions.isAvailable) {
+      return Promise.resolve();
+    }
     const candidates = lazy.AutoTabGroupingSuggestions.getCandidateTabs(win);
     if (candidates.length < lazy.minCandidateTabs) {
       return Promise.resolve();

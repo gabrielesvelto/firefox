@@ -59,6 +59,13 @@ const TAB_GROUP_COLORS = [
 export const AutoTabGroupingSuggestions = {
   _manager: null,
 
+  get isAvailable() {
+    return (
+      Services.prefs.getBoolPref("browser.ml.enable", false) &&
+      lazy.SmartTabGroupingManager.isAllowed
+    );
+  },
+
   get manager() {
     if (!this._manager) {
       this._manager = new lazy.SmartTabGroupingManager();
