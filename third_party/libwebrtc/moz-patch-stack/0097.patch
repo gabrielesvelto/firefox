@@ -1,100 +1,177 @@
-From: Andreas Pehrson <apehrson@mozilla.com>
-Date: Wed, 10 May 2023 07:06:00 +0000
-Subject: Bug 1810949 - cherry-pick upstream libwebrtc commit 32b64e895c.
- r=webrtc-reviewers,mjf
+From: Michael Froman <mfroman@mozilla.com>
+Date: Thu, 20 Apr 2023 14:52:00 -0500
+Subject: Bug 1828517 - (fix-a138c6c8a5) handle file moves in BUILD.gn
 
-Upstream commit: https://webrtc.googlesource.com/src/+/32b64e895c0231fe6891a8f6335d66f1dad4f1f5
-    Improve ergonomics of dealing with pixel formats in v4l2 camera backend
-
-    Bug: webrtc:14830
-    Change-Id: Ib49bf65895fe008e75223abb03867d412c1b5a60
-    Reviewed-on: https://webrtc-review.googlesource.com/c/src/+/291531
-    Commit-Queue: Ilya Nikolaevskiy <ilnik@webrtc.org>
-    Reviewed-by: Stefan Holmer <stefan@webrtc.org>
-    Reviewed-by: Ilya Nikolaevskiy <ilnik@webrtc.org>
-    Cr-Commit-Position: refs/heads/main@{#39976}
-
-Differential Revision: https://phabricator.services.mozilla.com/D177231
-Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/f0afe1a1097f3e02d59fd06d5e83d00a0f4d69ae
+Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/cf7e333da17689b3c115a6ffd07fab042bc5f086
 ---
- .../video_capture/linux/device_info_v4l2.cc   |  4 ++-
- .../video_capture/linux/video_capture_v4l2.cc | 31 +++++++++----------
- 2 files changed, 17 insertions(+), 18 deletions(-)
+ rtc_base/BUILD.gn | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
 
-diff --git a/modules/video_capture/linux/device_info_v4l2.cc b/modules/video_capture/linux/device_info_v4l2.cc
-index 7651dd6651..f854c2ccc7 100644
---- a/modules/video_capture/linux/device_info_v4l2.cc
-+++ b/modules/video_capture/linux/device_info_v4l2.cc
-@@ -391,10 +391,10 @@ int32_t DeviceInfoV4l2::FillCapabilities(int fd) {
-   video_fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-   video_fmt.fmt.pix.sizeimage = 0;
+diff --git a/rtc_base/BUILD.gn b/rtc_base/BUILD.gn
+index 0b1e2a6208..7573a137ab 100644
+--- a/rtc_base/BUILD.gn
++++ b/rtc_base/BUILD.gn
+@@ -1147,6 +1147,7 @@ if (!build_with_chromium) {
+ }
  
--  int totalFmts = 5;
-   unsigned int videoFormats[] = {V4L2_PIX_FMT_MJPEG, V4L2_PIX_FMT_YUV420,
-                                  V4L2_PIX_FMT_YUYV, V4L2_PIX_FMT_UYVY,
-                                  V4L2_PIX_FMT_NV12};
-+  constexpr int totalFmts = sizeof(videoFormats) / sizeof(unsigned int);
+ rtc_library("network") {
++if (!build_with_mozilla) {
+   visibility = [ "*" ]
+   sources = [
+     "network.cc",
+@@ -1185,16 +1186,20 @@ rtc_library("network") {
+     deps += [ ":win32" ]
+   }
+ }
++}
  
-   int sizes = 13;
-   unsigned int size[][2] = {{128, 96},   {160, 120},  {176, 144},  {320, 240},
-@@ -424,6 +424,8 @@ int32_t DeviceInfoV4l2::FillCapabilities(int fd) {
-             cap.videoType = VideoType::kUYVY;
-           } else if (videoFormats[fmts] == V4L2_PIX_FMT_NV12) {
-             cap.videoType = VideoType::kNV12;
-+          } else {
-+            RTC_DCHECK_NOTREACHED();
-           }
+ rtc_library("socket_address_pair") {
++if (!build_with_mozilla) {
+   sources = [
+     "socket_address_pair.cc",
+     "socket_address_pair.h",
+   ]
+   deps = [ ":socket_address" ]
+ }
++}
  
-           // get fps of current camera mode
-diff --git a/modules/video_capture/linux/video_capture_v4l2.cc b/modules/video_capture/linux/video_capture_v4l2.cc
-index c7dcb722bc..baf1916331 100644
---- a/modules/video_capture/linux/video_capture_v4l2.cc
-+++ b/modules/video_capture/linux/video_capture_v4l2.cc
-@@ -130,23 +130,18 @@ int32_t VideoCaptureModuleV4L2::StartCapture(
-   // Supported video formats in preferred order.
-   // If the requested resolution is larger than VGA, we prefer MJPEG. Go for
-   // I420 otherwise.
--  const int nFormats = 6;
--  unsigned int fmts[nFormats];
--  if (capability.width > 640 || capability.height > 480) {
--    fmts[0] = V4L2_PIX_FMT_MJPEG;
--    fmts[1] = V4L2_PIX_FMT_YUV420;
--    fmts[2] = V4L2_PIX_FMT_YUYV;
--    fmts[3] = V4L2_PIX_FMT_UYVY;
--    fmts[4] = V4L2_PIX_FMT_NV12;
--    fmts[5] = V4L2_PIX_FMT_JPEG;
--  } else {
--    fmts[0] = V4L2_PIX_FMT_YUV420;
--    fmts[1] = V4L2_PIX_FMT_YUYV;
--    fmts[2] = V4L2_PIX_FMT_UYVY;
--    fmts[3] = V4L2_PIX_FMT_NV12;
--    fmts[4] = V4L2_PIX_FMT_MJPEG;
--    fmts[5] = V4L2_PIX_FMT_JPEG;
--  }
-+  unsigned int hdFmts[] = {
-+      V4L2_PIX_FMT_MJPEG,  V4L2_PIX_FMT_YUV420, V4L2_PIX_FMT_YUYV,
-+      V4L2_PIX_FMT_UYVY,   V4L2_PIX_FMT_NV12,   V4L2_PIX_FMT_JPEG,
-+  };
-+  unsigned int sdFmts[] = {
-+      V4L2_PIX_FMT_YUV420, V4L2_PIX_FMT_YUYV,   V4L2_PIX_FMT_UYVY,
-+      V4L2_PIX_FMT_NV12,   V4L2_PIX_FMT_MJPEG,  V4L2_PIX_FMT_JPEG,
-+  };
-+  const bool isHd = capability.width > 640 || capability.height > 480;
-+  unsigned int* fmts = isHd ? hdFmts : sdFmts;
-+  static_assert(sizeof(hdFmts) == sizeof(sdFmts));
-+  constexpr int nFormats = sizeof(hdFmts) / sizeof(unsigned int);
+ rtc_library("net_helper") {
++if (!build_with_mozilla) {
+   visibility = [ "*" ]
+   sources = [
+     "net_helper.cc",
+@@ -1203,8 +1208,10 @@ rtc_library("net_helper") {
+   absl_deps = [ "//third_party/abseil-cpp/absl/strings" ]
+   deps = [ "system:rtc_export" ]
+ }
++}
  
-   // Enumerate image formats.
-   struct v4l2_fmtdesc fmt;
-@@ -195,6 +190,8 @@ int32_t VideoCaptureModuleV4L2::StartCapture(
-   else if (video_fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_MJPEG ||
-            video_fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_JPEG)
-     _captureVideoType = VideoType::kMJPEG;
-+  else
-+    RTC_DCHECK_NOTREACHED();
+ rtc_library("socket_adapters") {
++if (!build_with_mozilla) {
+   visibility = [ "*" ]
+   sources = [
+     "socket_adapters.cc",
+@@ -1224,6 +1231,7 @@ rtc_library("socket_adapters") {
+   ]
+   absl_deps = [ "//third_party/abseil-cpp/absl/strings" ]
+ }
++}
  
-   // set format and frame size now
-   if (ioctl(_deviceFd, VIDIOC_S_FMT, &video_fmt) < 0) {
+ rtc_library("network_route") {
+   sources = [
+@@ -1238,6 +1246,7 @@ rtc_library("network_route") {
+ }
+ 
+ rtc_library("async_tcp_socket") {
++if (!build_with_mozilla) {
+   sources = [
+     "async_tcp_socket.cc",
+     "async_tcp_socket.h",
+@@ -1256,8 +1265,10 @@ rtc_library("async_tcp_socket") {
+     "third_party/sigslot",
+   ]
+ }
++}
+ 
+ rtc_library("async_udp_socket") {
++if (!build_with_mozilla) {
+   visibility = [ "*" ]
+   sources = [
+     "async_udp_socket.cc",
+@@ -1279,8 +1290,10 @@ rtc_library("async_udp_socket") {
+   ]
+   absl_deps = [ "//third_party/abseil-cpp/absl/types:optional" ]
+ }
++}
+ 
+ rtc_library("async_packet_socket") {
++if (!build_with_mozilla) {
+   visibility = [ "*" ]
+   sources = [
+     "async_packet_socket.cc",
+@@ -1298,6 +1311,7 @@ rtc_library("async_packet_socket") {
+     "third_party/sigslot",
+   ]
+ }
++}
+ 
+ rtc_library("mdns_responder_interface") {
+   sources = [ "mdns_responder_interface.h" ]
+@@ -1310,6 +1324,7 @@ rtc_library("dscp") {
+ }
+ 
+ rtc_library("proxy_info") {
++if (!build_with_mozilla) {
+   visibility = [ "*" ]
+   sources = [
+     "proxy_info.cc",
+@@ -1320,6 +1335,7 @@ rtc_library("proxy_info") {
+     ":socket_address",
+   ]
+ }
++}
+ 
+ rtc_library("file_rotating_stream") {
+   sources = [
+@@ -1348,6 +1364,7 @@ rtc_library("data_rate_limiter") {
+ }
+ 
+ rtc_library("unique_id_generator") {
++if (!build_with_mozilla) {
+   sources = [
+     "unique_id_generator.cc",
+     "unique_id_generator.h",
+@@ -1362,6 +1379,7 @@ rtc_library("unique_id_generator") {
+   ]
+   absl_deps = [ "//third_party/abseil-cpp/absl/strings" ]
+ }
++}
+ 
+ rtc_library("crc32") {
+   sources = [
+@@ -1389,6 +1407,7 @@ rtc_library("stream") {
+ }
+ 
+ rtc_library("rtc_certificate_generator") {
++if (!build_with_mozilla) {
+   visibility = [ "*" ]
+   sources = [
+     "rtc_certificate_generator.cc",
+@@ -1406,8 +1425,10 @@ rtc_library("rtc_certificate_generator") {
+     "//third_party/abseil-cpp/absl/types:optional",
+   ]
+ }
++}
+ 
+ rtc_library("ssl") {
++if (!build_with_mozilla) {
+   visibility = [ "*" ]
+   sources = [
+     "helpers.cc",
+@@ -1506,6 +1527,7 @@ rtc_library("ssl") {
+     deps += [ ":win32" ]
+   }
+ }
++}
+ 
+ rtc_library("crypt_string") {
+   sources = [
+@@ -1515,6 +1537,7 @@ rtc_library("crypt_string") {
+ }
+ 
+ rtc_library("http_common") {
++if (!build_with_mozilla) {
+   sources = [
+     "http_common.cc",
+     "http_common.h",
+@@ -1531,6 +1554,7 @@ rtc_library("http_common") {
+ 
+   absl_deps = [ "//third_party/abseil-cpp/absl/strings" ]
+ }
++}
+ 
+ rtc_source_set("gtest_prod") {
+   sources = [ "gtest_prod_util.h" ]
 -- 
 2.34.1
 

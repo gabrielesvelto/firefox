@@ -1,98 +1,81 @@
-From: Alex Chronopoulos <achronop@gmail.com>
-Date: Wed, 18 Sep 2019 13:16:00 +0000
-Subject: Bug 1572281 - Remove audio device change notifications from video
- capture in Linux. r=dminor
+From: Dan Minor <dminor@mozilla.com>
+Date: Thu, 21 Mar 2019 15:48:00 +0000
+Subject: Bug 1535584 - Restore UpdateCodecFrameSize to vp9_impl.cc; r=bwc
 
-Video capture used to provide device change notifications for audio and video devices. From now on, CubebDeviceEnumerator will provide audio device change notifications thus video capture is updated to notify only changes of the video device. This is the Linux part.
-
-Differential Revision: https://phabricator.services.mozilla.com/D46272
-Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/7bf7263db30b794139332691f4fbc98b4bfcfdd7
+Differential Revision: https://phabricator.services.mozilla.com/D23713
+Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/0898f9cfe09273e1d86c38abdd576cdf273009f0
 ---
- .../video_capture/linux/device_info_v4l2.cc   | 28 ++-----------------
- 1 file changed, 3 insertions(+), 25 deletions(-)
+ .../codecs/vp9/libvpx_vp9_encoder.cc          | 50 +++++++++++++++++++
+ 1 file changed, 50 insertions(+)
 
-diff --git a/modules/video_capture/linux/device_info_v4l2.cc b/modules/video_capture/linux/device_info_v4l2.cc
-index d836747b4a..77968b7eaf 100644
---- a/modules/video_capture/linux/device_info_v4l2.cc
-+++ b/modules/video_capture/linux/device_info_v4l2.cc
-@@ -44,7 +44,7 @@ namespace videocapturemodule {
- void DeviceInfoV4l2::HandleEvent(inotify_event* event, int fd)
- {
-     if (event->mask & IN_CREATE) {
--        if (fd == _fd_v4l || fd == _fd_snd) {
-+        if (fd == _fd_v4l) {
-             DeviceChange();
-         } else if ((event->mask & IN_ISDIR) && (fd == _fd_dev)) {
-             if (_wd_v4l < 0) {
-@@ -56,25 +56,15 @@ void DeviceInfoV4l2::HandleEvent(inotify_event* event, int fd)
-                     DeviceChange();
-                 }
-             }
--            if (_wd_snd < 0) {
--                usleep(5*1000);
--                _wd_snd = inotify_add_watch(_fd_snd, "/dev/snd/by-path/", IN_CREATE | IN_DELETE | IN_DELETE_SELF);
--                if (_wd_snd >= 0) {
--                    DeviceChange();
--                }
--            }
-         }
-     } else if (event->mask & IN_DELETE) {
--        if (fd == _fd_v4l || fd == _fd_snd) {
-+        if (fd == _fd_v4l) {
-             DeviceChange();
-         }
-     } else if (event->mask & IN_DELETE_SELF) {
-         if (fd == _fd_v4l) {
-             inotify_rm_watch(_fd_v4l, _wd_v4l);
-             _wd_v4l = -1;
--        } else if (fd == _fd_snd) {
--            inotify_rm_watch(_fd_snd, _wd_snd);
--            _wd_snd = -1;
-         } else {
-             assert(false);
-         }
-@@ -141,11 +131,6 @@ int DeviceInfoV4l2::ProcessInotifyEvents()
-                 break;
-             }
-         }
--        if (EventCheck(_fd_snd) > 0) {
--            if (HandleEvents(_fd_snd) < 0) {
--                break;
--            }
--        }
-     }
-     return 0;
+diff --git a/modules/video_coding/codecs/vp9/libvpx_vp9_encoder.cc b/modules/video_coding/codecs/vp9/libvpx_vp9_encoder.cc
+index 35b13058a2..5877373b76 100644
+--- a/modules/video_coding/codecs/vp9/libvpx_vp9_encoder.cc
++++ b/modules/video_coding/codecs/vp9/libvpx_vp9_encoder.cc
+@@ -1159,6 +1159,14 @@ int LibvpxVp9Encoder::Encode(const VideoFrame& input_image,
+     config_changed_ = false;
+   }
+ 
++  if (input_image.width() != codec_.width ||
++      input_image.height() != codec_.height) {
++    int ret = UpdateCodecFrameSize(input_image);
++    if (ret < 0) {
++      return ret;
++    }
++  }
++
+   RTC_DCHECK_EQ(input_image.width(), raw_->d_w);
+   RTC_DCHECK_EQ(input_image.height(), raw_->d_h);
+ 
+@@ -1286,6 +1294,48 @@ int LibvpxVp9Encoder::Encode(const VideoFrame& input_image,
+   return WEBRTC_VIDEO_CODEC_OK;
  }
-@@ -158,11 +143,9 @@ void DeviceInfoV4l2::InotifyEventThread(void* obj)
- void DeviceInfoV4l2::InotifyProcess()
- {
-     _fd_v4l = inotify_init();
--    _fd_snd = inotify_init();
-     _fd_dev = inotify_init();
--    if (_fd_v4l >= 0 && _fd_snd >= 0 && _fd_dev >= 0) {
-+    if (_fd_v4l >= 0 && _fd_dev >= 0) {
-         _wd_v4l = inotify_add_watch(_fd_v4l, "/dev/v4l/by-path/", IN_CREATE | IN_DELETE | IN_DELETE_SELF);
--        _wd_snd = inotify_add_watch(_fd_snd, "/dev/snd/by-path/", IN_CREATE | IN_DELETE | IN_DELETE_SELF);
-         _wd_dev = inotify_add_watch(_fd_dev, "/dev/", IN_CREATE);
-         ProcessInotifyEvents();
  
-@@ -170,16 +153,11 @@ void DeviceInfoV4l2::InotifyProcess()
-           inotify_rm_watch(_fd_v4l, _wd_v4l);
-         }
- 
--        if (_wd_snd >= 0) {
--          inotify_rm_watch(_fd_snd, _wd_snd);
--        }
--
-         if (_wd_dev >= 0) {
-           inotify_rm_watch(_fd_dev, _wd_dev);
-         }
- 
-         close(_fd_v4l);
--        close(_fd_snd);
-         close(_fd_dev);
-     }
- }
++int LibvpxVp9Encoder::UpdateCodecFrameSize(
++    const VideoFrame& input_image) {
++  RTC_LOG(LS_INFO) << "Reconfiging VP from " <<
++          codec_.width << "x" << codec_.height << " to " <<
++          input_image.width() << "x" << input_image.height();
++  // Preserve latest bitrate/framerate setting
++  // TODO: Mozilla - see below, we need to save more state here.
++  //uint32_t old_bitrate_kbit = config_->rc_target_bitrate;
++  //uint32_t old_framerate = codec_.maxFramerate;
++
++  codec_.width = input_image.width();
++  codec_.height = input_image.height();
++
++  vpx_img_free(raw_);
++  raw_ = vpx_img_wrap(NULL, VPX_IMG_FMT_I420, codec_.width, codec_.height,
++                      1, NULL);
++  // Update encoder context for new frame size.
++  config_->g_w = codec_.width;
++  config_->g_h = codec_.height;
++
++  // Determine number of threads based on the image size and #cores.
++  config_->g_threads = NumberOfThreads(codec_.width, codec_.height,
++                                       num_cores_);
++
++  // NOTE: We would like to do this the same way vp8 does it
++  // (with vpx_codec_enc_config_set()), but that causes asserts
++  // in AQ 3 (cyclic); and in AQ 0 it works, but on a resize to smaller
++  // than 1/2 x 1/2 original it asserts in convolve().  Given these
++  // bugs in trying to do it the "right" way, we basically re-do
++  // the initialization.
++  vpx_codec_destroy(encoder_); // clean up old state
++  int result = InitAndSetControlSettings(&codec_);
++  if (result == WEBRTC_VIDEO_CODEC_OK) {
++    // TODO: Mozilla rates have become much more complicated, we need to store
++    // more state or find another way of doing this.
++    //return SetRates(old_bitrate_kbit, old_framerate);
++    RTC_CHECK(false);
++    return WEBRTC_VIDEO_CODEC_UNINITIALIZED;
++  }
++  return result;
++}
++
+ bool LibvpxVp9Encoder::PopulateCodecSpecific(CodecSpecificInfo* codec_specific,
+                                              absl::optional<int>* spatial_idx,
+                                              absl::optional<int>* temporal_idx,
 -- 
 2.34.1
 

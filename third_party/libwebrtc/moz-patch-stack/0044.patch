@@ -1,63 +1,44 @@
-From: Michael Froman <mfroman@mozilla.com>
-Date: Fri, 16 Apr 2021 17:35:00 -0500
-Subject: Bug 1654112 - General build fixes for paths and naming changes. r=ng
+From: Andreas Pehrson <apehrson@mozilla.com>
+Date: Fri, 19 Feb 2021 13:45:00 +0100
+Subject: Bug 1654112 - libwebrtc: Add a REMB on/off switch to
+ VideoReceiveStream. r=ng
 
-Differential Revision: https://phabricator.services.mozilla.com/D113438
-Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/99b99cca6b7b2c2ebffb5472457a4f927bda11c4
+Differential Revision: https://phabricator.services.mozilla.com/D105774
+Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/7330681cf4de6d8dd868cc661cbdd6679bbc07b3
 ---
- modules/video_capture/video_capture_impl.h          | 4 +++-
- rtc_base/system/warn_current_thread_is_deadlocked.h | 2 +-
- sdk/android/api/org/webrtc/VideoCodecInfo.java      | 2 +-
- 3 files changed, 5 insertions(+), 3 deletions(-)
+ call/video_receive_stream.h         | 3 +++
+ video/rtp_video_stream_receiver2.cc | 3 +--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/modules/video_capture/video_capture_impl.h b/modules/video_capture/video_capture_impl.h
-index f874580471..b9af5f2441 100644
---- a/modules/video_capture/video_capture_impl.h
-+++ b/modules/video_capture/video_capture_impl.h
-@@ -81,6 +81,9 @@ class VideoCaptureImpl : public VideoCaptureModule {
-   VideoCaptureImpl();
-   ~VideoCaptureImpl() override;
+diff --git a/call/video_receive_stream.h b/call/video_receive_stream.h
+index 767c3c64fd..ebbca12b25 100644
+--- a/call/video_receive_stream.h
++++ b/call/video_receive_stream.h
+@@ -205,6 +205,9 @@ class VideoReceiveStreamInterface : public MediaReceiveStreamInterface {
+       // disabled.
+       KeyFrameReqMethod keyframe_method = KeyFrameReqMethod::kPliRtcp;
  
-+  // moved DeliverCapturedFrame to protected for VideoCaptureAndroid (mjf)
-+  int32_t DeliverCapturedFrame(VideoFrame& captureFrame);
++      // See draft-alvestrand-rmcat-remb for information.
++      bool remb = false;
 +
-   char* _deviceUniqueId;  // current Device unique name;
-   Mutex api_lock_;
-   VideoCaptureCapability _requestedCapability;  // Should be set by platform
-@@ -89,7 +92,6 @@ class VideoCaptureImpl : public VideoCaptureModule {
-  private:
-   void UpdateFrameCount();
-   uint32_t CalculateFrameRate(int64_t now_ns);
--  int32_t DeliverCapturedFrame(VideoFrame& captureFrame);
-   void DeliverRawFrame(uint8_t* videoFrame,
-                        size_t videoFrameLength,
-                        const VideoCaptureCapability& frameInfo,
-diff --git a/rtc_base/system/warn_current_thread_is_deadlocked.h b/rtc_base/system/warn_current_thread_is_deadlocked.h
-index 4a0ba9dc09..eac12022ed 100644
---- a/rtc_base/system/warn_current_thread_is_deadlocked.h
-+++ b/rtc_base/system/warn_current_thread_is_deadlocked.h
-@@ -13,7 +13,7 @@
+       bool tmmbr = false;
  
- namespace webrtc {
+       // See LntfConfig for description.
+diff --git a/video/rtp_video_stream_receiver2.cc b/video/rtp_video_stream_receiver2.cc
+index d7a789515b..41d6627a65 100644
+--- a/video/rtp_video_stream_receiver2.cc
++++ b/video/rtp_video_stream_receiver2.cc
+@@ -296,9 +296,8 @@ RtpVideoStreamReceiver2::RtpVideoStreamReceiver2(
+       frames_decryptable_(false),
+       absolute_capture_time_interpolator_(clock) {
+   packet_sequence_checker_.Detach();
+-  constexpr bool remb_candidate = true;
+   if (packet_router_)
+-    packet_router_->AddReceiveRtpModule(rtp_rtcp_.get(), remb_candidate);
++    packet_router_->AddReceiveRtpModule(rtp_rtcp_.get(), config_.rtp.remb);
  
--#if defined(WEBRTC_ANDROID) && !defined(WEBRTC_CHROMIUM_BUILD)
-+#if defined(WEBRTC_ANDROID) && !defined(WEBRTC_CHROMIUM_BUILD) && !defined(MOZ_WIDGET_ANDROID)
- void WarnThatTheCurrentThreadIsProbablyDeadlocked();
- #else
- inline void WarnThatTheCurrentThreadIsProbablyDeadlocked() {}
-diff --git a/sdk/android/api/org/webrtc/VideoCodecInfo.java b/sdk/android/api/org/webrtc/VideoCodecInfo.java
-index 4f97cf74cf..363be347b5 100644
---- a/sdk/android/api/org/webrtc/VideoCodecInfo.java
-+++ b/sdk/android/api/org/webrtc/VideoCodecInfo.java
-@@ -80,7 +80,7 @@ public class VideoCodecInfo {
-   }
- 
-   @CalledByNative
--  Map getParams() {
-+  Map<String, String> getParams() {
-     return params;
-   }
- }
+   RTC_DCHECK(config_.rtp.rtcp_mode != RtcpMode::kOff)
+       << "A stream should not be configured with RTCP disabled. This value is "
 -- 
 2.34.1
 

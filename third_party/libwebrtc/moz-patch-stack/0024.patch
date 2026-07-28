@@ -1,58 +1,96 @@
-From: Wang Qing <wangqing-hf@loongson.cn>
-Date: Wed, 25 Sep 2019 14:15:00 +0000
-Subject: Bug 1579834 - [WebRTC] Add mips64 support; r=dminor
+From: Dan Minor <dminor@mozilla.com>
+Date: Tue, 17 Sep 2019 06:47:00 +0000
+Subject: Bug 1581193 - Fix devicechange event on Windows; r=achronop
 
-Differential Revision: https://phabricator.services.mozilla.com/D45620
-Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/1387b2c480b55ecca3fbdf62bd7649dafc62438d
+This restores the code for generating devicechange events that was
+accidentally removed as part of updating the Windows video capture code
+in Bug 1552755.
+
+Differential Revision: https://phabricator.services.mozilla.com/D46033
+Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/840c4edafa021eeac6a7e6ae0e828d0adcfea92e
 ---
- modules/video_coding/codecs/vp8/libvpx_vp8_decoder.cc | 2 +-
- modules/video_coding/codecs/vp8/libvpx_vp8_encoder.cc | 6 +++---
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ .../video_capture/windows/device_info_ds.cc   | 39 +++++++++++++++++++
+ .../video_capture/windows/device_info_ds.h    |  3 ++
+ 2 files changed, 42 insertions(+)
 
-diff --git a/modules/video_coding/codecs/vp8/libvpx_vp8_decoder.cc b/modules/video_coding/codecs/vp8/libvpx_vp8_decoder.cc
-index 1ac71899ee..3fe86f2f85 100644
---- a/modules/video_coding/codecs/vp8/libvpx_vp8_decoder.cc
-+++ b/modules/video_coding/codecs/vp8/libvpx_vp8_decoder.cc
-@@ -47,7 +47,7 @@ const char kVp8PostProcArmFieldTrial[] = "WebRTC-VP8-Postproc-Config-Arm";
- const char kVp8PostProcFieldTrial[] = "WebRTC-VP8-Postproc-Config";
+diff --git a/modules/video_capture/windows/device_info_ds.cc b/modules/video_capture/windows/device_info_ds.cc
+index fb8d55137f..8543dce746 100644
+--- a/modules/video_capture/windows/device_info_ds.cc
++++ b/modules/video_capture/windows/device_info_ds.cc
+@@ -20,6 +20,29 @@
+ namespace webrtc {
+ namespace videocapturemodule {
  
- #if defined(WEBRTC_ARCH_ARM) || defined(WEBRTC_ARCH_ARM64) || \
--    defined(WEBRTC_ANDROID)
-+    defined(WEBRTC_ANDROID)  || defined(WEBRTC_ARCH_MIPS)
- constexpr bool kIsArm = true;
- #else
- constexpr bool kIsArm = false;
-diff --git a/modules/video_coding/codecs/vp8/libvpx_vp8_encoder.cc b/modules/video_coding/codecs/vp8/libvpx_vp8_encoder.cc
-index 8e401fcc7b..cc84605ce7 100644
---- a/modules/video_coding/codecs/vp8/libvpx_vp8_encoder.cc
-+++ b/modules/video_coding/codecs/vp8/libvpx_vp8_encoder.cc
-@@ -687,7 +687,7 @@ int LibvpxVp8Encoder::InitEncode(const VideoCodec* inst,
- 
- int LibvpxVp8Encoder::GetCpuSpeed(int width, int height) {
- #if defined(WEBRTC_ARCH_ARM) || defined(WEBRTC_ARCH_ARM64) || \
--    defined(WEBRTC_ANDROID)
-+    defined(WEBRTC_ANDROID) || defined(WEBRTC_ARCH_MIPS)
-   // On mobile platform, use a lower speed setting for lower resolutions for
-   // CPUs with 4 or more cores.
-   RTC_DCHECK_GT(number_of_cores_, 0);
-@@ -720,7 +720,7 @@ int LibvpxVp8Encoder::GetCpuSpeed(int width, int height) {
++LRESULT CALLBACK WndProc(HWND hWnd, UINT uiMsg, WPARAM wParam, LPARAM lParam)
++{
++    DeviceInfoDS* pParent;
++    if (uiMsg == WM_CREATE)
++    {
++        pParent = (DeviceInfoDS*)((LPCREATESTRUCT)lParam)->lpCreateParams;
++        SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)pParent);
++    }
++    else if (uiMsg == WM_DESTROY)
++    {
++        SetWindowLongPtr(hWnd, GWLP_USERDATA, NULL);
++    }
++    else if (uiMsg == WM_DEVICECHANGE)
++    {
++        pParent = (DeviceInfoDS*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
++        if (pParent)
++        {
++            pParent->DeviceChange();
++        }
++    }
++    return DefWindowProc(hWnd, uiMsg, wParam, lParam);
++}
++
+ // static
+ DeviceInfoDS* DeviceInfoDS::Create() {
+   DeviceInfoDS* dsInfo = new DeviceInfoDS();
+@@ -77,6 +100,18 @@ DeviceInfoDS::DeviceInfoDS()
+                         << rtc::ToHex(hr);
+     }
+   }
++
++  _hInstance = reinterpret_cast<HINSTANCE>(GetModuleHandle(NULL));
++  _wndClass = {0};
++  _wndClass.lpfnWndProc = &WndProc;
++  _wndClass.lpszClassName = TEXT("DeviceInfoDS");
++  _wndClass.hInstance = _hInstance;
++
++  if (RegisterClass(&_wndClass)) {
++    _hwnd = CreateWindow(_wndClass.lpszClassName, NULL, 0, CW_USEDEFAULT,
++                         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL,
++                         NULL, _hInstance, this);
++  }
  }
  
- int LibvpxVp8Encoder::NumberOfThreads(int width, int height, int cpus) {
--#if defined(WEBRTC_ANDROID)
-+#if defined(WEBRTC_ANDROID) || defined(WEBRTC_ARCH_MIPS)
-   if (width * height >= 320 * 180) {
-     if (cpus >= 4) {
-       // 3 threads for CPUs with 4 and more cores since most of times only 4
-@@ -794,7 +794,7 @@ int LibvpxVp8Encoder::InitAndSetControlSettings() {
-   // multi-res encoding feature?
-   denoiserState denoiser_state = kDenoiserOnYOnly;
- #if defined(WEBRTC_ARCH_ARM) || defined(WEBRTC_ARCH_ARM64) || \
--    defined(WEBRTC_ANDROID)
-+    defined(WEBRTC_ANDROID) || defined(WEBRTC_ARCH_MIPS)
-   denoiser_state = kDenoiserOnYOnly;
- #else
-   denoiser_state = kDenoiserOnAdaptive;
+ DeviceInfoDS::~DeviceInfoDS() {
+@@ -85,6 +120,10 @@ DeviceInfoDS::~DeviceInfoDS() {
+   if (_CoUninitializeIsRequired) {
+     CoUninitialize();
+   }
++  if (_hwnd != NULL) {
++    DestroyWindow(_hwnd);
++  }
++  UnregisterClass(_wndClass.lpszClassName, _hInstance);
+ }
+ 
+ int32_t DeviceInfoDS::Init() {
+diff --git a/modules/video_capture/windows/device_info_ds.h b/modules/video_capture/windows/device_info_ds.h
+index 1b52645cde..dc7b9b1a24 100644
+--- a/modules/video_capture/windows/device_info_ds.h
++++ b/modules/video_capture/windows/device_info_ds.h
+@@ -93,6 +93,9 @@ class DeviceInfoDS : public DeviceInfoImpl {
+   IEnumMoniker* _dsMonikerDevEnum;
+   bool _CoUninitializeIsRequired;
+   std::vector<VideoCaptureCapabilityWindows> _captureCapabilitiesWindows;
++  HWND _hwnd;
++  WNDCLASS _wndClass;
++  HINSTANCE _hInstance;
+ };
+ }  // namespace videocapturemodule
+ }  // namespace webrtc
 -- 
 2.34.1
 

@@ -1,66 +1,28 @@
-From: Randell Jesup <rjesup@wgate.com>
-Date: Sat, 11 Jul 2020 12:31:00 +0000
-Subject: Bug 1112392 - Move webrtc Tab Sharing to work in e10s/fission
- r=dminor
+From: Dan Minor <dminor@mozilla.com>
+Date: Tue, 11 Feb 2020 17:04:00 +0000
+Subject: Bug 1578073 - Fix warning: [cast] redundant cast to int; r=ng
 
-Also we drop support for an independent-of-scroll/viewport capture, which
-the old Tab Sharing supported, for security reasons (and we don't need it).
-
-Differential Revision: https://phabricator.services.mozilla.com/D80974
-Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/d57a030e6e3ae9ff56f14e8cc732b0e1d3869858
+Differential Revision: https://phabricator.services.mozilla.com/D61852
+Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/82877c8a864072c03f45234c6649645ed609e098
 ---
- modules/desktop_capture/desktop_capturer.cc | 11 +++++++++++
- modules/desktop_capture/desktop_capturer.h  |  8 ++++++++
- 2 files changed, 19 insertions(+)
+ sdk/android/api/org/webrtc/TextureBufferImpl.java | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/modules/desktop_capture/desktop_capturer.cc b/modules/desktop_capture/desktop_capturer.cc
-index 5211f1acec..4baa93cab9 100644
---- a/modules/desktop_capture/desktop_capturer.cc
-+++ b/modules/desktop_capture/desktop_capturer.cc
-@@ -101,6 +101,17 @@ std::unique_ptr<DesktopCapturer> DesktopCapturer::CreateScreenCapturer(
-   return capturer;
- }
+diff --git a/sdk/android/api/org/webrtc/TextureBufferImpl.java b/sdk/android/api/org/webrtc/TextureBufferImpl.java
+index c08fc4c29b..8e0e40ef70 100644
+--- a/sdk/android/api/org/webrtc/TextureBufferImpl.java
++++ b/sdk/android/api/org/webrtc/TextureBufferImpl.java
+@@ -136,8 +136,8 @@ public class TextureBufferImpl implements VideoFrame.TextureBuffer {
+     cropAndScaleMatrix.preScale(cropWidth / (float) width, cropHeight / (float) height);
  
-+// static
-+std::unique_ptr<DesktopCapturer> DesktopCapturer::CreateTabCapturer(
-+    const DesktopCaptureOptions& options) {
-+  std::unique_ptr<DesktopCapturer> capturer = CreateRawTabCapturer(options);
-+  if (capturer && options.detect_updated_region()) {
-+    capturer.reset(new DesktopCapturerDifferWrapper(std::move(capturer)));
-+  }
-+
-+  return capturer;
-+}
-+
- #if defined(WEBRTC_USE_PIPEWIRE) || defined(WEBRTC_USE_X11)
- bool DesktopCapturer::IsRunningUnderWayland() {
-   const char* xdg_session_type = getenv("XDG_SESSION_TYPE");
-diff --git a/modules/desktop_capture/desktop_capturer.h b/modules/desktop_capture/desktop_capturer.h
-index 6909a57891..cf75004af5 100644
---- a/modules/desktop_capture/desktop_capturer.h
-+++ b/modules/desktop_capture/desktop_capturer.h
-@@ -178,6 +178,10 @@ class RTC_EXPORT DesktopCapturer {
-   static std::unique_ptr<DesktopCapturer> CreateScreenCapturer(
-       const DesktopCaptureOptions& options);
+     return applyTransformMatrix(cropAndScaleMatrix,
+-        (int) Math.round(unscaledWidth * cropWidth / (float) width),
+-        (int) Math.round(unscaledHeight * cropHeight / (float) height), scaleWidth, scaleHeight);
++        Math.round(unscaledWidth * cropWidth / (float) width),
++        Math.round(unscaledHeight * cropHeight / (float) height), scaleWidth, scaleHeight);
+   }
  
-+  // Creates a DesktopCapturer instance which targets to capture tab.
-+  static std::unique_ptr<DesktopCapturer> CreateTabCapturer(
-+      const DesktopCaptureOptions& options);
-+
- #if defined(WEBRTC_USE_PIPEWIRE) || defined(WEBRTC_USE_X11)
-   static bool IsRunningUnderWayland();
- 
-@@ -203,6 +207,10 @@ class RTC_EXPORT DesktopCapturer {
-   // capture screens.
-   static std::unique_ptr<DesktopCapturer> CreateRawScreenCapturer(
-       const DesktopCaptureOptions& options);
-+
-+  // Creates a DesktopCapturer instance which targets to capture tabs
-+  static std::unique_ptr<DesktopCapturer> CreateRawTabCapturer(
-+      const DesktopCaptureOptions& options);
- };
- 
- }  // namespace webrtc
+   /**
 -- 
 2.34.1
 
