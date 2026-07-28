@@ -90,3 +90,4 @@ browser.jar:
   content/browser/aiwindow/components/smartwindow-smartbar-glow.css (components/smartwindow-smartbar-glow/smartwindow-smartbar-glow.css)
   content/browser/aiwindow/components/smartwindow-topsites.mjs       (components/smartwindow-topsites/smartwindow-topsites.mjs)
   content/browser/aiwindow/components/smartwindow-topsites.css       (components/smartwindow-topsites/smartwindow-topsites.css)
+  content/browser/aiwindow/components/smartwindow-group-tabs.mjs     (components/smartwindow-group-tabs/smartwindow-group-tabs.mjs)

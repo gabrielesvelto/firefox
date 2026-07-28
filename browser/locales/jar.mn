@@ -16,6 +16,7 @@
   browser                                          (%browser/**/*.ftl)
   preview/smartTabGroups.ftl                       (../locales-preview/smartTabGroups.ftl)
   preview/privacyPreferences.ftl                   (../locales-preview/privacyPreferences.ftl)
+  preview/autoTabGrouping.ftl                      (../locales-preview/autoTabGrouping.ftl)
 
 @AB_CD@.jar:
 % locale browser @AB_CD@ %locale/browser/
