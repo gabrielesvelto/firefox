@@ -2280,6 +2280,8 @@ TEST_F(VideoSendStreamTest, EncoderIsProperlyInitializedAndDestroyed) {
       EXPECT_TRUE(IsReadyForEncode());
     }
 
+    EncoderInfo GetEncoderInfo() const override { return EncoderInfo(); }
+
     void OnVideoStreamsCreated(VideoSendStream* send_stream,
                                const std::vector<VideoReceiveStreamInterface*>&
                                    receive_streams) override {
@@ -2893,7 +2895,7 @@ TEST_F(VideoSendStreamTest, ReportsSentResolution) {
         encoded._frameType = (*frame_types)[i];
         encoded._encodedWidth = kEncodedResolution[i].width;
         encoded._encodedHeight = kEncodedResolution[i].height;
-        encoded.SetSpatialIndex(i);
+        encoded.SetSimulcastIndex(i);
         EncodedImageCallback* callback;
         {
           MutexLock lock(&mutex_);

@@ -1,47 +1,56 @@
-From: Dan Minor <dminor@mozilla.com>
-Date: Fri, 29 Mar 2019 18:43:00 +0000
-Subject: Bug 1539220 - Prefer non-RGB24 capabilities when available;
- r=pehrsons
+From: Alex Chronopoulos <achronop@gmail.com>
+Date: Wed, 18 Sep 2019 13:12:00 +0000
+Subject: Bug 1572281 - Remove audio device change notifications from video
+ capture in Windows. r=dminor
 
-We've hit a number of problems with handling of RGB24 video capture on
-Windows. This adds a check that will ignore any RGB24 capture capabilities
-when determining a best match if there are other capabilities available to
-workaround the problems.
+Video capture used to provide device change notifications for audio and video devices. From now on, CubebDeviceEnumerator will provide audio device change notifications thus video capture is updated to notify only changes of the video device. This is the windows part.
 
-Differential Revision: https://phabricator.services.mozilla.com/D25449
-Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/c12307f3817bec87712ab5930493c3135c76b0a0
+Differential Revision: https://phabricator.services.mozilla.com/D46274
+Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/a5c23245837ebdd99532e8bfaca05774c5c96d9d
 ---
- modules/video_capture/device_info_impl.cc | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+ modules/video_capture/windows/device_info_ds.cc | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/modules/video_capture/device_info_impl.cc b/modules/video_capture/device_info_impl.cc
-index 7cccdb51a7..2a6afb3147 100644
---- a/modules/video_capture/device_info_impl.cc
-+++ b/modules/video_capture/device_info_impl.cc
-@@ -100,10 +100,23 @@ int32_t DeviceInfoImpl::GetBestMatchedCapability(
-   const int32_t numberOfCapabilies =
-       static_cast<int32_t>(_captureCapabilities.size());
+diff --git a/modules/video_capture/windows/device_info_ds.cc b/modules/video_capture/windows/device_info_ds.cc
+index 96db60c968..3ab95837c0 100644
+--- a/modules/video_capture/windows/device_info_ds.cc
++++ b/modules/video_capture/windows/device_info_ds.cc
+@@ -20,7 +20,7 @@
+ namespace webrtc {
+ namespace videocapturemodule {
  
-+  bool hasNonRGB24Capability = false;
-   for (int32_t tmp = 0; tmp < numberOfCapabilies;
-        ++tmp)  // Loop through all capabilities
-   {
-     VideoCaptureCapability& capability = _captureCapabilities[tmp];
-+    if (capability.videoType != VideoType::kRGB24) {
-+      hasNonRGB24Capability = true;
-+    }
-+  }
-+
-+  for (int32_t tmp = 0; tmp < numberOfCapabilies;
-+       ++tmp)  // Loop through all capabilities
-+  {
-+    VideoCaptureCapability& capability = _captureCapabilities[tmp];
-+    if (hasNonRGB24Capability && capability.videoType == VideoType::kRGB24) {
-+      continue;
-+    }
+-BOOL isCaptureDevice(DEV_BROADCAST_HDR *pHdr)
++BOOL isVideoDevice(DEV_BROADCAST_HDR *pHdr)
+ {
+   if (pHdr == NULL) {
+     return FALSE;
+@@ -29,7 +29,7 @@ BOOL isCaptureDevice(DEV_BROADCAST_HDR *pHdr)
+     return FALSE;
+   }
+   DEV_BROADCAST_DEVICEINTERFACE* pDi = (DEV_BROADCAST_DEVICEINTERFACE*)pHdr;
+-  return pDi->dbcc_classguid == KSCATEGORY_CAPTURE;
++  return pDi->dbcc_classguid == KSCATEGORY_VIDEO_CAMERA;
+ }
  
-     const int32_t diffWidth = capability.width - requested.width;
-     const int32_t diffHeight = capability.height - requested.height;
+ LRESULT CALLBACK WndProc(HWND hWnd, UINT uiMsg, WPARAM wParam, LPARAM lParam)
+@@ -47,7 +47,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uiMsg, WPARAM wParam, LPARAM lParam)
+     else if (uiMsg == WM_DEVICECHANGE)
+     {
+         pParent = (DeviceInfoDS*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+-        if (pParent && isCaptureDevice((PDEV_BROADCAST_HDR)lParam))
++        if (pParent && isVideoDevice((PDEV_BROADCAST_HDR)lParam))
+         {
+             pParent->DeviceChange();
+         }
+@@ -128,7 +128,7 @@ DeviceInfoDS::DeviceInfoDS()
+     DEV_BROADCAST_DEVICEINTERFACE di = { 0 };
+     di.dbcc_size = sizeof(di);
+     di.dbcc_devicetype  = DBT_DEVTYP_DEVICEINTERFACE;
+-    di.dbcc_classguid  = KSCATEGORY_CAPTURE;
++    di.dbcc_classguid  = KSCATEGORY_VIDEO_CAMERA;
+ 
+     _hdevnotify = RegisterDeviceNotification(_hwnd, &di,
+                                              DEVICE_NOTIFY_WINDOW_HANDLE);
 -- 
 2.34.1
 

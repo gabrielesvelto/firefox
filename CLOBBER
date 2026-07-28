@@ -24,4 +24,4 @@
 
 Merge day clobber 2026-07-20
 
-Modified build files in third_party/libwebrtc - Bug 1833237 - Vendor libwebrtc from 60795e8c7a
+Modified build files in third_party/libwebrtc - Bug 1833237 - Vendor libwebrtc from 86163248f4

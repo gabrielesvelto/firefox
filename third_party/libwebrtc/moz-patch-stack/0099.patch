@@ -1,69 +1,28 @@
 From: Andreas Pehrson <apehrson@mozilla.com>
-Date: Wed, 10 May 2023 07:06:00 +0000
-Subject: Bug 1810949 - cherry-pick upstream libwebrtc commit ba41b40461.
- r=webrtc-reviewers,mjf
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Wed, 10 May 2023 07:47:00 +0000
+Subject: Bug 1810949 - In webrtc_libyuv.cc put a label at end of compound
+ statement. CLOSED TREE
 
-Upstream commit: https://webrtc.googlesource.com/src/+/ba41b40461df191624c61f0c98ae76e69fe1d46b
-    webrtc_libyuv: Add support for more video types for consistency
+Differential Revision: https://phabricator.services.mozilla.com/D177600
 
-    Bug: webrtc:14830
-    Change-Id: I0998fb04a03745131f9f5cca878b0cdb46f3b62b
-    Reviewed-on: https://webrtc-review.googlesource.com/c/src/+/291529
-    Reviewed-by: Erik Språng <sprang@webrtc.org>
-    Commit-Queue: Ilya Nikolaevskiy <ilnik@webrtc.org>
-    Reviewed-by: Ilya Nikolaevskiy <ilnik@webrtc.org>
-    Cr-Commit-Position: refs/heads/main@{#39940}
-
-Differential Revision: https://phabricator.services.mozilla.com/D177229
-Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/b6eaef560895caa06e11cce40083eb87fd8724a8
+Depends on D177599
+Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/6ac8147fee0323be3bf1d7f292a2a408a9901159
 ---
- common_video/libyuv/include/webrtc_libyuv.h | 3 ++-
- common_video/libyuv/webrtc_libyuv.cc        | 4 ++++
- 2 files changed, 6 insertions(+), 1 deletion(-)
+ common_video/libyuv/webrtc_libyuv.cc | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/common_video/libyuv/include/webrtc_libyuv.h b/common_video/libyuv/include/webrtc_libyuv.h
-index 6d9071bcd5..253a33294d 100644
---- a/common_video/libyuv/include/webrtc_libyuv.h
-+++ b/common_video/libyuv/include/webrtc_libyuv.h
-@@ -32,8 +32,9 @@ enum class VideoType {
-   kI420,
-   kIYUV,
-   kRGB24,
--  kABGR,
-+  kBGR24,
-   kARGB,
-+  kABGR,
-   kARGB4444,
-   kRGB565,
-   kARGB1555,
 diff --git a/common_video/libyuv/webrtc_libyuv.cc b/common_video/libyuv/webrtc_libyuv.cc
-index d07d739119..8c68162624 100644
+index 8c68162624..05a4b184c2 100644
 --- a/common_video/libyuv/webrtc_libyuv.cc
 +++ b/common_video/libyuv/webrtc_libyuv.cc
-@@ -39,9 +39,11 @@ size_t CalcBufferSize(VideoType type, int width, int height) {
-     case VideoType::kUYVY:
-       return width * height * 2;
-     case VideoType::kRGB24:
-+    case VideoType::kBGR24:
-       return width * height * 3;
-     case VideoType::kBGRA:
-     case VideoType::kARGB:
-+    case VideoType::kABGR:
+@@ -47,6 +47,7 @@ size_t CalcBufferSize(VideoType type, int width, int height) {
        return width * height * 4;
      case VideoType::kMJPEG:
      case VideoType::kUnknown:
-@@ -92,6 +94,8 @@ int ConvertVideoType(VideoType video_type) {
-       return libyuv::FOURCC_YV12;
-     case VideoType::kRGB24:
-       return libyuv::FOURCC_24BG;
-+    case VideoType::kBGR24:
-+      return libyuv::FOURCC_RAW;
-     case VideoType::kABGR:
-       return libyuv::FOURCC_ABGR;
-     case VideoType::kRGB565:
++      break;
+   }
+   RTC_DCHECK_NOTREACHED() << "Unexpected pixel format " << type;
+   return 0;
 -- 
 2.34.1
 

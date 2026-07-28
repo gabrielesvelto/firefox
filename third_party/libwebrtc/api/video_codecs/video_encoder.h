@@ -330,6 +330,9 @@ class RTC_EXPORT VideoEncoder {
     Capabilities capabilities;
     int number_of_cores;
     size_t max_payload_size;
+    // Experimental API - currently only supported by LibvpxVp8Encoder and
+    // the OpenH264 encoder. If set, limits the number of encoder threads.
+    absl::optional<int> encoder_thread_limit;
   };
 
   static VideoCodecVP8 GetDefaultVp8Settings();
@@ -420,7 +423,7 @@ class RTC_EXPORT VideoEncoder {
   // The output of this method may change during runtime. For instance if a
   // hardware encoder fails, it may fall back to doing software encoding using
   // an implementation with different characteristics.
-  virtual EncoderInfo GetEncoderInfo() const;
+  virtual EncoderInfo GetEncoderInfo() const = 0;
 };
 }  // namespace webrtc
 #endif  // API_VIDEO_CODECS_VIDEO_ENCODER_H_

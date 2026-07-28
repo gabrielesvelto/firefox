@@ -1,43 +1,40 @@
-From: Dan Minor <dminor@mozilla.com>
-Date: Tue, 11 Feb 2020 17:07:00 +0000
-Subject: Bug 1578073 - Remove native calls in Histogram.java; r=ng
+From: James Willcox <snorp@snorp.net>
+Date: Fri, 18 Sep 2020 22:29:00 +0000
+Subject: Bug 1553459 - Migrate to AndroidX r=geckoview-reviewers,agi
 
-Getting the JNI calls here to work requires a good amount of webrtc.org
-machinery. It might be worth setting that up the next time we do an upstream
-merge, but for now, it is a lot simpler to just remove the affected code,
-given that we are not interested in collecting this data anyway.
-
-Differential Revision: https://phabricator.services.mozilla.com/D61860
-Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/7a9b07dec9f9d435416b06829fa5063aca3a476e
+Differential Revision: https://phabricator.services.mozilla.com/D90711
+Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/cf8917364050fc7d981b190cdc1db5ab57357f9b
 ---
- sdk/android/src/java/org/webrtc/Histogram.java | 9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
+ sdk/android/src/java/org/webrtc/EglBase14Impl.java   | 1 -
+ sdk/android/src/java/org/webrtc/GlGenericDrawer.java | 3 ---
+ 2 files changed, 4 deletions(-)
 
-diff --git a/sdk/android/src/java/org/webrtc/Histogram.java b/sdk/android/src/java/org/webrtc/Histogram.java
-index 877986134a..c1d2d61a71 100644
---- a/sdk/android/src/java/org/webrtc/Histogram.java
-+++ b/sdk/android/src/java/org/webrtc/Histogram.java
-@@ -27,18 +27,13 @@ class Histogram {
-   }
+diff --git a/sdk/android/src/java/org/webrtc/EglBase14Impl.java b/sdk/android/src/java/org/webrtc/EglBase14Impl.java
+index e53dda6e4c..caf45b091e 100644
+--- a/sdk/android/src/java/org/webrtc/EglBase14Impl.java
++++ b/sdk/android/src/java/org/webrtc/EglBase14Impl.java
+@@ -21,7 +21,6 @@ import android.opengl.GLException;
+ import android.os.Build;
+ import android.view.Surface;
+ import androidx.annotation.Nullable;
+-import org.webrtc.EglBase;
  
-   static public Histogram createCounts(String name, int min, int max, int bucketCount) {
--    return new Histogram(nativeCreateCounts(name, min, max, bucketCount));
-+    return new Histogram(0);
-   }
+ /**
+  * Holds EGL state and utility methods for handling an EGL14 EGLContext, an EGLDisplay,
+diff --git a/sdk/android/src/java/org/webrtc/GlGenericDrawer.java b/sdk/android/src/java/org/webrtc/GlGenericDrawer.java
+index b70a3728b9..34144e2f75 100644
+--- a/sdk/android/src/java/org/webrtc/GlGenericDrawer.java
++++ b/sdk/android/src/java/org/webrtc/GlGenericDrawer.java
+@@ -14,9 +14,6 @@ import android.opengl.GLES11Ext;
+ import android.opengl.GLES20;
+ import androidx.annotation.Nullable;
+ import java.nio.FloatBuffer;
+-import org.webrtc.GlShader;
+-import org.webrtc.GlUtil;
+-import org.webrtc.RendererCommon;
  
-   static public Histogram createEnumeration(String name, int max) {
--    return new Histogram(nativeCreateEnumeration(name, max));
-+    return new Histogram(0);
-   }
- 
-   public void addSample(int sample) {
--    nativeAddSample(handle, sample);
-   }
--
--  private static native long nativeCreateCounts(String name, int min, int max, int bucketCount);
--  private static native long nativeCreateEnumeration(String name, int max);
--  private static native void nativeAddSample(long handle, int sample);
- }
+ /**
+  * Helper class to implement an instance of RendererCommon.GlDrawer that can accept multiple input
 -- 
 2.34.1
 

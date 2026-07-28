@@ -77,7 +77,8 @@ class MediaChannel : public MediaSendChannelInterface,
   enum class Role {
     kSend,
     kReceive,
-    kBoth  // Temporary value for non-converted test code
+    kBoth  // Temporary value for non-converted test and downstream code
+    // TODO(bugs.webrtc.org/13931): Remove kBoth when usage is removed.
   };
 
   explicit MediaChannel(Role role,
@@ -423,6 +424,10 @@ class VoiceMediaSendChannel : public VoiceMediaSendChannelInterface {
   bool GetStats(VoiceMediaSendInfo* info) override {
     return impl_->GetSendStats(info);
   }
+  bool SenderNackEnabled() const override { return impl_->SenderNackEnabled(); }
+  bool SenderNonSenderRttEnabled() const override {
+    return impl_->SenderNonSenderRttEnabled();
+  }
   MediaChannel* ImplForTesting() override { return impl_; }
 
  private:
@@ -539,6 +544,12 @@ class VoiceMediaReceiveChannel : public VoiceMediaReceiveChannelInterface {
   bool GetStats(VoiceMediaReceiveInfo* info, bool reset_legacy) override {
     return impl_->GetReceiveStats(info, reset_legacy);
   }
+  void SetReceiveNackEnabled(bool enabled) override {
+    impl_->SetReceiveNackEnabled(enabled);
+  }
+  void SetReceiveNonSenderRttEnabled(bool enabled) override {
+    impl_->SetReceiveNonSenderRttEnabled(enabled);
+  }
   MediaChannel* ImplForTesting() override { return impl_; }
 
  private:
@@ -640,6 +651,15 @@ class VideoMediaSendChannel : public VideoMediaSendChannelInterface {
   }
   void FillBitrateInfo(BandwidthEstimationInfo* bwe_info) override {
     return impl_->FillBitrateInfo(bwe_info);
+  }
+  // Information queries to support SetReceiverFeedbackParameters
+  webrtc::RtcpMode SendCodecRtcpMode() const override {
+    return impl()->SendCodecRtcpMode();
+  }
+  bool SendCodecHasLntf() const override { return impl()->SendCodecHasLntf(); }
+  bool SendCodecHasNack() const override { return impl()->SendCodecHasNack(); }
+  absl::optional<int> SendCodecRtxTime() const override {
+    return impl()->SendCodecRtxTime();
   }
 
   MediaChannel* ImplForTesting() override { return impl_; }
@@ -763,6 +783,13 @@ class VideoMediaReceiveChannel : public VideoMediaReceiveChannelInterface {
   }
   bool GetStats(VideoMediaReceiveInfo* info) override {
     return impl_->GetReceiveStats(info);
+  }
+  void SetReceiverFeedbackParameters(bool lntf_enabled,
+                                     bool nack_enabled,
+                                     webrtc::RtcpMode rtcp_mode,
+                                     absl::optional<int> rtx_time) override {
+    impl()->SetReceiverFeedbackParameters(lntf_enabled, nack_enabled, rtcp_mode,
+                                          rtx_time);
   }
   MediaChannel* ImplForTesting() override { return impl_; }
 

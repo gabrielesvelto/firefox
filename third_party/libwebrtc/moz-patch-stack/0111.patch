@@ -1,81 +1,160 @@
 From: Andreas Pehrson <apehrson@mozilla.com>
-Date: Tue, 16 May 2023 06:38:00 +0000
-Subject: Bug 1832804 - cherry-pick upstream webrtc commit a09331a603.
+Date: Tue, 23 May 2023 06:14:00 +0000
+Subject: Bug 1832751 - cherry-pick upstream libwebrtc commit 301e546a68.
  r=webrtc-reviewers,mjf
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
-Upstream commit: https://webrtc.googlesource.com/src/+/a09331a6038bb6191c7662680d8928940463a099
-    Don't write TransmissionOffset when capture time is not set
+Upstream commit: https://webrtc.googlesource.com/src/+/301e546a689020320f919a660591759e993ef051
+    Remove SequenceCheckerImpl::valid_system_queue_
 
-    RTX padding packets sent before media packets can legitimately have no
-    timestamps set (they are 0). Writing the TransmissionOffset extension
-    with capture time 0 will overflow once current time exceeds ~3 minutes.
+    As pointed out in issue webrtc:15146 this Mac/iOS specific variable,
+    makes the SequenceChecker behave incorrectly on those platforms.
 
-    Bug: webrtc:15172
-    Change-Id: I4dd1f341802d45016549b330f0e08cd3a00cfa19
-    Reviewed-on: https://webrtc-review.googlesource.com/c/src/+/305020
-    Reviewed-by: Erik Språng <sprang@webrtc.org>
-    Reviewed-by: Per Kjellander <perkj@webrtc.org>
-    Commit-Queue: Danil Chapovalov <danilchap@webrtc.org>
-    Reviewed-by: Danil Chapovalov <danilchap@webrtc.org>
-    Cr-Commit-Position: refs/heads/main@{#40055}
+    The variable was introduced in a CL that merged the previous checker
+    classes, ThreadChecker and SequencedTaskChecker, but curiously neither
+    one of them had such a variable. So I'm not exactly sure what problem
+    was being solved. Hence I'm wondering if we actually need it.
 
-Differential Revision: https://phabricator.services.mozilla.com/D178007
-Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/c303f3d267415184f3d023b022e4bd309d540fec
+    Reference: https://webrtc-review.googlesource.com/c/src/+/129721
+
+    Bug: webrtc:15146
+    Change-Id: Ia7a9eb17b993c4f8a1e8204c658bf0b3dbdaa1e0
+    Reviewed-on: https://webrtc-review.googlesource.com/c/src/+/304401
+    Reviewed-by: Peter Hanspers <peterhanspers@webrtc.org>
+    Commit-Queue: Tomas Gunnarsson <tommi@webrtc.org>
+    Cr-Commit-Position: refs/heads/main@{#40019}
+
+Differential Revision: https://phabricator.services.mozilla.com/D177875
+Mercurial Revision: https://hg.mozilla.org/mozilla-central/rev/220fde5226ae38aa03a625b6a472b6e6ef6b6054
 ---
- modules/rtp_rtcp/source/rtp_sender_egress.cc  |  5 +++--
- .../source/rtp_sender_egress_unittest.cc      | 20 +++++++++++++++++++
- 2 files changed, 23 insertions(+), 2 deletions(-)
+ api/sequence_checker_unittest.cc              | 13 +++++++
+ .../sequence_checker_internal.cc              | 37 +++----------------
+ .../sequence_checker_internal.h               |  1 -
+ 3 files changed, 18 insertions(+), 33 deletions(-)
 
-diff --git a/modules/rtp_rtcp/source/rtp_sender_egress.cc b/modules/rtp_rtcp/source/rtp_sender_egress.cc
-index 3f836c5415..e4e0993d71 100644
---- a/modules/rtp_rtcp/source/rtp_sender_egress.cc
-+++ b/modules/rtp_rtcp/source/rtp_sender_egress.cc
-@@ -210,8 +210,9 @@ void RtpSenderEgress::SendPacket(RtpPacketToSend* packet,
-   // In case of VideoTimingExtension, since it's present not in every packet,
-   // data after rtp header may be corrupted if these packets are protected by
-   // the FEC.
--  TimeDelta diff = now - packet->capture_time();
--  if (packet->HasExtension<TransmissionOffset>()) {
-+  if (packet->HasExtension<TransmissionOffset>() &&
-+      packet->capture_time() > Timestamp::Zero()) {
-+    TimeDelta diff = now - packet->capture_time();
-     packet->SetExtension<TransmissionOffset>(kTimestampTicksPerMs * diff.ms());
-   }
-   if (packet->HasExtension<AbsoluteSendTime>()) {
-diff --git a/modules/rtp_rtcp/source/rtp_sender_egress_unittest.cc b/modules/rtp_rtcp/source/rtp_sender_egress_unittest.cc
-index cc1c8feb8d..bfaffa1bdb 100644
---- a/modules/rtp_rtcp/source/rtp_sender_egress_unittest.cc
-+++ b/modules/rtp_rtcp/source/rtp_sender_egress_unittest.cc
-@@ -268,6 +268,26 @@ TEST_F(RtpSenderEgressTest,
-   EXPECT_TRUE(transport_.last_packet()->options.included_in_allocation);
+diff --git a/api/sequence_checker_unittest.cc b/api/sequence_checker_unittest.cc
+index 3efb5c78ee..f117926d73 100644
+--- a/api/sequence_checker_unittest.cc
++++ b/api/sequence_checker_unittest.cc
+@@ -98,6 +98,19 @@ TEST(SequenceCheckerTest, MethodNotAllowedOnDifferentThreadInDebug) {
+       [&] { EXPECT_EQ(sequence_checker.IsCurrent(), !RTC_DCHECK_IS_ON); });
  }
  
-+TEST_F(RtpSenderEgressTest,
-+       DoesntWriteTransmissionOffsetOnRtxPaddingBeforeMedia) {
-+  header_extensions_.RegisterByUri(kTransmissionOffsetExtensionId,
-+                                   TransmissionOffset::Uri());
-+
-+  // Prior to sending media, timestamps are 0.
-+  std::unique_ptr<RtpPacketToSend> padding =
-+      BuildRtpPacket(/*marker_bit=*/true, /*capture_time_ms=*/0);
-+  padding->set_packet_type(RtpPacketMediaType::kPadding);
-+  padding->SetSsrc(kRtxSsrc);
-+  EXPECT_TRUE(padding->HasExtension<TransmissionOffset>());
-+
-+  std::unique_ptr<RtpSenderEgress> sender = CreateRtpSenderEgress();
-+  sender->SendPacket(std::move(padding), PacedPacketInfo());
-+
-+  absl::optional<int32_t> offset =
-+      transport_.last_packet()->packet.GetExtension<TransmissionOffset>();
-+  EXPECT_EQ(offset, 0);
++#if RTC_DCHECK_IS_ON
++TEST(SequenceCheckerTest, OnlyCurrentOnOneThread) {
++  SequenceChecker sequence_checker(SequenceChecker::kDetached);
++  RunOnDifferentThread([&] {
++    EXPECT_TRUE(sequence_checker.IsCurrent());
++    // Spawn a new thread from within the first one to guarantee that we have
++    // two concurrently active threads (and that there's no chance of the
++    // thread ref being reused).
++    RunOnDifferentThread([&] { EXPECT_FALSE(sequence_checker.IsCurrent()); });
++  });
 +}
++#endif
 +
- TEST_F(RtpSenderEgressTest, OnSendSideDelayUpdated) {
-   StrictMock<MockSendSideDelayObserver> send_side_delay_observer;
-   RtpRtcpInterface::Configuration config = DefaultConfig();
+ TEST(SequenceCheckerTest, MethodNotAllowedOnDifferentTaskQueueInDebug) {
+   SequenceChecker sequence_checker;
+   TaskQueueForTest queue;
+diff --git a/rtc_base/synchronization/sequence_checker_internal.cc b/rtc_base/synchronization/sequence_checker_internal.cc
+index 9831f07d7d..3e205b91d5 100644
+--- a/rtc_base/synchronization/sequence_checker_internal.cc
++++ b/rtc_base/synchronization/sequence_checker_internal.cc
+@@ -11,52 +11,30 @@
+ 
+ #include <string>
+ 
+-#if defined(WEBRTC_MAC)
+-#include <dispatch/dispatch.h>
+-#endif
+-
+ #include "rtc_base/checks.h"
+ #include "rtc_base/strings/string_builder.h"
+ 
+ namespace webrtc {
+ namespace webrtc_sequence_checker_internal {
+-namespace {
+-// On Mac, returns the label of the current dispatch queue; elsewhere, return
+-// null.
+-const void* GetSystemQueueRef() {
+-#if defined(WEBRTC_MAC)
+-  return dispatch_queue_get_label(DISPATCH_CURRENT_QUEUE_LABEL);
+-#else
+-  return nullptr;
+-#endif
+-}
+-
+-}  // namespace
+ 
+ SequenceCheckerImpl::SequenceCheckerImpl(bool attach_to_current_thread)
+     : attached_(attach_to_current_thread),
+       valid_thread_(rtc::CurrentThreadRef()),
+-      valid_queue_(TaskQueueBase::Current()),
+-      valid_system_queue_(GetSystemQueueRef()) {}
++      valid_queue_(TaskQueueBase::Current()) {}
+ 
+ bool SequenceCheckerImpl::IsCurrent() const {
+   const TaskQueueBase* const current_queue = TaskQueueBase::Current();
+   const rtc::PlatformThreadRef current_thread = rtc::CurrentThreadRef();
+-  const void* const current_system_queue = GetSystemQueueRef();
+   MutexLock scoped_lock(&lock_);
+   if (!attached_) {  // Previously detached.
+     attached_ = true;
+     valid_thread_ = current_thread;
+     valid_queue_ = current_queue;
+-    valid_system_queue_ = current_system_queue;
+     return true;
+   }
+   if (valid_queue_) {
+     return valid_queue_ == current_queue;
+   }
+-  if (valid_system_queue_ && valid_system_queue_ == current_system_queue) {
+-    return true;
+-  }
+   return rtc::IsThreadRefEqual(valid_thread_, current_thread);
+ }
+ 
+@@ -71,7 +49,6 @@ void SequenceCheckerImpl::Detach() {
+ std::string SequenceCheckerImpl::ExpectationToString() const {
+   const TaskQueueBase* const current_queue = TaskQueueBase::Current();
+   const rtc::PlatformThreadRef current_thread = rtc::CurrentThreadRef();
+-  const void* const current_system_queue = GetSystemQueueRef();
+   MutexLock scoped_lock(&lock_);
+   if (!attached_)
+     return "Checker currently not attached.";
+@@ -85,17 +62,13 @@ std::string SequenceCheckerImpl::ExpectationToString() const {
+ 
+   rtc::StringBuilder message;
+   message.AppendFormat(
+-      "# Expected: TQ: %p SysQ: %p Thread: %p\n"
+-      "# Actual:   TQ: %p SysQ: %p Thread: %p\n",
+-      valid_queue_, valid_system_queue_,
+-      reinterpret_cast<const void*>(valid_thread_), current_queue,
+-      current_system_queue, reinterpret_cast<const void*>(current_thread));
++      "# Expected: TQ: %p Thread: %p\n"
++      "# Actual:   TQ: %p Thread: %p\n",
++      valid_queue_, reinterpret_cast<const void*>(valid_thread_), current_queue,
++      reinterpret_cast<const void*>(current_thread));
+ 
+   if ((valid_queue_ || current_queue) && valid_queue_ != current_queue) {
+     message << "TaskQueue doesn't match\n";
+-  } else if (valid_system_queue_ &&
+-             valid_system_queue_ != current_system_queue) {
+-    message << "System queue doesn't match\n";
+   } else if (!rtc::IsThreadRefEqual(valid_thread_, current_thread)) {
+     message << "Threads don't match\n";
+   }
+diff --git a/rtc_base/synchronization/sequence_checker_internal.h b/rtc_base/synchronization/sequence_checker_internal.h
+index a66e9ee8ec..22503027a5 100644
+--- a/rtc_base/synchronization/sequence_checker_internal.h
++++ b/rtc_base/synchronization/sequence_checker_internal.h
+@@ -50,7 +50,6 @@ class RTC_EXPORT SequenceCheckerImpl {
+   mutable bool attached_ RTC_GUARDED_BY(lock_);
+   mutable rtc::PlatformThreadRef valid_thread_ RTC_GUARDED_BY(lock_);
+   mutable const TaskQueueBase* valid_queue_ RTC_GUARDED_BY(lock_);
+-  mutable const void* valid_system_queue_ RTC_GUARDED_BY(lock_);
+ };
+ 
+ // Do nothing implementation, for use in release mode.
 -- 
 2.34.1
 

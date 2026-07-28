@@ -1,32 +1,25 @@
 From: Michael Froman <mjfroman@mac.com>
-Date: Fri, 8 Apr 2022 11:36:36 -0500
-Subject: Bug 1766646 - (fix-b556b08668) avoid InlinedVector method that can
- throw exception
+Date: Wed, 1 Jun 2022 12:47:00 -0500
+Subject: Bug 1766646 - (fix-f137b75a4d) specify default constructor on
+ config.emplace(...)
 
 ---
- api/video_codecs/video_encoder.cc | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ modules/congestion_controller/goog_cc/loss_based_bwe_v2.cc | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/api/video_codecs/video_encoder.cc b/api/video_codecs/video_encoder.cc
-index b85b9328cf..deb4fdc637 100644
---- a/api/video_codecs/video_encoder.cc
-+++ b/api/video_codecs/video_encoder.cc
-@@ -179,7 +179,15 @@ std::string VideoEncoder::EncoderInfo::ToString() const {
-   for (size_t i = 0; i < preferred_pixel_formats.size(); ++i) {
-     if (i > 0)
-       oss << ", ";
-+#if defined(WEBRTC_MOZILLA_BUILD)
-+    // This could assert, as opposed to throw using the form in the
-+    // else, but since we're in a for loop that uses .size() we can
-+    // be fairly sure that this is safe without doing a further
-+    // check to make sure 'i' is in-range.
-+    oss << VideoFrameBufferTypeToString(preferred_pixel_formats[i]);
-+#else
-     oss << VideoFrameBufferTypeToString(preferred_pixel_formats.at(i));
-+#endif
+diff --git a/modules/congestion_controller/goog_cc/loss_based_bwe_v2.cc b/modules/congestion_controller/goog_cc/loss_based_bwe_v2.cc
+index 223a92885e..0e7384fa9a 100644
+--- a/modules/congestion_controller/goog_cc/loss_based_bwe_v2.cc
++++ b/modules/congestion_controller/goog_cc/loss_based_bwe_v2.cc
+@@ -461,7 +461,7 @@ absl::optional<LossBasedBweV2::Config> LossBasedBweV2::CreateConfig(
+   if (!enabled.Get()) {
+     return config;
    }
-   oss << "]";
-   if (is_qp_trusted.has_value()) {
+-  config.emplace();
++  config.emplace(Config());
+   config->bandwidth_rampup_upper_bound_factor =
+       bandwidth_rampup_upper_bound_factor.Get();
+   config->rampup_acceleration_max_factor = rampup_acceleration_max_factor.Get();
 -- 
 2.34.1
 
