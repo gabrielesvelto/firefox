@@ -146,14 +146,36 @@ DesktopRect GetFullscreenRect() {
                                GetSystemMetrics(SM_CYVIRTUALSCREEN));
 }
 
+using GetDpiForMonitorProc =
+    HRESULT(WINAPI*)(HMONITOR, MONITOR_DPI_TYPE, UINT*, UINT*);
+
+GetDpiForMonitorProc ResolveGetDpiForMonitor() {
+  static const GetDpiForMonitorProc get_dpi_for_monitor = [] {
+    HMODULE shcore =
+        LoadLibraryExW(L"shcore.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if (!shcore) {
+      return static_cast<GetDpiForMonitorProc>(nullptr);
+    }
+
+    return reinterpret_cast<GetDpiForMonitorProc>(
+        GetProcAddress(shcore, "GetDpiForMonitor"));
+  }();
+
+  return get_dpi_for_monitor;
+}
+
 DesktopVector GetDpiForMonitor(HMONITOR monitor) {
-  UINT dpi_x, dpi_y;
-  // MDT_EFFECTIVE_DPI includes the scale factor as well as the system DPI.
-  HRESULT hr = ::GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y);
-  if (SUCCEEDED(hr)) {
-    return {static_cast<INT>(dpi_x), static_cast<INT>(dpi_y)};
+  GetDpiForMonitorProc get_dpi_for_monitor = ResolveGetDpiForMonitor();
+  if (get_dpi_for_monitor) {
+    UINT dpi_x, dpi_y;
+    // MDT_EFFECTIVE_DPI includes the scale factor as well as the system DPI.
+    HRESULT hr =
+        get_dpi_for_monitor(monitor, MDT_EFFECTIVE_DPI, &dpi_x, &dpi_y);
+    if (SUCCEEDED(hr)) {
+      return {static_cast<INT>(dpi_x), static_cast<INT>(dpi_y)};
+    }
+    RTC_LOG_GLE_EX(LS_WARNING, hr) << "GetDpiForMonitor() failed";
   }
-  RTC_LOG_GLE_EX(LS_WARNING, hr) << "GetDpiForMonitor() failed";
 
   // If we can't get the per-monitor DPI, then return the system DPI.
   HDC hdc = GetDC(nullptr);
