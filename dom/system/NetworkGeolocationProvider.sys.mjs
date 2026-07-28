@@ -278,9 +278,10 @@ NetworkGeolocationProvider.prototype = {
       return;
     }
 
-    // Without clearing this, we could end up using the cache almost indefinitely
-    // TODO: add logic for cache lifespan, for now just be safe and clear it
-    gCachedRequest = null;
+    // The request cache is intentionally retained across shutdown so a recent
+    // position can be reused across the provider's stop/restart cycles within a
+    // browser run, instead of cold-starting a network request for each
+    // intermittent geolocation use.
 
     if (this.timer) {
       this.timer.cancel();
