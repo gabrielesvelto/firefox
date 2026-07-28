@@ -283,7 +283,7 @@ CachedTableCellAccessible* CachedTableCellAccessible::GetFrom(
 Accessible* CachedTableCellAccessible::Acc(Accessible* aTableAcc) const {
   Accessible* acc =
       nsAccUtils::GetAccessibleByID(nsAccUtils::DocumentFor(aTableAcc), mAccID);
-  MOZ_DIAGNOSTIC_ASSERT(acc == mAcc, "Cell's cached mAcc is dead!");
+  MOZ_RELEASE_ASSERT(acc == mAcc, "Cell's cached mAcc is dead!");
   return acc;
 }
 
