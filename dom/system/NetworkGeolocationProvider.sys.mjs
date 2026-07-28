@@ -237,7 +237,16 @@ NetworkGeolocationProvider.prototype = {
 
   startup() {
     lazy.log.debug("startup called.");
+
+    // startup() may be called again for each new geolocation request (per
+    // nsIGeolocationProvider). Treat it as a fresh request and restart the
+    // failure backoff so the request is served at the normal cadence instead
+    // of waiting out a prior failure's backoff.
+    this._resetBackoff();
+
     if (this.started) {
+      // Already running: re-arm the repeating timer at the reset interval.
+      this.resetTimer();
       return;
     }
 
@@ -259,9 +268,6 @@ NetworkGeolocationProvider.prototype = {
   watch(c) {
     lazy.log.debug("watch called");
     this.listener = c;
-    // A new request restarts the backoff so genuine requests are served at the
-    // normal cadence rather than waiting out a prior failure's backoff.
-    this._resetBackoff();
     this.notify();
     this.resetTimer();
   },
