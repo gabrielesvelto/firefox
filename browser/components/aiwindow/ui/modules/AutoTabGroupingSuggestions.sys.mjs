@@ -69,8 +69,14 @@ const TAB_GROUP_COLORS = [
  * free of any DOM so the pure parts stay unit-testable and every model call is
  * guarded against throwing.
  */
+const MAX_LABEL_CACHE_ENTRIES = 50;
+
 export const AutoTabGroupingSuggestions = {
   _manager: null,
+
+  // Reopening the panel over an unchanged set of tabs reuses the title
+  // instead of re-running the labeling model.
+  _labelCache: new Map(),
 
   get isAvailable() {
     return (
@@ -129,16 +135,41 @@ export const AutoTabGroupingSuggestions = {
     for (const cluster of clusters) {
       let label = "";
       try {
-        label = await this.manager.getPredictedLabelForGroup(
-          cluster.tabs,
-          otherTabs
-        );
+        label = await this._labelForGroup(cluster.tabs, otherTabs);
       } catch (e) {
         lazy.console.warn("Label generation failed", e);
       }
-      proposals.push({ label: label || "", tabs: cluster.tabs });
+      // Drop groups the model left unlabeled: an empty title usually flags
+      // content it declined to label (often a Trust & Safety case).
+      const trimmed = label?.trim();
+      if (trimmed) {
+        proposals.push({ label: trimmed, tabs: cluster.tabs });
+      }
     }
     return proposals;
+  },
+
+  /**
+   * Predicted label for a group, cached by its source tabs' URLs.
+   *
+   * @param {MozTabbrowserTab[]} tabs
+   * @param {MozTabbrowserTab[]} otherTabs
+   * @returns {Promise<string>}
+   */
+  async _labelForGroup(tabs, otherTabs) {
+    const key = tabs
+      .map(t => t.linkedBrowser?.currentURI?.spec ?? "")
+      .sort()
+      .join("\n");
+    if (this._labelCache.has(key)) {
+      return this._labelCache.get(key);
+    }
+    const label = await this.manager.getPredictedLabelForGroup(tabs, otherTabs);
+    if (this._labelCache.size >= MAX_LABEL_CACHE_ENTRIES) {
+      this._labelCache.delete(this._labelCache.keys().next().value);
+    }
+    this._labelCache.set(key, label);
+    return label;
   },
 
   /**
