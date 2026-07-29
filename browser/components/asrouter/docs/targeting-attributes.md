@@ -296,6 +296,18 @@ Is the launch on login option enabled?
 declare const launchOnLoginEnabled: boolean;
 ```
 
+### `launchOnLoginAllowedByPolicy`
+
+Whether launch on login is allowed to be enabled, i.e. it has not been overridden
+by Windows Settings or enterprise policy. Mirrors the `isAllowedByPolicy` value
+from `getLaunchOnLoginEnablementDetails()`. Always `false` on non-Windows
+platforms. Use together with `launchOnLoginEnabled` to target users who do not
+have launch on login enabled but for whom it could be enabled.
+
+```ts
+declare const launchOnLoginAllowedByPolicy: boolean;
+```
+
 ### `locale`
 The current UI locale of the browser including country code, e.g. `en-US`. This is
 the locale Firefox chose to render its UI in: the first match between Firefox's
