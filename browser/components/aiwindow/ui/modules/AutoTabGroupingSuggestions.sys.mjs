@@ -32,6 +32,18 @@ XPCOMUtils.defineLazyPreferenceGetter(
   2
 );
 
+// Drop clusters whose cohesion (average pairwise cosine similarity of the tabs'
+// embeddings, 0..1, set by SmartTabGrouping) is below this, so weakly-related
+// tabs are not offered as a group. See SmartTabGroupingResult.getCohesion.
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "minCohesion",
+  "browser.smartwindow.autoTabGrouping.minCohesion",
+  "0.1",
+  null,
+  value => parseFloat(value)
+);
+
 // Tab-group color names, mirroring MozTabbrowserTabGroupMenu.COLORS. Each name
 // resolves to the themed --tab-group-<name> custom property (defined on :root),
 // so both created groups and the per-tab tiles reuse the real tab-strip palette
@@ -87,6 +99,9 @@ export const AutoTabGroupingSuggestions = {
       if (tab.pinned || tab.closing || tab.group || tab.hidden) {
         return false;
       }
+      if (tab.hasAttribute("busy") || !tab.label) {
+        return false;
+      }
       const uri = tab.linkedBrowser?.currentURI;
       // Only cluster real web content; skip about:, chrome:, the Smart Window
       // new tab / chat pages, etc.
@@ -127,18 +142,24 @@ export const AutoTabGroupingSuggestions = {
   },
 
   /**
-   * Keep clusters big enough to be worth grouping, largest first, capped at
-   * maxGroups. Pure so it can be unit tested without the ML model.
+   * Keep clusters big enough and cohesive enough to be worth grouping, largest
+   * first, capped at maxGroups. Pure so it can be unit tested without the ML
+   * model.
    *
-   * @param {Array<{tabs: object[]}>} [clusterRepresentations]
-   * @returns {Array<{tabs: object[]}>}
+   * @param {Array<{tabs: object[], cohesion: number}>} [clusterRepresentations]
+   * @returns {Array<{tabs: object[], cohesion: number}>}
    */
   selectClusters(clusterRepresentations) {
     if (!clusterRepresentations?.length) {
       return [];
     }
     return clusterRepresentations
-      .filter(c => c.tabs && c.tabs.length >= lazy.minTabsPerGroup)
+      .filter(
+        c =>
+          c.tabs &&
+          c.tabs.length >= lazy.minTabsPerGroup &&
+          c.cohesion >= lazy.minCohesion
+      )
       .sort((a, b) => b.tabs.length - a.tabs.length)
       .slice(0, lazy.maxGroups);
   },

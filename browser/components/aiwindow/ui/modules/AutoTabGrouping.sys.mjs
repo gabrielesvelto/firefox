@@ -9,6 +9,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AutoTabGroupingSuggestions:
     "moz-src:///browser/components/aiwindow/ui/modules/AutoTabGroupingSuggestions.sys.mjs",
+  setTimeout: "resource://gre/modules/Timer.sys.mjs",
+  clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "console", () =>
@@ -30,8 +32,15 @@ XPCOMUtils.defineLazyPreferenceGetter(
   "browser.smartwindow.autoTabGrouping.minCandidateTabs",
   4
 );
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "timeoutMs",
+  "browser.smartwindow.autoTabGrouping.timeoutMs",
+  8000
+);
 
 const BUTTON_ITEM_ID = "smartwindow-group-tabs-button";
+const BUTTON_ID = "smartwindow-group-tabs-button-inner";
 const PANEL_ID = "smartwindow-group-tabs-panel";
 const FLYOUT_ID = "smartwindow-group-tabs-flyout";
 const CARD_TAG = "smartwindow-group-tabs-card";
@@ -119,7 +128,7 @@ export const AutoTabGrouping = {
     if (!anchor || !popupSet) {
       return;
     }
-    const button = doc.getElementById("smartwindow-group-tabs-button-inner");
+    const button = doc.getElementById(BUTTON_ID);
 
     const panel = this._buildPanelSkeleton(win);
     popupSet.appendChild(panel);
@@ -395,6 +404,19 @@ export const AutoTabGrouping = {
     panel.hidePopup();
   },
 
+  _withTimeout(promise, ms) {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = lazy.setTimeout(
+        () => reject(new Error("Auto Tab Grouping timed out")),
+        ms
+      );
+    });
+    return Promise.race([promise, timeout]).finally(() =>
+      lazy.clearTimeout(timer)
+    );
+  },
+
   /**
    * Run clustering + labeling once and cache the resulting suggestions on the
    * window state. Stays uncomputed when there are too few tabs so a later open
@@ -420,8 +442,10 @@ export const AutoTabGrouping = {
     state.computing = true;
     state.computePromise = (async () => {
       try {
-        const proposals =
-          await lazy.AutoTabGroupingSuggestions.buildProposals(candidates);
+        const proposals = await this._withTimeout(
+          lazy.AutoTabGroupingSuggestions.buildProposals(candidates),
+          lazy.timeoutMs
+        );
         state.suggestions = proposals.map((proposal, index) => ({
           id: this._nextId++,
           ...lazy.AutoTabGroupingSuggestions.toSuggestionData(proposal, index),

@@ -14,12 +14,18 @@ function makeTab({
   closing = false,
   group = null,
   hidden = false,
+  busy = false,
+  label = "Example Page",
 } = {}) {
   return {
     pinned,
     closing,
     group,
     hidden,
+    label,
+    hasAttribute(attr) {
+      return attr === "busy" && busy;
+    },
     linkedBrowser: url ? { currentURI: Services.io.newURI(url) } : null,
   };
 }
@@ -28,8 +34,11 @@ function makeWin(tabs) {
   return { gBrowser: { tabs } };
 }
 
-function makeCluster(size) {
-  return { tabs: Array.from({ length: size }, (_, i) => ({ index: i })) };
+function makeCluster(size, cohesion = 0.5) {
+  return {
+    tabs: Array.from({ length: size }, (_, i) => ({ index: i })),
+    cohesion,
+  };
 }
 
 add_setup(function () {
@@ -80,6 +89,21 @@ add_task(function test_getCandidateTabs_keepsOnlyUngroupedWebTabs() {
   );
 });
 
+add_task(function test_getCandidateTabs_excludesStillLoadingTabs() {
+  const loaded = makeTab({ url: "https://a.example/" });
+  const busyTab = makeTab({ url: "https://b.example/", busy: true });
+  const untitledTab = makeTab({ url: "https://c.example/", label: "" });
+  const win = makeWin([loaded, busyTab, untitledTab]);
+
+  const candidates = AutoTabGroupingSuggestions.getCandidateTabs(win);
+
+  Assert.deepEqual(
+    candidates,
+    [loaded],
+    "Still-loading and untitled tabs are excluded so clustering sees resolved titles"
+  );
+});
+
 add_task(function test_getCandidateTabs_excludesAlreadyGroupedTabs() {
   const ungrouped = makeTab({ url: "https://a.example/" });
   const grouped = makeTab({ url: "https://b.example/", group: { id: "g1" } });
@@ -114,6 +138,44 @@ add_task(function test_selectClusters_filtersSortsAndCaps() {
     [5, 4, 3],
     "Largest clusters first, small ones dropped, capped at maxGroups"
   );
+});
+
+add_task(function test_selectClusters_dropsLowCohesion() {
+  // A large but incohesive cluster (below the 0.1 threshold) is dropped even
+  // though it clears the size minimum, so weakly-related tabs aren't grouped.
+  const clusters = [makeCluster(5, 0.05), makeCluster(3, 0.4)];
+
+  const selected = AutoTabGroupingSuggestions.selectClusters(clusters);
+
+  Assert.deepEqual(
+    selected.map(c => c.tabs.length),
+    [3],
+    "Clusters below the cohesion threshold are dropped regardless of size"
+  );
+});
+
+add_task(function test_selectClusters_minCohesionPrefTunesThreshold() {
+  // Raising the pref to 0.5 now drops a 0.4-cohesion cluster that the default
+  // 0.1 threshold would have kept.
+  Services.prefs.setCharPref(
+    "browser.smartwindow.autoTabGrouping.minCohesion",
+    "0.5"
+  );
+  try {
+    const selected = AutoTabGroupingSuggestions.selectClusters([
+      makeCluster(5, 0.4),
+      makeCluster(3, 0.6),
+    ]);
+    Assert.deepEqual(
+      selected.map(c => c.tabs.length),
+      [3],
+      "Only clusters at or above the pref-configured threshold are kept"
+    );
+  } finally {
+    Services.prefs.clearUserPref(
+      "browser.smartwindow.autoTabGrouping.minCohesion"
+    );
+  }
 });
 
 add_task(function test_selectClusters_handlesEmptyInput() {
