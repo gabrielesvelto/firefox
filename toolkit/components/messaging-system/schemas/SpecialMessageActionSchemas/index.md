@@ -241,13 +241,32 @@ Action for configuring the user homepage and restoring defaults.
 
 Action for pinning Firefox to the user's taskbar.
 
-* args: (none)
+- args:
+
+```ts
+{
+  privatePin?: boolean; // Pin private browsing mode
+  fireAndForget?: boolean; // Don't wait for user confirmation before resolving the action
+}
+```
 
 ### `PIN_FIREFOX_TO_START_MENU`
 
 Action for pinning Firefox to the user's Windows Start Menu in Windows MSIX builds only.
 
 - args: (none)
+
+### `PIN_AND_DEFAULT`
+Action for pinning Firefox to the user's taskbar and setting it as the default browser.
+
+- args:
+
+```ts
+{
+  privatePin?: boolean; // Pin private browsing mode
+  fireAndForget?: boolean; // Don't wait for user confirmation before resolving the action
+}
+```
 
 ### `SET_DEFAULT_BROWSER`
 
