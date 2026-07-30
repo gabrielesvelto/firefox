@@ -59,6 +59,12 @@ static nsresult MapRv(int aRv) {
   }
 }
 
+static bool DataSurfaceCoversSize(DataSourceSurface* aSurface,
+                                  const IntSize& aSize) {
+  const IntSize surfaceSize = aSurface->GetSize();
+  return surfaceSize.width >= aSize.width && surfaceSize.height >= aSize.height;
+}
+
 namespace mozilla {
 
 already_AddRefed<SourceSurface> GetSourceSurface(Image* aImage) {
@@ -178,6 +184,11 @@ nsresult ConvertToI420(Image* aImage, uint8_t* aDestY, int aDestStrideY,
     RefPtr<DataSourceSurface> dataSurface = surface->GetDataSurface();
     if (!dataSurface) {
       return NS_ERROR_FAILURE;
+    }
+
+    if (!DataSurfaceCoversSize(dataSurface, imageSize)) {
+      NS_WARNING("ConvertToI420: Source surface smaller than image size");
+      return NS_ERROR_INVALID_ARG;
     }
 
     surfaceMap.emplace(dataSurface, DataSourceSurface::READ);
@@ -553,6 +564,11 @@ nsresult ConvertToNV12(layers::Image* aImage, uint8_t* aDestY, int aDestStrideY,
   RefPtr<DataSourceSurface> data = surf->GetDataSurface();
   if (!data) {
     return NS_ERROR_FAILURE;
+  }
+
+  if (!DataSurfaceCoversSize(data, aImage->GetSize())) {
+    NS_WARNING("ConvertToNV12: Source surface smaller than image size");
+    return NS_ERROR_INVALID_ARG;
   }
 
   DataSourceSurface::ScopedMap map(data, DataSourceSurface::READ);
