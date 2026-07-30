@@ -89,6 +89,10 @@ nsresult ConvertToI420(Image* aImage, uint8_t* aDestY, int aDestStrideY,
   }
 
   const IntSize imageSize = aImage->GetSize();
+  if (!IsImageDimensionSupportedForConversion(imageSize)) {
+    return NS_ERROR_INVALID_ARG;
+  }
+
   auto srcPixelCount = CheckedInt<int32_t>(imageSize.width) * imageSize.height;
   auto dstPixelCount = CheckedInt<int32_t>(aDestSize.width) * aDestSize.height;
   if (!srcPixelCount.isValid() || !dstPixelCount.isValid()) {
@@ -474,6 +478,11 @@ nsresult ConvertToNV12(layers::Image* aImage, uint8_t* aDestY, int aDestStrideY,
     return NS_ERROR_INVALID_ARG;
   }
 
+  const gfx::IntSize imageSize = aImage->GetSize();
+  if (!IsImageDimensionSupportedForConversion(imageSize)) {
+    return NS_ERROR_INVALID_ARG;
+  }
+
   if (const PlanarYCbCrData* data = GetPlanarYCbCrData(aImage)) {
     const ImageUtils imageUtils(aImage);
     Maybe<dom::ImageBitmapFormat> format = imageUtils.GetFormat();
@@ -490,7 +499,7 @@ nsresult ConvertToNV12(layers::Image* aImage, uint8_t* aDestY, int aDestStrideY,
     PlanarYCbCrData i420Source = *data;
     gfx::AlignedArray<uint8_t> scaledI420Buffer;
 
-    if (aDestSize != aImage->GetSize()) {
+    if (aDestSize != imageSize) {
       const int32_t halfWidth = CeilingOfHalf(aDestSize.width);
       const uint32_t halfHeight = CeilingOfHalf(aDestSize.height);
 
