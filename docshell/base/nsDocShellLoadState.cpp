@@ -157,21 +157,6 @@ nsDocShellLoadState::nsDocShellLoadState(
         return;
       }
     }
-
-    if (!ValidatePrincipalCouldPotentiallyBeLoadedBy(
-            mTriggeringPrincipal, GetEffectiveTriggeringRemoteType(),
-            {ValidatePrincipalOptions::AllowExpanded,
-             ValidatePrincipalOptions::AllowSystem})) {
-      aActor->FatalError(
-          "nsDocShellLoadState with invalid triggering principal");
-      return;
-    }
-    if (!ValidatePrincipalCouldPotentiallyBeLoadedBy(
-            mPrincipalToInherit, GetEffectiveTriggeringRemoteType(),
-            {ValidatePrincipalOptions::AllowNullPtr})) {
-      aActor->FatalError("nsDocShellLoadState with invalid principalToInherit");
-      return;
-    }
   }
 
   if (!mSrcdocData.IsVoid() && !mURI->SchemeIs("view-source") &&
