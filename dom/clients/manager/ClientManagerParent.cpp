@@ -15,6 +15,7 @@
 
 namespace mozilla::dom {
 
+using mozilla::ipc::BackgroundParent;
 using mozilla::ipc::IPCResult;
 
 IPCResult ClientManagerParent::RecvTeardown() {
@@ -100,6 +101,12 @@ void ClientManagerParent::Init() { mService->AddManager(this); }
 
 IPCResult ClientManagerParent::RecvExpectFutureClientSource(
     const IPCClientInfo& aClientInfo) {
+  if (BackgroundParent::IsOtherProcessActor(Manager())) {
+    return IPC_FAIL(
+        this,
+        "ExpectFutureClientSource can only be used by the parent process");
+  }
+
   RefPtr<ClientManagerService> cms =
       ClientManagerService::GetOrCreateInstance();
   (void)NS_WARN_IF(!cms->ExpectFutureSource(aClientInfo));
@@ -108,6 +115,12 @@ IPCResult ClientManagerParent::RecvExpectFutureClientSource(
 
 IPCResult ClientManagerParent::RecvForgetFutureClientSource(
     const IPCClientInfo& aClientInfo) {
+  if (BackgroundParent::IsOtherProcessActor(Manager())) {
+    return IPC_FAIL(
+        this,
+        "ForgetFutureClientSource can only be used by the parent process");
+  }
+
   RefPtr<ClientManagerService> cms = ClientManagerService::GetInstance();
   cms->ForgetFutureSource(aClientInfo);
   return IPC_OK();

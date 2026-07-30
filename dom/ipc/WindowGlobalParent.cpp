@@ -29,6 +29,7 @@
 #include "mozilla/dom/ChromeUtils.h"
 #include "mozilla/dom/ClientIPCTypes.h"
 #include "mozilla/dom/ClientInfo.h"
+#include "mozilla/dom/ClientValidation.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/DOMException.h"
@@ -599,6 +600,10 @@ IPCResult WindowGlobalParent::RecvUpdateDocumentCspSettings(
 
 mozilla::ipc::IPCResult WindowGlobalParent::RecvSetClientInfo(
     const IPCClientInfo& aIPCClientInfo) {
+  if (!ClientIsValidPrincipalInfo(aIPCClientInfo.principalInfo(),
+                                  GetRemoteType())) {
+    return IPC_FAIL(this, "SetClientInfo principal not valid for remote type");
+  }
   mClientInfo = Some(ClientInfo(aIPCClientInfo));
   return IPC_OK();
 }

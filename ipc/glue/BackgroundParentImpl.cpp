@@ -15,6 +15,7 @@
 #include "mozilla/RefPtr.h"
 #include "mozilla/dom/BackgroundSessionStorageServiceParent.h"
 #include "mozilla/dom/ClientManagerActors.h"
+#include "mozilla/dom/ClientValidation.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/CookieStoreParent.h"
 #include "mozilla/dom/DOMTypes.h"
@@ -492,6 +493,17 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateWebTransportParent(
     CreateWebTransportParentResolver&& aResolver) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
+
+  if (!BackgroundParent::ValidatePrincipal(this, aPrincipal, {})) {
+    return IPC_FAIL(this, "CreateWebTransport aPrincipal is invalid");
+  }
+
+  if (!dom::ClientIsValidPrincipalInfo(aClientInfo.principalInfo(),
+                                       BackgroundParent::GetRemoteType(this))) {
+    return IPC_FAIL(
+        this,
+        "CreateWebTransport ClientInfo principal not valid for remote type");
+  }
 
   RefPtr<mozilla::dom::WebTransportParent> webt =
       new mozilla::dom::WebTransportParent();
