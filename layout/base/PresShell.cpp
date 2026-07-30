@@ -3166,6 +3166,11 @@ nsresult PresShell::GoToAnchor(const nsAString& aAnchorName,
       return rv.StealNSResult();
     }
 
+    if (MOZ_UNLIKELY(target->GetComposedDoc() != mDocument)) {
+      esm->SetContentState(nullptr, ElementState::URLTARGET);
+      return NS_OK;
+    }
+
     if (aScroll) {
       // https://wicg.github.io/scroll-to-text-fragment/#invoking-text-directives
       // From "Monkeypatching HTML § 7.4.6.3 Scrolling to a fragment:"
