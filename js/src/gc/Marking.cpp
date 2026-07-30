@@ -762,6 +762,10 @@ void MarkingTracerT<opts>::markEphemeronEdges(EphemeronEdgeVector& edges,
   DebugOnly<size_t> initialLength = edges.length();
 
   for (auto& edge : edges) {
+    if (!edge.target()) {
+      continue;
+    }
+
     MarkColor targetColor = std::min(srcColor, MarkColor(edge.color()));
     MOZ_ASSERT(markColor() >= targetColor);
     if (targetColor == markColor()) {
