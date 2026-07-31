@@ -77,6 +77,7 @@ bool WebGLTransformFeedback::PrepareTransformFeedback() {
   }
 
   mActive_VertCapacity = minVertCapacity;
+  mActive_VertPosition = std::min(mActive_VertPosition, mActive_VertCapacity);
 
   return true;
 }
