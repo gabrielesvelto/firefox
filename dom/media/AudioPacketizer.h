@@ -11,6 +11,7 @@
 #include <mozilla/CheckedInt.h>
 #include <mozilla/PodOperations.h>
 #include <mozilla/UniquePtr.h>
+#include <mozilla/UniquePtrExtensions.h>
 
 #include "nsDebug.h"
 #include "nsError.h"
@@ -72,22 +73,26 @@ class AudioPacketizer {
         NS_WARNING("AudioPacketizer::Input: buffer size too large to grow");
         return NS_ERROR_DOM_MEDIA_OVERFLOW_ERR;
       }
-      uint32_t toCopy = AvailableSamples();
-      UniquePtr<InputType[]> oldStorage = std::move(mStorage);
-      mStorage = mozilla::MakeUnique<InputType[]>(newLength.value());
+      UniquePtr<InputType[]> newStorage =
+          mozilla::MakeUniqueFallible<InputType[]>(newLength.value());
+      if (!newStorage) {
+        NS_WARNING("AudioPacketizer::Input: buffer allocation failed");
+        return NS_ERROR_OUT_OF_MEMORY;
+      }
       // Copy the old data at the beginning of the new storage.
       if (WriteIndex() >= ReadIndex()) {
-        PodCopy(mStorage.get(), oldStorage.get() + ReadIndex(),
+        PodCopy(newStorage.get(), mStorage.get() + ReadIndex(),
                 AvailableSamples());
       } else {
         uint32_t firstPartLength = mLength - ReadIndex();
         uint32_t secondPartLength = AvailableSamples() - firstPartLength;
-        PodCopy(mStorage.get(), oldStorage.get() + ReadIndex(),
+        PodCopy(newStorage.get(), mStorage.get() + ReadIndex(),
                 firstPartLength);
-        PodCopy(mStorage.get() + firstPartLength, oldStorage.get(),
+        PodCopy(newStorage.get() + firstPartLength, mStorage.get(),
                 secondPartLength);
       }
-      mWriteIndex = toCopy;
+      mStorage = std::move(newStorage);
+      mWriteIndex -= mReadIndex;
       mReadIndex = 0;
       mLength = newLength.value();
     }
