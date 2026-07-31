@@ -182,6 +182,11 @@ void IdleTaskRunner::Schedule(bool aAllowIdleDispatch) {
     return;
   }
 
+  if (AppShutdown::IsInOrBeyond(ShutdownPhase::XPCOMShutdownThreads)) {
+    Cancel();
+    return;
+  }
+
   mDeadline = TimeStamp();
 
   TimeStamp now = TimeStamp::Now();
