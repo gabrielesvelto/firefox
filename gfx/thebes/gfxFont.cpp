@@ -930,14 +930,11 @@ void gfxShapedText::ApplyTrackingToClusters(gfxFloat aTrackingAdjustment,
       }
     } else {
       // complex glyphs ==> add offset at cluster/ligature boundaries
-      uint32_t detailedLength = glyphData->GetGlyphCount();
-      if (detailedLength) {
-        DetailedGlyph* details = GetDetailedGlyphs(i);
-        if (!details) {
-          continue;
-        }
+      uint32_t glyphCount = glyphData->GetGlyphCount();
+      if (glyphCount) {
+        auto* details = GetDetailedGlyphs(i, glyphCount);
         auto& advance = IsRightToLeft() ? details[0].mAdvance
-                                        : details[detailedLength - 1].mAdvance;
+                                        : details[glyphCount - 1].mAdvance;
         if (advance > 0) {
           advance = std::max(0, advance + appUnitAdjustment);
         }
@@ -2122,7 +2119,7 @@ bool gfxFont::DrawGlyphs(const gfxShapedText* aShapedText,
         // Add extra buffer capacity to allow for multiple-glyph entry.
         aBuffer.AddCapacity(glyphCount - 1, capacityMult);
         const gfxShapedText::DetailedGlyph* details =
-            aShapedText->GetDetailedGlyphs(aOffset + i);
+            aShapedText->GetDetailedGlyphs(aOffset + i, glyphCount);
         MOZ_ASSERT(details, "missing DetailedGlyph!");
         for (uint32_t j = 0; j < glyphCount; ++j, ++details) {
           float advance =
@@ -3018,7 +3015,7 @@ bool gfxFont::MeasureGlyphs(const gfxTextRun* aTextRun, uint32_t aStart,
       uint32_t glyphCount = glyphData->GetGlyphCount();
       if (glyphCount > 0) {
         const gfxTextRun::DetailedGlyph* details =
-            aTextRun->GetDetailedGlyphs(i);
+            aTextRun->GetDetailedGlyphs(i, glyphCount);
         NS_ASSERTION(details != nullptr,
                      "detailedGlyph record should not be missing!");
         uint32_t j;
@@ -3088,7 +3085,7 @@ bool gfxFont::MeasureGlyphs(const gfxTextRun* aTextRun, uint32_t aStart,
       uint32_t glyphCount = glyphData->GetGlyphCount();
       if (glyphCount > 0) {
         const gfxTextRun::DetailedGlyph* details =
-            aTextRun->GetDetailedGlyphs(i);
+            aTextRun->GetDetailedGlyphs(i, glyphCount);
         NS_ASSERTION(details != nullptr,
                      "detailedGlyph record should not be missing!");
         uint32_t j;
