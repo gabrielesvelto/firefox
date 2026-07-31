@@ -24,6 +24,7 @@ vendoring:
     - frame-sample.patch
     - delay-line-bounds.patch
     - alsa-drain-contract.patch
+    - wasapi-async-reconfigure-on-start.patch
   skip-vendoring-steps:
     - update-moz-build
   exclude:
