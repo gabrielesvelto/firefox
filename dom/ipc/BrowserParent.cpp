@@ -3933,6 +3933,12 @@ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
     return IPC_OK();
   }
 
+  if (!Manager()->ValidatePrincipal(aPrincipal,
+                                    {ValidatePrincipalOptions::AllowNullPtr})) {
+    return ContentParent::PrincipalValidationIpcFail(aPrincipal, this,
+                                                     __func__);
+  }
+
   nsCOMPtr<nsICookieJarSettings> cookieJarSettings;
   net::CookieJarSettings::Deserialize(aCookieJarSettingsArgs,
                                       getter_AddRefs(cookieJarSettings));
