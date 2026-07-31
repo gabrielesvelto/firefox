@@ -29,10 +29,11 @@ extern mozilla::LogModule* GetSpeechSynthLog();
 namespace mozilla::dom {
 
 // Registers the speech task as an uncontrollable receiver while it is
-// speaking, reports audibility, and reacts to media control keys. The owning
-// nsSpeechTask outlives this listener (Shutdown() runs from
-// DispatchEndImpl/DispatchErrorImpl before the task is released), so the
-// back-reference is always valid until Shutdown.
+// speaking, reports audibility, and reacts to media control keys. The
+// back-reference is raw, so the listener must be shut down before the owning
+// nsSpeechTask goes away: ~nsSpeechTask() does that unconditionally, because a
+// task can be destroyed without ever dispatching end or error (for example
+// when the cycle collector frees it after its window is torn down).
 //
 // Note that on Linux/speechd and Android, nsISpeechService::OnPause is a
 // no-op, so MediaControlKey::Stop will not actually silence speech on those
@@ -173,7 +174,25 @@ nsSpeechTask::nsSpeechTask(float aVolume, const nsAString& aText,
       mShouldResistFingerprinting(aShouldResistFingerprinting),
       mState(STATE_PENDING) {}
 
-nsSpeechTask::~nsSpeechTask() { LOG(LogLevel::Debug, ("~nsSpeechTask")); }
+nsSpeechTask::~nsSpeechTask() {
+  LOG(LogLevel::Debug, ("~nsSpeechTask"));
+  StopMediaControl();
+}
+
+void nsSpeechTask::StartMediaControl() {
+  MOZ_ASSERT(mUtterance);
+  MOZ_ASSERT(!mSharedKeysListener);
+  mSharedKeysListener = new MediaSharedKeysListener(*this);
+  mSharedKeysListener->Start(mUtterance->GetOwnerWindow());
+}
+
+void nsSpeechTask::StopMediaControl() {
+  if (!mSharedKeysListener) {
+    return;
+  }
+  mSharedKeysListener->Shutdown();
+  mSharedKeysListener = nullptr;
+}
 
 void nsSpeechTask::Init() { mInited = true; }
 
@@ -212,8 +231,7 @@ nsresult nsSpeechTask::DispatchStartImpl(const nsAString& aUri) {
 
   CreateAudioChannelAgent();
 
-  mSharedKeysListener = new MediaSharedKeysListener(*this);
-  mSharedKeysListener->Start(mUtterance->GetOwnerWindow());
+  StartMediaControl();
 
   mState = STATE_SPEAKING;
   mUtterance->mChosenVoiceURI = aUri;
@@ -240,10 +258,7 @@ nsresult nsSpeechTask::DispatchEndImpl(float aElapsedTime,
 
   DestroyAudioChannelAgent();
 
-  if (mSharedKeysListener) {
-    mSharedKeysListener->Shutdown();
-    mSharedKeysListener = nullptr;
-  }
+  StopMediaControl();
 
   MOZ_ASSERT(mUtterance);
   if (NS_WARN_IF(mState == STATE_ENDED)) {
@@ -332,10 +347,7 @@ nsresult nsSpeechTask::DispatchErrorImpl(float aElapsedTime,
 
   DestroyAudioChannelAgent();
 
-  if (mSharedKeysListener) {
-    mSharedKeysListener->Shutdown();
-    mSharedKeysListener = nullptr;
-  }
+  StopMediaControl();
 
   MOZ_ASSERT(mUtterance);
   if (NS_WARN_IF(mState == STATE_ENDED)) {

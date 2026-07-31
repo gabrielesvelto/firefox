@@ -108,13 +108,20 @@ class nsSpeechTask : public nsISpeechTask,
 
   void DestroyAudioChannelAgent();
 
+  void StartMediaControl();
+
+  // Safe to call when media control was never started, and safe to call
+  // repeatedly.
+  void StopMediaControl();
+
   nsCOMPtr<nsISpeechTaskCallback> mCallback;
 
   RefPtr<mozilla::dom::AudioChannelAgent> mAudioChannelAgent;
 
   // Started in DispatchStartImpl, stopped in DispatchEndImpl/
-  // DispatchErrorImpl. Reports the task's audibility while it is speaking and
-  // routes media control keys (e.g. Stop on audio focus loss) into Pause.
+  // DispatchErrorImpl and, as a backstop, in the destructor. Reports the task's
+  // audibility while it is speaking and routes media control keys (e.g. Stop on
+  // audio focus loss) into Pause.
   RefPtr<MediaSharedKeysListener> mSharedKeysListener;
 
   RefPtr<SpeechSynthesis> mSpeechSynthesis;
