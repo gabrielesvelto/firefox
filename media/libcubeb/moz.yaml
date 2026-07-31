@@ -24,6 +24,7 @@ vendoring:
     - 0005-increase-aaudio-powersaving-buffering.patch
     - frame-sample.patch
     - delay-line-bounds.patch
+    - wasapi-async-reconfigure-on-start.patch
   skip-vendoring-steps:
     - update-moz-build
   exclude:
