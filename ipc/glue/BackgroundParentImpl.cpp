@@ -1400,16 +1400,6 @@ BackgroundParentImpl::RecvPServiceWorkerRegistrationConstructor(
     PServiceWorkerRegistrationParent* aActor,
     const IPCServiceWorkerRegistrationDescriptor& aDescriptor,
     const IPCClientInfo& aForClient) {
-  if (!BackgroundParent::ValidatePrincipalInfo(this,
-                                               aDescriptor.principalInfo())) {
-    return IPC_FAIL(this, "Invalid principal for PServiceWorkerRegistration");
-  }
-
-  if (!dom::ClientIsValidPrincipalInfo(aForClient.principalInfo(),
-                                       BackgroundParent::GetRemoteType(this))) {
-    return IPC_FAIL(this, "Invalid ClientInfo for PServiceWorkerRegistration");
-  }
-
   dom::InitServiceWorkerRegistrationParent(aActor, aDescriptor, aForClient);
   return IPC_OK();
 }
