@@ -134,6 +134,11 @@ var gExceptionPaths = [
   "chrome://browser/skin/illustrations/yelpRealtime-opt-in.svg",
 ];
 
+if (AppConstants.platform == "win") {
+  // Referenced via resource://gfxsanity/
+  gExceptionPaths.push("resource://gre-resources/gfxsanity/");
+}
+
 // These are not part of the omni.ja file, so we find them only when running
 // the test on a non-packaged build.
 if (AppConstants.platform == "macosx") {
