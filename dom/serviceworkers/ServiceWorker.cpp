@@ -48,12 +48,6 @@ ServiceWorker::ServiceWorker(nsIGlobalObject* aGlobal,
       mLastNotifiedState(ServiceWorkerState::Installing) {
   MOZ_DIAGNOSTIC_ASSERT(aGlobal);
 
-  if (NS_WARN_IF(!BackgroundChild::ValidatePrincipalInfo(
-          aDescriptor.PrincipalInfo(), {}))) {
-    Shutdown();
-    return;
-  }
-
   PBackgroundChild* parentActor =
       BackgroundChild::GetOrCreateForCurrentThread();
   if (NS_WARN_IF(!parentActor)) {
