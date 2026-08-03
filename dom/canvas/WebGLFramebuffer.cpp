@@ -915,6 +915,7 @@ void WebGLFramebuffer::ResolveAttachmentData() const {
       }
       imageInfo->mUninitializedSlices = Nothing();
     }
+    RefreshDrawBuffers();
     return;
   }
 
