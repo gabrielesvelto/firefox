@@ -52,6 +52,8 @@ support-files = "favicon.svg"
 ["browser_policy_cookie_settings.js"]
 https_first_disabled = true
 
+["browser_policy_default_browser_setting.js"]
+
 ["browser_policy_disable_feedback_commands.js"]
 
 ["browser_policy_disable_fxaccounts.js"]
