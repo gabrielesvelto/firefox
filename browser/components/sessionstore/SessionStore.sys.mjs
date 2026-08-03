@@ -6687,6 +6687,9 @@ var SessionStoreInternal = {
       tabbrowser.showTab(tab);
     }
 
+    // Compare against browser.audioMuted even though the collected state comes
+    // from tab.muted, because toggleMuteAudio picks its direction from
+    // browser.audioMuted and would otherwise mute the wrong way.
     if (!!tabData.muted != browser.audioMuted) {
       tab.toggleMuteAudio(tabData.muteReason);
     }
