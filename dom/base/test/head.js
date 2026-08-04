@@ -151,10 +151,23 @@ async function jsCacheContentTask(test, item) {
   if (item.nonce) {
     script.nonce = item.nonce;
   }
+  if (item.charset) {
+    script.charset = item.charset;
+  }
   script.src = item.file;
+  const onLoadPromise = new Promise(resolve => {
+    script.onload = () => {
+      resolve();
+    };
+    script.onerror = () => {
+      resolve();
+    };
+  });
   content.document.body.appendChild(script);
 
   await promise;
+
+  await onLoadPromise;
 
   Services.obs.removeObserver(observer, "ScriptLoaderTest");
 
@@ -246,6 +259,12 @@ async function runJSCacheTests(tests) {
             jsCacheContentTask
           );
           ok(result, "Received expected events");
+          if (item.verifyText) {
+            const text = await SpecialPowers.spawn(browser, [], function () {
+              return content.document.body.textContent;
+            });
+            is(text, item.verifyText);
+          }
         }
 
         if (test.useServiceWorker) {
