@@ -457,9 +457,8 @@ js::ProfilerJSSources GeckoProfilerRuntime::getProfilerScriptSources(
 
     bool hasSourceText;
     bool retrievableSource;
-    bool unused;
     ScriptSource::getSourceProperties(scriptSource, &hasSourceText,
-                                      &retrievableSource, &unused);
+                                      &retrievableSource);
 
     uint32_t sourceId = scriptSource->id();
 

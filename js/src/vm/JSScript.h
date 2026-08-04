@@ -697,13 +697,15 @@ class ScriptSource {
   // return false.
   static bool loadSource(JSContext* cx, ScriptSource* ss, bool* loaded);
 
-  // Returns the source data properties of the script source.
+  // This is similar to loadSource, but it is designed to be used outside of the
+  // main thread. This is done by removing the need of JSContext for the
+  // Retrievable sources that require sourceHook. For retrievable cases, it
+  // sets retrievable to true and sets the isUT16 depending on the encoding.
   //
   // *loaded indicates whether source text is available, *retrievable indicates
-  // whether the source can be retrieved later via source hook, and
-  // *isTwoByteString indicates if the underlying source data is char16_t-typed.
+  // whether the source can be retrieved later via source hook.
   static void getSourceProperties(ScriptSource* ss, bool* hasSourceText,
-                                  bool* retrievable, bool* isTwoByteString);
+                                  bool* retrievable);
 
   // Assign source data from |srcBuf| to this recently-created |ScriptSource|.
   template <typename Unit>
