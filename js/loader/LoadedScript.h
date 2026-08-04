@@ -6,6 +6,7 @@
 #define js_loader_LoadedScript_h
 
 #include "mozilla/dom/SRIMetadata.h"  // mozilla::dom::SRIMetadata
+#include "mozilla/Encoding.h" // mozilla::Encoding
 #include "mozilla/Maybe.h"
 #include "mozilla/MaybeOneOf.h"
 #include "mozilla/MemoryReporting.h"
@@ -133,7 +134,8 @@ class LoadedScript final : public nsISupports {
   ~LoadedScript() = default;
 
  public:
-  LoadedScript(ScriptKind aKind, nsIURI* aURI);
+  LoadedScript(ScriptKind aKind, nsIURI* aURI,
+               const mozilla::Encoding* aClassicScriptFallbackEncoding);
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
  public:
@@ -471,6 +473,11 @@ class LoadedScript final : public nsISupports {
   // one.
   bool IsSRIMetadataReusableBy(const mozilla::dom::SRIMetadata& aSRIMetadata);
 
+  const mozilla::Encoding* ClassicScriptFallbackEncoding() const {
+    MOZ_ASSERT(!IsModuleScript());
+    return mClassicScriptFallbackEncoding;
+  }
+
  public:
   // Fields.
 
@@ -582,6 +589,9 @@ class LoadedScript final : public nsISupports {
   // IsTextSource() or IsCachedStencil(), and it's cleared after saving to the
   // necko cache, and thus, this field is used only once.
   nsCOMPtr<nsICacheEntryWriteHandle> mCacheEntry;
+
+  // The hint charset for decoding classic script.
+  const mozilla::Encoding* mClassicScriptFallbackEncoding = nullptr;
 };
 
 // Provide accessors for any classes `Derived` which is providing the
@@ -682,6 +692,10 @@ class LoadedScriptDelegate {
   }
   bool TookLongInPreviousRuns() const {
     return GetLoadedScript()->TookLongInPreviousRuns();
+  }
+
+  const mozilla::Encoding* ClassicScriptFallbackEncoding() const {
+    return GetLoadedScript()->ClassicScriptFallbackEncoding();
   }
 };
 

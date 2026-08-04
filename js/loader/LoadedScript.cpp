@@ -103,7 +103,8 @@ void HostReleaseScriptFetchInfo(const Value& aPrivate) {
 
 NS_IMPL_ISUPPORTS(LoadedScript, nsISupports)
 
-LoadedScript::LoadedScript(ScriptKind aKind, nsIURI* aURI)
+LoadedScript::LoadedScript(ScriptKind aKind, nsIURI* aURI,
+                           const mozilla::Encoding* aClassicScriptFallbackEncoding)
     : mDataType(DataType::eUnknown),
       mKind(aKind),
       mSerializedStencilOffset(0),
@@ -112,8 +113,13 @@ LoadedScript::LoadedScript(ScriptKind aKind, nsIURI* aURI)
       mTookLongInPreviousRuns(false),
       mIsEverHitFromMemoryCache(false),
       mURI(aURI),
-      mReceivedScriptTextLength(0) {
+      mReceivedScriptTextLength(0),
+      mClassicScriptFallbackEncoding(aClassicScriptFallbackEncoding) {
   MOZ_ASSERT(mURI);
+  MOZ_ASSERT_IF(mKind != ScriptKind::eModule,
+                mClassicScriptFallbackEncoding);
+  MOZ_ASSERT_IF(mKind == ScriptKind::eModule,
+                !mClassicScriptFallbackEncoding);
 }
 
 size_t LoadedScript::SizeOfIncludingThis(
