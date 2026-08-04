@@ -88,6 +88,10 @@ bool ScriptHashKey::KeyEquals(const ScriptHashKey& aKey) const {
   return true;
 }
 
+// The separator after the encoding, inside the stringified hash key.
+// The '/' character doesn't appear in the known encoding names.
+static constexpr char KeyEncodingSeparator = '/';
+
 void ScriptHashKey::ToStringForLookup(nsACString& aResult) {
   aResult.Truncate();
 
@@ -152,6 +156,14 @@ void ScriptHashKey::ToStringForLookup(nsACString& aResult) {
       break;
   }
 
+  if (mHintCharset.FindChar(KeyEncodingSeparator) != kNotFound) {
+    aResult.Append("INVALID");
+    aResult.Append(KeyEncodingSeparator);
+  } else {
+    aResult.Append(NS_ConvertUTF16toUTF8(mHintCharset));
+    aResult.Append(KeyEncodingSeparator);
+  }
+
   nsAutoCString partitionPrincipal;
   BasePrincipal::Cast(mPartitionPrincipal)->ToJSON(partitionPrincipal);
   aResult.Append(partitionPrincipal);
@@ -159,8 +171,7 @@ void ScriptHashKey::ToStringForLookup(nsACString& aResult) {
 
 /* static */
 Maybe<ScriptHashKey> ScriptHashKey::FromStringsForLookup(
-    const nsACString& aKey, const nsACString& aURI,
-    const nsACString& aHintCharset) {
+    const nsACString& aKey, const nsACString& aURI) {
   if (aKey.Length() < 22) {
     return Nothing();
   }
@@ -221,8 +232,15 @@ Maybe<ScriptHashKey> ScriptHashKey::FromStringsForLookup(
     return Nothing();
   }
 
+  static constexpr int32_t EncodingStartPos = 21;
+
+  int32_t sep = aKey.FindChar(KeyEncodingSeparator, EncodingStartPos);
+  if (sep == kNotFound) {
+    return Nothing();
+  }
+
   nsCOMPtr<nsIPrincipal> partitionPrincipal =
-      BasePrincipal::FromJSON(Substring(aKey, 21));
+      BasePrincipal::FromJSON(Substring(aKey, sep + 1));
   if (!partitionPrincipal) {
     return Nothing();
   }
@@ -233,9 +251,10 @@ Maybe<ScriptHashKey> ScriptHashKey::FromStringsForLookup(
     return Nothing();
   }
 
-  return Some(ScriptHashKey(uri, partitionPrincipal, kind, corsMode,
-                            referrerPolicy,
-                            NS_ConvertUTF8toUTF16(aHintCharset)));
+  return Some(
+      ScriptHashKey(uri, partitionPrincipal, kind, corsMode, referrerPolicy,
+                    NS_ConvertUTF8toUTF16(Substring(aKey, EncodingStartPos,
+                                                    sep - EncodingStartPos))));
 }
 
 NS_IMPL_ISUPPORTS(ScriptLoadData, nsISupports)
@@ -345,14 +364,14 @@ void SharedScriptCache::Invalidate() {
 /* static */
 bool SharedScriptCache::GetCachedScriptSource(
     JSContext* aCx, const nsACString& aKey, const nsACString& aURI,
-    const nsACString& aHintCharset, JS::MutableHandle<JS::Value> aRetval) {
+    JS::MutableHandle<JS::Value> aRetval) {
   if (!sSingleton) {
     aRetval.setUndefined();
     return true;
   }
 
   Maybe<ScriptHashKey> maybeKey =
-      ScriptHashKey::FromStringsForLookup(aKey, aURI, aHintCharset);
+      ScriptHashKey::FromStringsForLookup(aKey, aURI);
   if (!maybeKey) {
     aRetval.setUndefined();
     return true;
