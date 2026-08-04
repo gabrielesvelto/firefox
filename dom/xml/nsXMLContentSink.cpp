@@ -915,6 +915,9 @@ bool nsXMLContentSink::SetDocElement(int32_t aNameSpaceID, nsAtom* aTagName,
     if (linkStyle) {
       linkStyle->DisableUpdates();
     }
+    if (MOZ_UNLIKELY(child->GetParentNode())) {
+      child->Remove();
+    }
     mDocument->AppendChildTo(child, false, IgnoreErrors());
     if (linkStyle) {
       auto updateOrError = linkStyle->EnableUpdatesAndUpdateStyleSheet(
@@ -952,7 +955,7 @@ bool nsXMLContentSink::SetDocElement(int32_t aNameSpaceID, nsAtom* aTagName,
   }
 
   IgnoredErrorResult rv;
-  mDocument->AppendChildTo(mDocElement, NotifyForDocElement(), rv);
+  mDocument->AppendChild(*mDocElement, rv);
   if (rv.Failed()) {
     // If we return false here, the caller will bail out because it won't
     // find a parent content node to append to, which is fine.
