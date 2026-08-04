@@ -866,15 +866,10 @@ JSString* js::FunctionToString(JSContext* cx, HandleFunction fun,
   bool addParentheses =
       haveSource && isToSource && (fun->isLambda() && !fun->isArrow());
 
-  mozilla::Maybe<ScriptSource::DataReader> reader;
-
   if (haveSource) {
-    ScriptSource* ss = fun->baseScript()->scriptSource();
-    if (!ss->tryLoadSource(cx, reader, &haveSource)) {
+    if (!fun->baseScript()->scriptSource()->tryLoadSource(cx, &haveSource)) {
       return nullptr;
     }
-    MOZ_ASSERT_IF(haveSource, reader.isSome());
-    MOZ_ASSERT_IF(haveSource, (*reader).hasSourceText());
   }
 
   // Fast path for the common case, to avoid StringBuilder overhead.
@@ -887,9 +882,10 @@ JSString* js::FunctionToString(JSContext* cx, HandleFunction fun,
     BaseScript* script = fun->baseScript();
     size_t start = script->toStringStart();
     size_t end = script->toStringEnd();
-    JSString* str = (end - start <= ScriptSource::SourceDeflateLimit)
-                        ? (*reader)->substring(cx, start, end)
-                        : (*reader)->substringDontDeflate(cx, start, end);
+    JSString* str =
+        (end - start <= ScriptSource::SourceDeflateLimit)
+            ? script->scriptSource()->substring(cx, start, end)
+            : script->scriptSource()->substringDontDeflate(cx, start, end);
     if (!str) {
       return nullptr;
     }

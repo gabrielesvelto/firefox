@@ -910,14 +910,16 @@ template <XDRMode mode>
 template <typename Unit>
 struct UnretrievableSourceDecoder {
   XDRState<XDR_DECODE>* const xdr_;
-  ScriptSource::DataWriter& writer_;
+  ScriptSource* const scriptSource_;
   const uint32_t uncompressedLength_;
 
  public:
   UnretrievableSourceDecoder(XDRState<XDR_DECODE>* xdr,
-                             ScriptSource::DataWriter& writer,
+                             ScriptSource* scriptSource,
                              uint32_t uncompressedLength)
-      : xdr_(xdr), writer_(writer), uncompressedLength_(uncompressedLength) {}
+      : xdr_(xdr),
+        scriptSource_(scriptSource),
+        uncompressedLength_(uncompressedLength) {}
 
   XDRResult decode() {
     auto sourceUnits = xdr_->fc()->getAllocator()->make_pod_array<Unit>(
@@ -928,7 +930,7 @@ struct UnretrievableSourceDecoder {
 
     MOZ_TRY(xdr_->codeChars(sourceUnits.get(), uncompressedLength_));
 
-    if (!writer_->initializeUnretrievableUncompressedSource(
+    if (!scriptSource_->initializeUnretrievableUncompressedSource(
             xdr_->fc(), std::move(sourceUnits), uncompressedLength_)) {
       return xdr_->fail(JS::TranscodeResult::Throw);
     }
@@ -939,20 +941,16 @@ struct UnretrievableSourceDecoder {
 
 template <>
 XDRResult StencilXDR::codeSourceUnretrievableUncompressed<XDR_DECODE>(
-    XDRState<XDR_DECODE>* xdr, ScriptSource* ss,
-    mozilla::Maybe<ScriptSource::DataReader>& reader,
-    mozilla::Maybe<ScriptSource::DataWriter>& writer, uint8_t sourceCharSize,
+    XDRState<XDR_DECODE>* xdr, ScriptSource* ss, uint8_t sourceCharSize,
     uint32_t uncompressedLength) {
   MOZ_ASSERT(sourceCharSize == 1 || sourceCharSize == 2);
 
   if (sourceCharSize == 1) {
-    UnretrievableSourceDecoder<Utf8Unit> decoder(xdr, *writer,
-                                                 uncompressedLength);
+    UnretrievableSourceDecoder<Utf8Unit> decoder(xdr, ss, uncompressedLength);
     return decoder.decode();
   }
 
-  UnretrievableSourceDecoder<char16_t> decoder(xdr, *writer,
-                                               uncompressedLength);
+  UnretrievableSourceDecoder<char16_t> decoder(xdr, ss, uncompressedLength);
   return decoder.decode();
 }
 
@@ -960,20 +958,15 @@ template <typename Unit>
 struct UnretrievableSourceEncoder {
   XDRState<XDR_ENCODE>* const xdr_;
   ScriptSource* const source_;
-  const ScriptSource::DataReader& reader_;
   const uint32_t uncompressedLength_;
 
   UnretrievableSourceEncoder(XDRState<XDR_ENCODE>* xdr, ScriptSource* source,
-                             const ScriptSource::DataReader& reader,
                              uint32_t uncompressedLength)
-      : xdr_(xdr),
-        source_(source),
-        reader_(reader),
-        uncompressedLength_(uncompressedLength) {}
+      : xdr_(xdr), source_(source), uncompressedLength_(uncompressedLength) {}
 
   XDRResult encode() {
     Unit* sourceUnits =
-        const_cast<Unit*>(reader_->uncompressedData<Unit>()->units());
+        const_cast<Unit*>(source_->uncompressedData<Unit>()->units());
 
     return xdr_->codeChars(sourceUnits, uncompressedLength_);
   }
@@ -982,74 +975,70 @@ struct UnretrievableSourceEncoder {
 template <>
 /* static */
 XDRResult StencilXDR::codeSourceUnretrievableUncompressed<XDR_ENCODE>(
-    XDRState<XDR_ENCODE>* xdr, ScriptSource* ss,
-    mozilla::Maybe<ScriptSource::DataReader>& reader,
-    mozilla::Maybe<ScriptSource::DataWriter>& writer, uint8_t sourceCharSize,
+    XDRState<XDR_ENCODE>* xdr, ScriptSource* ss, uint8_t sourceCharSize,
     uint32_t uncompressedLength) {
   MOZ_ASSERT(sourceCharSize == 1 || sourceCharSize == 2);
 
   if (sourceCharSize == 1) {
-    UnretrievableSourceEncoder<Utf8Unit> encoder(xdr, ss, *reader,
-                                                 uncompressedLength);
+    UnretrievableSourceEncoder<Utf8Unit> encoder(xdr, ss, uncompressedLength);
     return encoder.encode();
   }
 
-  UnretrievableSourceEncoder<char16_t> encoder(xdr, ss, *reader,
-                                               uncompressedLength);
+  UnretrievableSourceEncoder<char16_t> encoder(xdr, ss, uncompressedLength);
   return encoder.encode();
 }
 
 template <typename Unit, XDRMode mode>
 /* static */
-XDRResult StencilXDR::codeSourceUncompressedData(
-    XDRState<mode>* const xdr, ScriptSource* const ss,
-    mozilla::Maybe<ScriptSource::DataReader>& reader,
-    mozilla::Maybe<ScriptSource::DataWriter>& writer) {
+XDRResult StencilXDR::codeSourceUncompressedData(XDRState<mode>* const xdr,
+                                                 ScriptSource* const ss) {
   static_assert(
       std::is_same_v<Unit, Utf8Unit> || std::is_same_v<Unit, char16_t>,
       "should handle UTF-8 and UTF-16");
 
   if (mode == XDR_ENCODE) {
-    MOZ_ASSERT((*reader)->isUncompressed<Unit>());
+    MOZ_ASSERT(ss->isUncompressed<Unit>());
   } else {
-    MOZ_ASSERT((*writer)->isMissing());
+    MOZ_ASSERT(ss->data.is<ScriptSource::Missing>());
   }
 
   uint32_t uncompressedLength;
   if (mode == XDR_ENCODE) {
-    uncompressedLength = (*reader)->uncompressedData<Unit>()->length();
+    uncompressedLength = ss->uncompressedData<Unit>()->length();
   }
   MOZ_TRY(xdr->codeUint32(&uncompressedLength));
 
-  return codeSourceUnretrievableUncompressed(xdr, ss, reader, writer,
-                                             sizeof(Unit), uncompressedLength);
+  return codeSourceUnretrievableUncompressed(xdr, ss, sizeof(Unit),
+                                             uncompressedLength);
 }
 
 template <typename Unit, XDRMode mode>
 /* static */
-XDRResult StencilXDR::codeSourceCompressedData(
-    XDRState<mode>* const xdr, ScriptSource* const ss,
-    mozilla::Maybe<ScriptSource::DataReader>& reader,
-    mozilla::Maybe<ScriptSource::DataWriter>& writer) {
+XDRResult StencilXDR::codeSourceCompressedData(XDRState<mode>* const xdr,
+                                               ScriptSource* const ss) {
   static_assert(
       std::is_same_v<Unit, Utf8Unit> || std::is_same_v<Unit, char16_t>,
       "should handle UTF-8 and UTF-16");
 
   if (mode == XDR_ENCODE) {
-    MOZ_ASSERT((*reader)->isCompressed<Unit>());
+    MOZ_ASSERT(ss->isCompressed<Unit>());
   } else {
-    MOZ_ASSERT((*writer)->isMissing());
+    MOZ_ASSERT(ss->data.is<ScriptSource::Missing>());
   }
 
   uint32_t uncompressedLength;
   if (mode == XDR_ENCODE) {
-    uncompressedLength = (*reader)->length();
+    uncompressedLength =
+        ss->data.as<ScriptSource::Compressed<Unit, SourceRetrievable::No>>()
+            .uncompressedLength;
   }
   MOZ_TRY(xdr->codeUint32(&uncompressedLength));
 
   uint32_t compressedLength;
   if (mode == XDR_ENCODE) {
-    compressedLength = (*reader)->compressedData<Unit>()->raw.length();
+    compressedLength =
+        ss->data.as<ScriptSource::Compressed<Unit, SourceRetrievable::No>>()
+            .raw.length();
   }
   MOZ_TRY(xdr->codeUint32(&compressedLength));
 
@@ -1062,14 +1051,13 @@ XDRResult StencilXDR::codeSourceCompressedData(
     }
     MOZ_TRY(xdr->codeBytes(bytes.get(), compressedLength));
 
-    if (!(*writer)->initializeWithUnretrievableCompressedSource<Unit>(
+    if (!ss->initializeWithUnretrievableCompressedSource<Unit>(
             xdr->fc(), std::move(bytes), compressedLength,
             uncompressedLength)) {
       return xdr->fail(JS::TranscodeResult::Throw);
     }
   } else {
-    void* bytes =
-        const_cast<char*>((*reader)->compressedData<Unit>()->raw.chars());
+    void* bytes = const_cast<char*>(ss->compressedData<Unit>()->raw.chars());
     MOZ_TRY(xdr->codeBytes(bytes, compressedLength));
   }
 
@@ -1080,34 +1068,29 @@ template <typename Unit,
           template <typename U, SourceRetrievable CanRetrieve> class Data,
           XDRMode mode>
 /* static */
-void StencilXDR::codeSourceRetrievable(
-    mozilla::Maybe<ScriptSource::DataReader>& reader,
-    mozilla::Maybe<ScriptSource::DataWriter>& writer) {
+void StencilXDR::codeSourceRetrievable(ScriptSource* const ss) {
   static_assert(
       std::is_same_v<Unit, Utf8Unit> || std::is_same_v<Unit, char16_t>,
       "should handle UTF-8 and UTF-16");
 
   if (mode == XDR_ENCODE) {
-    MOZ_ASSERT(((*reader)->isRetrievableData<Data, Unit>()));
+    MOZ_ASSERT((ss->data.is<Data<Unit, SourceRetrievable::Yes>>()));
   } else {
-    MOZ_ASSERT((*writer)->isMissing());
-    (*writer)->data_ =
-        ScriptSource::SourceType(ScriptSource::Retrievable<Unit>());
+    MOZ_ASSERT(ss->data.is<ScriptSource::Missing>());
+    ss->data = ScriptSource::SourceType(ScriptSource::Retrievable<Unit>());
   }
 }
 
 template <typename Unit, XDRMode mode>
 /* static */
-void StencilXDR::codeSourceRetrievableData(
-    mozilla::Maybe<ScriptSource::DataWriter>& writer) {
+void StencilXDR::codeSourceRetrievableData(ScriptSource* ss) {
   // There's nothing to code for retrievable data.  Just be sure to set
   // retrievable data when decoding.
-  // DataReader doesn't guarantee the state being stable for the Retrievable
-  // case, so we don't assert it here.
-  if (mode == XDR_DECODE) {
-    MOZ_ASSERT((*writer)->isMissing());
-    (*writer)->data_ =
-        ScriptSource::SourceType(ScriptSource::Retrievable<Unit>());
+  if (mode == XDR_ENCODE) {
+    MOZ_ASSERT(ss->data.is<ScriptSource::Retrievable<Unit>>());
+  } else {
+    MOZ_ASSERT(ss->data.is<ScriptSource::Missing>());
+    ss->data = ScriptSource::SourceType(ScriptSource::Retrievable<Unit>());
   }
 }
 
@@ -1133,14 +1116,10 @@ XDRResult StencilXDR::codeSourceData(XDRState<mode>* const xdr,
 
   // We need to freeze the ScriptSource state while encoding it.
   // The actual logic reads either the compressed or uncompressed raw data.
-  // Compression shouldn't be performed.
-  mozilla::Maybe<ScriptSource::DataReader> reader;
-  mozilla::Maybe<ScriptSource::DataWriter> writer;
-  if constexpr (mode == XDR_ENCODE) {
+  // Neither of compression nor uncompression should be performed.
+  mozilla::Maybe<ScriptSource::GenericReader> reader;
+  if (mode == XDR_ENCODE) {
     reader.emplace(ss);
-  } else {
-    writer.emplace(ss);
-    MOZ_ASSERT((*writer).hasWriteAccess());
   }
 
   DataType tag;
@@ -1185,29 +1164,19 @@ XDRResult StencilXDR::codeSourceData(XDRState<mode>* const xdr,
         return DataType::UncompressedUtf16NotRetrievable;
       }
       DataType operator()(const ScriptSource::Retrievable<Utf8Unit>&) {
-        MOZ_CRASH("hasSourceText() branch should exclude this case");
+        return DataType::RetrievableUtf8;
       }
       DataType operator()(const ScriptSource::Retrievable<char16_t>&) {
-        MOZ_CRASH("hasSourceText() branch should exclude this case");
+        return DataType::RetrievableUtf16;
       }
       DataType operator()(const ScriptSource::Missing&) {
-        MOZ_CRASH("hasSourceText() branch should exclude this case");
+        return DataType::Missing;
       }
     };
 
     uint8_t type;
     if (mode == XDR_ENCODE) {
-      if ((*reader).hasSourceText()) {
-        type = static_cast<uint8_t>((*reader)->data_.match(XDRDataTag()));
-      } else if ((*reader).isRetrievable()) {
-        if ((*reader).isTwoByteString()) {
-          type = static_cast<uint8_t>(DataType::RetrievableUtf16);
-        } else {
-          type = static_cast<uint8_t>(DataType::RetrievableUtf8);
-        }
-      } else {
-        type = static_cast<uint8_t>(DataType::Missing);
-      }
+      type = static_cast<uint8_t>(ss->data.match(XDRDataTag()));
     }
     MOZ_TRY(xdr->codeUint8(&type));
 
@@ -1222,54 +1191,48 @@ XDRResult StencilXDR::codeSourceData(XDRState<mode>* const xdr,
 
   switch (tag) {
     case DataType::CompressedUtf8Retrievable:
-      codeSourceRetrievable<Utf8Unit, ScriptSource::Compressed, mode>(
-          reader, writer);
+      codeSourceRetrievable<Utf8Unit, ScriptSource::Compressed, mode>(ss);
       return Ok();
 
     case DataType::CompressedUtf8NotRetrievable:
-      return codeSourceCompressedData<Utf8Unit>(xdr, ss, reader, writer);
+      return codeSourceCompressedData<Utf8Unit>(xdr, ss);
 
     case DataType::UncompressedUtf8Retrievable:
-      codeSourceRetrievable<Utf8Unit, ScriptSource::Uncompressed, mode>(
-        reader, writer);
+      codeSourceRetrievable<Utf8Unit, ScriptSource::Uncompressed, mode>(ss);
       return Ok();
 
     case DataType::UncompressedUtf8NotRetrievable:
-      return codeSourceUncompressedData<Utf8Unit>(xdr, ss, reader, writer);
+      return codeSourceUncompressedData<Utf8Unit>(xdr, ss);
 
     case DataType::CompressedUtf16Retrievable:
-      codeSourceRetrievable<char16_t, ScriptSource::Compressed, mode>(
-          reader, writer);
+      codeSourceRetrievable<char16_t, ScriptSource::Compressed, mode>(ss);
       return Ok();
 
     case DataType::CompressedUtf16NotRetrievable:
-      return codeSourceCompressedData<char16_t>(xdr, ss, reader, writer);
+      return codeSourceCompressedData<char16_t>(xdr, ss);
 
     case DataType::UncompressedUtf16Retrievable:
-      codeSourceRetrievable<char16_t, ScriptSource::Uncompressed, mode>(
-          reader, writer);
+      codeSourceRetrievable<char16_t, ScriptSource::Uncompressed, mode>(ss);
       return Ok();
 
     case DataType::UncompressedUtf16NotRetrievable:
-      return codeSourceUncompressedData<char16_t>(xdr, ss, reader, writer);
+      return codeSourceUncompressedData<char16_t>(xdr, ss);
 
     case DataType::Missing: {
-      if constexpr (mode == XDR_DECODE) {
-        MOZ_ASSERT((*writer)->isMissing(),
-                   "ScriptSource::data is initialized as missing, so decoding "
-                   "doesn't have to change anything");
-      }
+      MOZ_ASSERT(ss->data.is<ScriptSource::Missing>(),
+                 "ScriptSource::data is initialized as missing, so neither "
+                 "encoding nor decoding has to change anything");
 
       // There's no data to XDR for missing source.
       break;
     }
 
     case DataType::RetrievableUtf8:
-      codeSourceRetrievableData<Utf8Unit, mode>(writer);
+      codeSourceRetrievableData<Utf8Unit, mode>(ss);
       return Ok();
 
     case DataType::RetrievableUtf16:
-      codeSourceRetrievableData<char16_t, mode>(writer);
+      codeSourceRetrievableData<char16_t, mode>(ss);
       return Ok();
   }
 

@@ -58,33 +58,24 @@ class StencilXDR {
  private:
   template <XDRMode mode>
   [[nodiscard]] static XDRResult codeSourceUnretrievableUncompressed(
-      XDRState<mode>* xdr, ScriptSource* ss,
-      mozilla::Maybe<ScriptSource::DataReader>& reader,
-      mozilla::Maybe<ScriptSource::DataWriter>& writer, uint8_t sourceCharSize,
+      XDRState<mode>* xdr, ScriptSource* ss, uint8_t sourceCharSize,
       uint32_t uncompressedLength);
 
   template <typename Unit,
             template <typename U, SourceRetrievable CanRetrieve> class Data,
             XDRMode mode>
-  static void codeSourceRetrievable(
-      mozilla::Maybe<ScriptSource::DataReader>& reader,
-      mozilla::Maybe<ScriptSource::DataWriter>& writer);
+  static void codeSourceRetrievable(ScriptSource* ss);
 
   template <typename Unit, XDRMode mode>
   [[nodiscard]] static XDRResult codeSourceUncompressedData(
-      XDRState<mode>* const xdr, ScriptSource* const ss,
-      mozilla::Maybe<ScriptSource::DataReader>& reader,
-      mozilla::Maybe<ScriptSource::DataWriter>& writer);
+      XDRState<mode>* const xdr, ScriptSource* const ss);
 
   template <typename Unit, XDRMode mode>
   [[nodiscard]] static XDRResult codeSourceCompressedData(
-      XDRState<mode>* const xdr, ScriptSource* const ss,
-      mozilla::Maybe<ScriptSource::DataReader>& reader,
-      mozilla::Maybe<ScriptSource::DataWriter>& writer);
+      XDRState<mode>* const xdr, ScriptSource* const ss);
 
   template <typename Unit, XDRMode mode>
-  static void codeSourceRetrievableData(
-      mozilla::Maybe<ScriptSource::DataWriter>& writer);
+  static void codeSourceRetrievableData(ScriptSource* ss);
 
   template <XDRMode mode>
   [[nodiscard]] static XDRResult codeSourceData(XDRState<mode>* const xdr,

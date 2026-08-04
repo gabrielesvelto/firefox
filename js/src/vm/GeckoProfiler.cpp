@@ -455,7 +455,11 @@ js::ProfilerJSSources GeckoProfilerRuntime::getProfilerScriptSources(
     const RefPtr<ScriptSource>& scriptSource = iter.get();
     MOZ_ASSERT(scriptSource);
 
-    ScriptSource::DataReader sourceReader(scriptSource);
+    bool hasSourceText;
+    bool retrievableSource;
+    bool unused;
+    scriptSource->getSourceProperties(&hasSourceText, &retrievableSource,
+                                      &unused);
 
     uint32_t sourceId = scriptSource->id();
 
@@ -501,21 +505,21 @@ js::ProfilerJSSources GeckoProfilerRuntime::getProfilerScriptSources(
       continue;
     }
 
-    if (sourceReader.isRetrievable()) {
+    if (retrievableSource) {
       (void)result.append(ProfilerJSSourceData::CreateRetrievableFile(
           sourceId, std::move(filenameCopy), filenameLen, startLine,
           startColumn, std::move(sourceMapURLCopy), sourceMapURLLen));
       continue;
     }
 
-    if (!sourceReader.hasSourceText()) {
+    if (!hasSourceText) {
       (void)result.append(ProfilerJSSourceData(
           sourceId, std::move(filenameCopy), filenameLen, startLine,
           startColumn, std::move(sourceMapURLCopy), sourceMapURLLen));
       continue;
     }
 
-    size_t sourceLength = sourceReader->length();
+    size_t sourceLength = scriptSource->length();
     if (sourceLength == 0) {
       (void)result.append(ProfilerJSSourceData(
           sourceId, JS::UniqueTwoByteChars(), 0, std::move(filenameCopy),
@@ -528,8 +532,7 @@ js::ProfilerJSSources GeckoProfilerRuntime::getProfilerScriptSources(
     size_t charsLength = 0;
 
     if (scriptSource->shouldUnwrapEventHandlerBody()) {
-      sourceResult =
-          sourceReader->functionBodyStringChars(scriptSource, &charsLength);
+      sourceResult = scriptSource->functionBodyStringChars(&charsLength);
 
       if (charsLength == 0) {
         (void)result.append(ProfilerJSSourceData(
@@ -539,7 +542,7 @@ js::ProfilerJSSources GeckoProfilerRuntime::getProfilerScriptSources(
         continue;
       }
     } else {
-      sourceResult = sourceReader->substringChars(0, sourceLength);
+      sourceResult = scriptSource->substringChars(0, sourceLength);
       charsLength = sourceLength;
     }
 

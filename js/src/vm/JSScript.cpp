@@ -800,109 +800,102 @@ void ScriptSourceObject::clearPrivate(JSRuntime* rt) {
   getSlotRef(PRIVATE_SLOT).setUndefinedUnchecked();
 }
 
-ScriptSource::DataWriter::DataWriter(mozilla::Maybe<DataReader>&& reader)
-    : source_(reader->source_), guard_(source_->sourceDataState_.lock()) {
-  if (reader->hasSourceText()) {
-    guard_->removeReaderForWrite();
-  }
-  reader->source_ = nullptr;
-  reader.reset();
-  hasWriteAccess_ = !guard_->hasReaders();
-}
+// Main-thread source loader that can retrieve sources via the source hook.
+class ScriptSource::LoadSourceMatcher {
+  JSContext* const cx_;
+  ScriptSource* const ss_;
+  bool* const loaded_;
 
-template <typename Unit>
-bool ScriptSource::setRetrievedSource(
-    JSContext* cx, mozilla::Maybe<ScriptSource::DataReader>& readerIn,
-    mozilla::Maybe<ScriptSource::DataReader>& readerOut, Unit* source,
-    size_t length) {
-  mozilla::Maybe<DataWriter> writer;
-  writer.emplace(std::move(readerIn));
+ public:
+  explicit LoadSourceMatcher(JSContext* cx, ScriptSource* ss, bool* loaded)
+      : cx_(cx), ss_(ss), loaded_(loaded) {}
 
-  MOZ_ASSERT((*writer).getConst()->isRetrievable<mozilla::Utf8Unit>() ||
-             (*writer).getConst()->isRetrievable<char16_t>());
-  MOZ_ASSERT((*writer).hasWriteAccess(),
-             "The transition from Retrievable to Uncompressed should always "
-             "be possible");
-
-  if (!(*writer)->setRetrievedSource(cx, EntryUnits<Unit>(source), length)) {
-    return false;
-  }
-
-  readerOut.emplace(std::move(writer));
-  MOZ_ASSERT((*readerOut).hasSourceText());
-  return true;
-}
-
-bool ScriptSource::tryLoadSource(
-    JSContext* cx, mozilla::Maybe<ScriptSource::DataReader>& reader,
-    bool* loaded) {
-  MOZ_ASSERT(reader.isNothing());
-
-  // In order to keep the implicit or explicit lock on the source, we use
-  // two DataReader and one DataWriter, and convert between them.
-  mozilla::Maybe<ScriptSource::DataReader> localReader;
-  localReader.emplace(this);
-  if ((*localReader).hasSourceText()) {
-    *loaded = true;
-    reader.emplace(std::move(localReader));
+  template <typename Unit, SourceRetrievable CanRetrieve>
+  bool operator()(const Compressed<Unit, CanRetrieve>&) const {
+    *loaded_ = true;
     return true;
   }
 
-  if (!(*localReader).isRetrievable()) {
-    *loaded = false;
-    reader.emplace(std::move(localReader));
+  template <typename Unit, SourceRetrievable CanRetrieve>
+  bool operator()(const Uncompressed<Unit, CanRetrieve>&) const {
+    *loaded_ = true;
     return true;
   }
 
-  if (!cx->runtime()->sourceHook.ref()) {
-    *loaded = false;
-    reader.emplace(std::move(localReader));
+  bool operator()(const Missing&) const {
+    *loaded_ = false;
     return true;
   }
 
-  if ((*localReader).isTwoByteString()) {
-    size_t length;
-    char16_t* utf16Source;
-    if (!cx->runtime()->sourceHook->load(cx, filename(), &utf16Source, nullptr,
-                                         &length)) {
-      return false;
-    }
-    if (!utf16Source) {
-      *loaded = false;
-      reader.emplace(std::move(localReader));
+  template <typename Unit>
+  bool operator()(const Retrievable<Unit>&) {
+    if (!cx_->runtime()->sourceHook.ref()) {
+      *loaded_ = false;
       return true;
     }
-    if (!setRetrievedSource(cx, localReader, reader, utf16Source, length)) {
+
+    size_t length;
+
+    // The first argument is just for overloading -- its value doesn't matter.
+    if (!tryLoadAndSetSource(Unit('0'), &length)) {
       return false;
     }
-    MOZ_ASSERT(reader.isSome());
-    *loaded = true;
+
     return true;
   }
 
-  size_t length;
-  char* utf8Source;
-  if (!cx->runtime()->sourceHook->load(cx, filename(), nullptr, &utf8Source,
-                                       &length)) {
-    return false;
-  }
-  if (!utf8Source) {
-    *loaded = false;
-    reader.emplace(std::move(localReader));
+ private:
+  bool tryLoadAndSetSource(const Utf8Unit&, size_t* length) const {
+    char* utf8Source;
+    if (!cx_->runtime()->sourceHook->load(cx_, ss_->filename(), nullptr,
+                                          &utf8Source, length)) {
+      return false;
+    }
+
+    if (!utf8Source) {
+      *loaded_ = false;
+      return true;
+    }
+
+    if (!ss_->setRetrievedSource(
+            cx_, EntryUnits<Utf8Unit>(reinterpret_cast<Utf8Unit*>(utf8Source)),
+            *length)) {
+      return false;
+    }
+
+    *loaded_ = true;
     return true;
   }
-  if (!setRetrievedSource(cx, localReader, reader,
-                          reinterpret_cast<Utf8Unit*>(utf8Source), length)) {
-    return false;
+
+  bool tryLoadAndSetSource(const char16_t&, size_t* length) const {
+    char16_t* utf16Source;
+    if (!cx_->runtime()->sourceHook->load(cx_, ss_->filename(), &utf16Source,
+                                          nullptr, length)) {
+      return false;
+    }
+
+    if (!utf16Source) {
+      *loaded_ = false;
+      return true;
+    }
+
+    if (!ss_->setRetrievedSource(cx_, EntryUnits<char16_t>(utf16Source),
+                                 *length)) {
+      return false;
+    }
+
+    *loaded_ = true;
+    return true;
   }
-  MOZ_ASSERT(reader.isSome());
-  *loaded = true;
-  return true;
+};
+
+bool ScriptSource::tryLoadSource(JSContext* cx, bool* loaded) {
+  return data.match(LoadSourceMatcher(cx, this, loaded));
 }
 
 // Matcher to get source properties: whether source is present and whether
 // it is retrievable.
-class ScriptSource::ExclusiveSourceData::SourcePropertiesGetter {
+class ScriptSource::SourcePropertiesGetter {
   bool* const hasSourceText_;
   bool* const retrievable_;
   bool* const isTwoByteString_;
@@ -943,17 +936,25 @@ class ScriptSource::ExclusiveSourceData::SourcePropertiesGetter {
   }
 };
 
-void ScriptSource::ExclusiveSourceData::getSourceProperties(
-    bool* hasSourceText, bool* retrievable, bool* isTwoByteString) const {
-  data_.match(
+void ScriptSource::getSourceProperties(bool* hasSourceText,
+                                       bool* retrievable,
+                                       bool* isTwoByteString) {
+  data.match(
       SourcePropertiesGetter(hasSourceText, retrievable, isTwoByteString));
+}
+
+/* static */
+JSLinearString* JSScript::sourceData(JSContext* cx, HandleScript script) {
+  MOZ_ASSERT(script->scriptSource()->hasSourceText());
+  return script->scriptSource()->substring(cx, script->sourceStart(),
+                                           script->sourceEnd());
 }
 
 bool BaseScript::appendSourceDataForToString(JSContext* cx,
                                              StringBuilder& buf) {
-  ScriptSource::DataReader reader(scriptSource());
-  MOZ_ASSERT(reader.hasSourceText());
-  return reader->appendSubstring(cx, buf, toStringStart(), toStringEnd());
+  MOZ_ASSERT(scriptSource()->hasSourceText());
+  return scriptSource()->appendSubstring(cx, buf, toStringStart(),
+                                         toStringEnd());
 }
 
 void UncompressedSourceCache::holdEntry(AutoHoldEntry& holder,
@@ -972,6 +973,7 @@ template <typename Unit>
 const Unit* UncompressedSourceCache::lookup(const ScriptSourceChunk& ssc,
                                             AutoHoldEntry& holder) {
   MOZ_ASSERT(!holder_);
+  MOZ_ASSERT(ssc.ss->isCompressed<Unit>());
 
   if (!map_) {
     return nullptr;
@@ -1032,9 +1034,9 @@ size_t UncompressedSourceCache::sizeOfExcludingThis(
 }
 
 template <typename Unit>
-const Unit* ScriptSource::ExclusiveSourceData::chunkUnits(
+const Unit* ScriptSource::chunkUnits(
     JSContext* maybeCx, UncompressedSourceCache::AutoHoldEntry& holder,
-    size_t chunk) const {
+    size_t chunk) {
   const CompressedData<Unit>& c = *compressedData<Unit>();
 
   // Try cache lookup only if we have a JSContext
@@ -1090,82 +1092,32 @@ const Unit* ScriptSource::ExclusiveSourceData::chunkUnits(
 }
 
 template <typename Unit>
-void ScriptSource::ExclusiveSourceData::convertToCompressedSource(
-    SharedImmutableString compressed, size_t uncompressedLength) {
+void ScriptSource::convertToCompressedSource(SharedImmutableString compressed,
+                                             size_t uncompressedLength) {
   MOZ_ASSERT(isUncompressed<Unit>());
   MOZ_ASSERT(uncompressedData<Unit>()->length() == uncompressedLength);
 
-  if (data_.is<Uncompressed<Unit, SourceRetrievable::Yes>>()) {
-    data_ = SourceType(Compressed<Unit, SourceRetrievable::Yes>(
+  if (data.is<Uncompressed<Unit, SourceRetrievable::Yes>>()) {
+    data = SourceType(Compressed<Unit, SourceRetrievable::Yes>(
         std::move(compressed), uncompressedLength));
   } else {
-    data_ = SourceType(Compressed<Unit, SourceRetrievable::No>(
+    data = SourceType(Compressed<Unit, SourceRetrievable::No>(
         std::move(compressed), uncompressedLength));
   }
 }
 
-struct ScriptSource::ExclusiveSourceData::
-    TriggerConvertToCompressedSourceFromTask {
-  ExclusiveSourceData* const sourceData_;
+struct ScriptSource::TriggerConvertToCompressedSourceFromTask {
+  ScriptSource* const source_;
   SharedImmutableString& compressed_;
 
-  TriggerConvertToCompressedSourceFromTask(ExclusiveSourceData* sourceData,
+  TriggerConvertToCompressedSourceFromTask(ScriptSource* source,
                                            SharedImmutableString& compressed)
-      : sourceData_(sourceData), compressed_(compressed) {}
+      : source_(source), compressed_(compressed) {}
 
   template <typename Unit, SourceRetrievable CanRetrieve>
-  void operator()(const Uncompressed<Unit, CanRetrieve>& u) {
-    sourceData_->convertToCompressedSource<Unit>(std::move(compressed_),
-                                                 u.length());
-  }
-
-  template <typename Unit, SourceRetrievable CanRetrieve>
-  void operator()(const Compressed<Unit, CanRetrieve>&) {
-    MOZ_CRASH(
-        "can't set compressed source when source is already compressed -- "
-        "ScriptSource::tryCompressOffThread shouldn't have queued up this "
-        "task?");
-  }
-
-  template <typename Unit>
-  void operator()(const Retrievable<Unit>&) {
-    MOZ_CRASH("shouldn't compressing unloaded-but-retrievable source");
-  }
-
-  void operator()(const Missing&) {
-    MOZ_CRASH(
-        "doesn't make sense to set compressed source for missing source -- "
-        "ScriptSource::tryCompressOffThread shouldn't have queued up this "
-        "task?");
-  }
-};
-
-void ScriptSource::ExclusiveSourceData::
-    triggerConvertToCompressedSourceFromTask(SharedImmutableString compressed) {
-  data_.match(TriggerConvertToCompressedSourceFromTask(this, compressed));
-}
-
-template <typename Unit>
-void ScriptSource::ExclusiveSourceDataLockState::setPendingCompressed(
-    SharedImmutableString compressed, size_t uncompressedLength) {
-  MOZ_ASSERT(pendingCompressed_.empty(),
-             "shouldn't be multiple conversions happening");
-  pendingCompressed_.construct<CompressedData<Unit>>(std::move(compressed),
-                                                     uncompressedLength);
-}
-
-struct ScriptSource::ExclusiveSourceData::SetPendingCompressedFor {
-  ExclusiveData<ExclusiveSourceDataLockState>::Guard& guard_;
-  SharedImmutableString& compressed_;
-
-  SetPendingCompressedFor(
-      ExclusiveData<ExclusiveSourceDataLockState>::Guard& guard,
-      SharedImmutableString& compressed)
-      : guard_(guard), compressed_(compressed) {}
-
-  template <typename Unit, SourceRetrievable CanRetrieve>
-  void operator()(const Uncompressed<Unit, CanRetrieve>& u) {
-    guard_->setPendingCompressed<Unit>(std::move(compressed_), u.length());
+  void operator()(const Uncompressed<Unit, CanRetrieve>&) {
+    source_->triggerConvertToCompressedSource<Unit>(std::move(compressed_),
+                                                    source_->length());
   }
 
   template <typename Unit, SourceRetrievable CanRetrieve>
@@ -1189,66 +1141,87 @@ struct ScriptSource::ExclusiveSourceData::SetPendingCompressedFor {
   }
 };
 
-void ScriptSource::ExclusiveSourceData::setPendingCompressedFor(
-    ExclusiveData<ExclusiveSourceDataLockState>::Guard& guard,
-    SharedImmutableString compressed) const {
-  data_.match(SetPendingCompressedFor(guard, compressed));
-}
-
 template <typename Unit>
-void ScriptSource::ExclusiveSourceDataLockState::
-    performDelayedConvertToCompressedSource(DataReader& reader) {
-  MOZ_ASSERT(readers_ == 0);
+void ScriptSource::performDelayedConvertToCompressedSource(
+    ExclusiveData<ReaderInstances>::Guard& g) {
+  // There might not be a conversion to compressed source happening at all.
+  if (g->pendingCompressed.empty()) {
+    return;
+  }
 
   CompressedData<Unit>& pending =
-      pendingCompressed_.ref<CompressedData<Unit>>();
+      g->pendingCompressed.ref<CompressedData<Unit>>();
 
-  ExclusiveSourceData* sourceData =
-      reader.getMutableForDelayedConvertToCompressedSource();
-  sourceData->convertToCompressedSource<Unit>(std::move(pending.raw),
-                                              pending.uncompressedLength);
+  convertToCompressedSource<Unit>(std::move(pending.raw),
+                                  pending.uncompressedLength);
 
-  pendingCompressed_.destroy();
+  g->pendingCompressed.destroy();
 }
 
-void ScriptSource::ExclusiveSourceDataLockState::addReader() { readers_++; }
+ScriptSource::GenericReader::GenericReader(ScriptSource* source)
+    : PinnedUnitsBase(source) {
+  addReader();
+}
 
-void ScriptSource::ExclusiveSourceDataLockState::removeReader(
-    ScriptSource* ss, DataReader& reader) {
-  MOZ_ASSERT(readers_ > 0);
-  MOZ_ASSERT(reader->hasSourceText());
+ScriptSource::GenericReader::~GenericReader() {
+  if (!source_->hasSourceText()) {
+    // For script sources without text, the reader is added just to access the
+    // other fields.  There shouldn't be any pending compression, and we can
+    // just remove the reader.
+    auto guard = source_->readers_.lock();
+    MOZ_ASSERT(guard->pendingCompressed.empty());
+    MOZ_ASSERT(guard->count > 0);
+    guard->count--;
+    return;
+  }
 
+  if (source_->hasSourceType<Utf8Unit>()) {
+    removeReader<Utf8Unit>();
+  } else {
+    removeReader<char16_t>();
+  }
+}
+
+void ScriptSource::PinnedUnitsBase::addReader() {
+  auto guard = source_->readers_.lock();
+  guard->count++;
+}
+
+template <typename Unit>
+void ScriptSource::PinnedUnitsBase::removeReader() {
   // If the off-thread compression task couldn't perform
   // convertToCompressedSource, the conversion is pending on
-  // the pendingCompressed_ field.
+  // the pendingCompressed field.
   //
   // If there's no other reader at this point, perform the pending conversion
   // here.
   //
-  // See also ExclusiveSourceDataLockState::triggerConvertToCompressedSource.
-  if (--readers_ > 0) {
-    return;
+  // See also ScriptSource::triggerConvertToCompressedSource.
+  auto guard = source_->readers_.lock();
+  MOZ_ASSERT(guard->count > 0);
+  if (--guard->count == 0) {
+    source_->performDelayedConvertToCompressedSource<Unit>(guard);
   }
-  if (pendingCompressed_.empty()) {
-    return;
-  }
-
-  if (reader->hasSourceType<Utf8Unit>()) {
-    performDelayedConvertToCompressedSource<Utf8Unit>(reader);
-  } else {
-    performDelayedConvertToCompressedSource<char16_t>(reader);
-  }
-}
-
-void ScriptSource::ExclusiveSourceDataLockState::removeReaderForWrite() {
-  MOZ_ASSERT(readers_ > 0);
-  readers_--;
 }
 
 template <typename Unit>
-const Unit* ScriptSource::ExclusiveSourceData::units(
-    JSContext* maybeCx, UncompressedSourceCache::AutoHoldEntry& holder,
-    size_t begin, size_t len) const {
+ScriptSource::PinnedUnits<Unit>::~PinnedUnits() {
+  if (units_) {
+    removeReader<Unit>();
+  }
+}
+
+template <typename Unit>
+ScriptSource::PinnedUnitsIfUncompressed<Unit>::~PinnedUnitsIfUncompressed() {
+  if (units_) {
+    removeReader<Unit>();
+  }
+}
+
+template <typename Unit>
+const Unit* ScriptSource::units(JSContext* maybeCx,
+                                UncompressedSourceCache::AutoHoldEntry& holder,
+                                size_t begin, size_t len) {
   MOZ_ASSERT(begin <= length());
   MOZ_ASSERT(begin + len <= length());
 
@@ -1260,11 +1233,11 @@ const Unit* ScriptSource::ExclusiveSourceData::units(
     return units + begin;
   }
 
-  if (data_.is<Missing>()) {
+  if (data.is<Missing>()) {
     MOZ_CRASH("ScriptSource::units() on ScriptSource with missing source");
   }
 
-  if (data_.is<Retrievable<Unit>>()) {
+  if (data.is<Retrievable<Unit>>()) {
     MOZ_CRASH("ScriptSource::units() on ScriptSource with retrievable source");
   }
 
@@ -1354,17 +1327,7 @@ const Unit* ScriptSource::ExclusiveSourceData::units(
 }
 
 template <typename Unit>
-const typename SourceTypeTraits<Unit>::CharT*
-ScriptSource::ExclusiveSourceData::unitsChars(
-    JSContext* maybeCx, UncompressedSourceCache::AutoHoldEntry& holder,
-    size_t begin, size_t len) const {
-  return SourceTypeTraits<Unit>::toString(
-      units<Unit>(maybeCx, holder, begin, len));
-}
-
-template <typename Unit>
-const Unit* ScriptSource::ExclusiveSourceData::uncompressedUnits(
-    size_t begin, size_t len) const {
+const Unit* ScriptSource::uncompressedUnits(size_t begin, size_t len) {
   MOZ_ASSERT(begin <= length());
   MOZ_ASSERT(begin + len <= length());
 
@@ -1379,13 +1342,43 @@ const Unit* ScriptSource::ExclusiveSourceData::uncompressedUnits(
   return units + begin;
 }
 
-template const Utf8Unit* ScriptSource::ExclusiveSourceData::uncompressedUnits<
-    Utf8Unit>(size_t begin, size_t len) const;
-template const char16_t* ScriptSource::ExclusiveSourceData::uncompressedUnits<
-    char16_t>(size_t begin, size_t len) const;
+template <typename Unit>
+ScriptSource::PinnedUnits<Unit>::PinnedUnits(
+    JSContext* maybeCx, ScriptSource* source,
+    UncompressedSourceCache::AutoHoldEntry& holder, size_t begin, size_t len)
+    : PinnedUnitsBase(source) {
+  MOZ_ASSERT(source->hasSourceType<Unit>(), "must pin units of source's type");
 
-JSLinearString* ScriptSource::ExclusiveSourceData::substring(
-    JSContext* cx, size_t start, size_t stop) const {
+  addReader();
+
+  units_ = source->units<Unit>(maybeCx, holder, begin, len);
+  if (!units_) {
+    removeReader<Unit>();
+  }
+}
+
+template class ScriptSource::PinnedUnits<Utf8Unit>;
+template class ScriptSource::PinnedUnits<char16_t>;
+
+template <typename Unit>
+ScriptSource::PinnedUnitsIfUncompressed<Unit>::PinnedUnitsIfUncompressed(
+    ScriptSource* source, size_t begin, size_t len)
+    : PinnedUnitsBase(source) {
+  MOZ_ASSERT(source->hasSourceType<Unit>(), "must pin units of source's type");
+
+  addReader();
+
+  units_ = source->uncompressedUnits<Unit>(begin, len);
+  if (!units_) {
+    removeReader<Unit>();
+  }
+}
+
+template class ScriptSource::PinnedUnitsIfUncompressed<Utf8Unit>;
+template class ScriptSource::PinnedUnitsIfUncompressed<char16_t>;
+
+JSLinearString* ScriptSource::substring(JSContext* cx, size_t start,
+                                        size_t stop) {
   MOZ_ASSERT(start <= stop);
 
   size_t len = stop - start;
@@ -1396,25 +1389,26 @@ JSLinearString* ScriptSource::ExclusiveSourceData::substring(
 
   // UTF-8 source text.
   if (hasSourceType<Utf8Unit>()) {
-    const char* str = unitsChars<Utf8Unit>(cx, holder, start, len);
-    if (!str) {
+    PinnedUnits<Utf8Unit> units(cx, this, holder, start, len);
+    if (!units.asChars()) {
       return nullptr;
     }
 
+    const char* str = units.asChars();
     return NewStringCopyUTF8N(cx, JS::UTF8Chars(str, len));
   }
 
   // UTF-16 source text.
-  const char16_t* str = unitsChars<char16_t>(cx, holder, start, len);
-  if (!str) {
+  PinnedUnits<char16_t> units(cx, this, holder, start, len);
+  if (!units.asChars()) {
     return nullptr;
   }
 
-  return NewStringCopyN<CanGC>(cx, str, len);
+  return NewStringCopyN<CanGC>(cx, units.asChars(), len);
 }
 
-JSLinearString* ScriptSource::ExclusiveSourceData::substringDontDeflate(
-    JSContext* cx, size_t start, size_t stop) const {
+JSLinearString* ScriptSource::substringDontDeflate(JSContext* cx, size_t start,
+                                                   size_t stop) {
   MOZ_ASSERT(start <= stop);
 
   size_t len = stop - start;
@@ -1425,10 +1419,12 @@ JSLinearString* ScriptSource::ExclusiveSourceData::substringDontDeflate(
 
   // UTF-8 source text.
   if (hasSourceType<Utf8Unit>()) {
-    const char* str = unitsChars<Utf8Unit>(cx, holder, start, len);
-    if (!str) {
+    PinnedUnits<Utf8Unit> units(cx, this, holder, start, len);
+    if (!units.asChars()) {
       return nullptr;
     }
+
+    const char* str = units.asChars();
 
     // There doesn't appear to be a non-deflating UTF-8 string creation
     // function -- but then again, it's not entirely clear how current
@@ -1437,16 +1433,15 @@ JSLinearString* ScriptSource::ExclusiveSourceData::substringDontDeflate(
   }
 
   // UTF-16 source text.
-  const char16_t* str = unitsChars<char16_t>(cx, holder, start, len);
-  if (!str) {
+  PinnedUnits<char16_t> units(cx, this, holder, start, len);
+  if (!units.asChars()) {
     return nullptr;
   }
 
-  return NewStringCopyNDontDeflate<CanGC>(cx, str, len);
+  return NewStringCopyNDontDeflate<CanGC>(cx, units.asChars(), len);
 }
 
-SubstringCharsResult ScriptSource::ExclusiveSourceData::substringChars(
-    size_t start, size_t stop) const {
+SubstringCharsResult ScriptSource::substringChars(size_t start, size_t stop) {
   MOZ_ASSERT(start <= stop);
 
   size_t len = stop - start;
@@ -1459,12 +1454,13 @@ SubstringCharsResult ScriptSource::ExclusiveSourceData::substringChars(
     // Pass nullptr JSContext - this method is designed to be called
     // off-main-thread where JSContext is not available. Decompression still
     // works but without caching.
-    const char* str = unitsChars<Utf8Unit>(nullptr, holder, start, len);
-    if (!str) {
+    PinnedUnits<Utf8Unit> units(nullptr, this, holder, start, len);
+    if (!units.asChars()) {
       // Allocation failure or decompression error.
       return SubstringCharsResult(JS::UniqueChars(nullptr));
     }
 
+    const char* str = units.asChars();
     // For UTF-8 source, create a copy of the char data.
     // Note: We allocate exactly `len` bytes without a null terminator.
     // Callers must track the length separately.
@@ -1482,8 +1478,8 @@ SubstringCharsResult ScriptSource::ExclusiveSourceData::substringChars(
   // Pass nullptr JSContext - this method is designed to be called
   // off-main-thread where JSContext is not available. Decompression still works
   // but without caching.
-  const char16_t* str = unitsChars<char16_t>(nullptr, holder, start, len);
-  if (!str) {
+  PinnedUnits<char16_t> units(nullptr, this, holder, start, len);
+  if (!units.asChars()) {
     // Allocation failure or decompression error.
     return SubstringCharsResult(JS::UniqueTwoByteChars(nullptr));
   }
@@ -1497,61 +1493,55 @@ SubstringCharsResult ScriptSource::ExclusiveSourceData::substringChars(
     return SubstringCharsResult(JS::UniqueTwoByteChars(nullptr));
   }
 
-  mozilla::PodCopy(copy, str, len);
+  mozilla::PodCopy(copy, units.asChars(), len);
   return SubstringCharsResult(JS::UniqueTwoByteChars(copy));
 }
 
-bool ScriptSource::ExclusiveSourceData::appendSubstring(JSContext* cx,
-                                                        StringBuilder& buf,
-                                                        size_t start,
-                                                        size_t stop) const {
+bool ScriptSource::appendSubstring(JSContext* cx, StringBuilder& buf,
+                                   size_t start, size_t stop) {
   MOZ_ASSERT(start <= stop);
 
   size_t len = stop - start;
   UncompressedSourceCache::AutoHoldEntry holder;
 
   if (hasSourceType<Utf8Unit>()) {
-    const Utf8Unit* u = units<Utf8Unit>(cx, holder, start, len);
-    if (!u) {
+    PinnedUnits<Utf8Unit> pinned(cx, this, holder, start, len);
+    if (!pinned.get()) {
       return false;
     }
-
     if (len > SourceDeflateLimit && !buf.ensureTwoByteChars()) {
       return false;
     }
 
-    return buf.append(u, len);
+    const Utf8Unit* units = pinned.get();
+    return buf.append(units, len);
   } else {
-    const char16_t* u = units<char16_t>(cx, holder, start, len);
-    if (!u) {
+    PinnedUnits<char16_t> pinned(cx, this, holder, start, len);
+    if (!pinned.get()) {
       return false;
     }
-
     if (len > SourceDeflateLimit && !buf.ensureTwoByteChars()) {
       return false;
     }
 
-    return buf.append(u, len);
+    const char16_t* units = pinned.get();
+    return buf.append(units, len);
   }
 }
 
-JSLinearString* ScriptSource::ExclusiveSourceData::functionBodyString(
-    JSContext* cx, ScriptSource* source) const {
-  MOZ_ASSERT(source->isFunctionBody());
+JSLinearString* ScriptSource::functionBodyString(JSContext* cx) {
+  MOZ_ASSERT(isFunctionBody());
 
-  size_t start =
-      source->parameterListEnd_ + FunctionConstructorMedialSigils.length();
+  size_t start = parameterListEnd_ + FunctionConstructorMedialSigils.length();
   size_t stop = length() - FunctionConstructorFinalBrace.length();
   return substring(cx, start, stop);
 }
 
-SubstringCharsResult ScriptSource::ExclusiveSourceData::functionBodyStringChars(
-    ScriptSource* source, size_t* outLength) const {
-  MOZ_ASSERT(source->isFunctionBody());
+SubstringCharsResult ScriptSource::functionBodyStringChars(size_t* outLength) {
+  MOZ_ASSERT(isFunctionBody());
   MOZ_ASSERT(outLength);
 
-  size_t start =
-      source->parameterListEnd_ + FunctionConstructorMedialSigils.length();
+  size_t start = parameterListEnd_ + FunctionConstructorMedialSigils.length();
   size_t stop = length() - FunctionConstructorFinalBrace.length();
   *outLength = stop - start;
 
@@ -1565,8 +1555,7 @@ SubstringCharsResult ScriptSource::ExclusiveSourceData::functionBodyStringChars(
 }
 
 template <typename ContextT, typename Unit>
-[[nodiscard]] bool
-ScriptSource::ExclusiveSourceData::setUncompressedSourceHelper(
+[[nodiscard]] bool ScriptSource::setUncompressedSourceHelper(
     ContextT* cx, EntryUnits<Unit>&& source, size_t length,
     SourceRetrievable retrievable) {
   auto& cache = SharedImmutableStringsCache::getSingleton();
@@ -1579,19 +1568,20 @@ ScriptSource::ExclusiveSourceData::setUncompressedSourceHelper(
   }
 
   if (retrievable == SourceRetrievable::Yes) {
-    data_ = SourceType(
+    data = SourceType(
         Uncompressed<Unit, SourceRetrievable::Yes>(std::move(deduped)));
   } else {
-    data_ = SourceType(
+    data = SourceType(
         Uncompressed<Unit, SourceRetrievable::No>(std::move(deduped)));
   }
   return true;
 }
 
 template <typename Unit>
-[[nodiscard]] bool ScriptSource::ExclusiveSourceData::setRetrievedSource(
-    JSContext* cx, EntryUnits<Unit>&& source, size_t length) {
-  MOZ_ASSERT(data_.is<Retrievable<Unit>>(),
+[[nodiscard]] bool ScriptSource::setRetrievedSource(JSContext* cx,
+                                                    EntryUnits<Unit>&& source,
+                                                    size_t length) {
+  MOZ_ASSERT(data.is<Retrievable<Unit>>(),
              "retrieved source can only overwrite the corresponding "
              "retrievable source");
   return setUncompressedSourceHelper(cx, std::move(source), length,
@@ -1621,8 +1611,7 @@ bool ScriptSource::tryCompressOffThread(JSContext* cx) {
     return true;
   }
 
-  DataReader reader(this);
-  if (!reader.hasSourceText() || !reader->hasUncompressedSource()) {
+  if (!hasUncompressedSource()) {
     // This excludes compressed, missing, and retrievable source.
     return true;
   }
@@ -1635,7 +1624,7 @@ bool ScriptSource::tryCompressOffThread(JSContext* cx) {
   // Otherwise, enqueue a compression task to be processed when a major
   // GC is requested.
 
-  if (reader->length() < ScriptSource::MinimumCompressibleLength ||
+  if (length() < ScriptSource::MinimumCompressibleLength ||
       !IsOffThreadSourceCompressionEnabled()) {
     return true;
   }
@@ -1648,11 +1637,38 @@ bool ScriptSource::tryCompressOffThread(JSContext* cx) {
 }
 
 template <typename Unit>
-[[nodiscard]] bool
-ScriptSource::ExclusiveSourceData::initializeWithUnretrievableCompressedSource(
+void ScriptSource::triggerConvertToCompressedSource(
+    SharedImmutableString compressed, size_t uncompressedLength) {
+  MOZ_ASSERT(isUncompressed<Unit>(),
+             "should only be triggering compressed source installation to "
+             "overwrite identically-encoded uncompressed source");
+  MOZ_ASSERT(uncompressedData<Unit>()->length() == uncompressedLength);
+
+  // If units aren't pinned -- and they probably won't be, we'd have to have a
+  // GC in the small window of time where a |PinnedUnits| was live -- then we
+  // can immediately convert.
+  {
+    auto guard = readers_.lock();
+    if (MOZ_LIKELY(!guard->count)) {
+      convertToCompressedSource<Unit>(std::move(compressed),
+                                      uncompressedLength);
+      return;
+    }
+
+    // Otherwise, set aside the compressed-data info.  The conversion is
+    // performed when the last |PinnedUnits| dies.
+    MOZ_ASSERT(guard->pendingCompressed.empty(),
+               "shouldn't be multiple conversions happening");
+    guard->pendingCompressed.construct<CompressedData<Unit>>(
+        std::move(compressed), uncompressedLength);
+  }
+}
+
+template <typename Unit>
+[[nodiscard]] bool ScriptSource::initializeWithUnretrievableCompressedSource(
     FrontendContext* fc, UniqueChars&& compressed, size_t rawLength,
     size_t sourceLength) {
-  MOZ_ASSERT(data_.is<Missing>(), "shouldn't be double-initializing");
+  MOZ_ASSERT(data.is<Missing>(), "shouldn't be double-initializing");
   MOZ_ASSERT(compressed != nullptr);
 
   auto& cache = SharedImmutableStringsCache::getSingleton();
@@ -1662,37 +1678,46 @@ ScriptSource::ExclusiveSourceData::initializeWithUnretrievableCompressedSource(
     return false;
   }
 
-  data_ = SourceType(Compressed<Unit, SourceRetrievable::No>(std::move(deduped),
-                                                             sourceLength));
+#ifdef DEBUG
+  {
+    auto guard = readers_.lock();
+    MOZ_ASSERT(
+        guard->count == 0,
+        "shouldn't be initializing a ScriptSource while its characters "
+        "are pinned -- that only makes sense with a ScriptSource actively "
+        "being inspected");
+  }
+#endif
+
+  data = SourceType(Compressed<Unit, SourceRetrievable::No>(std::move(deduped),
+                                                            sourceLength));
 
   return true;
 }
 
-template bool
-ScriptSource::ExclusiveSourceData::initializeWithUnretrievableCompressedSource<
+template bool ScriptSource::initializeWithUnretrievableCompressedSource<
     Utf8Unit>(FrontendContext* fc, UniqueChars&& compressed, size_t rawLength,
               size_t sourceLength);
-template bool
-ScriptSource::ExclusiveSourceData::initializeWithUnretrievableCompressedSource<
+template bool ScriptSource::initializeWithUnretrievableCompressedSource<
     char16_t>(FrontendContext* fc, UniqueChars&& compressed, size_t rawLength,
               size_t sourceLength);
 
 template <typename Unit>
-bool ScriptSource::ExclusiveSourceData::assignSource(
-    FrontendContext* fc, const ReadOnlyCompileOptions& options,
-    ScriptSource* ss, SourceText<Unit>& srcBuf) {
-  MOZ_ASSERT(data_.is<Missing>(),
+bool ScriptSource::assignSource(FrontendContext* fc,
+                                const ReadOnlyCompileOptions& options,
+                                SourceText<Unit>& srcBuf) {
+  MOZ_ASSERT(data.is<Missing>(),
              "source assignment should only occur on fresh ScriptSources");
 
-  ss->mutedErrors_ = options.mutedErrors();
-  ss->delazificationMode_ = options.eagerDelazificationStrategy();
+  mutedErrors_ = options.mutedErrors();
+  delazificationMode_ = options.eagerDelazificationStrategy();
 
   if (options.discardSource) {
     return true;
   }
 
   if (options.sourceIsLazy) {
-    data_ = SourceType(Retrievable<Unit>());
+    data = SourceType(Retrievable<Unit>());
     return true;
   }
 
@@ -1708,17 +1733,17 @@ bool ScriptSource::ExclusiveSourceData::assignSource(
     return false;
   }
 
-  data_ =
+  data =
       SourceType(Uncompressed<Unit, SourceRetrievable::No>(std::move(deduped)));
   return true;
 }
 
-template bool ScriptSource::ExclusiveSourceData::assignSource(
-    FrontendContext* fc, const ReadOnlyCompileOptions& options,
-    ScriptSource* ss, SourceText<char16_t>& srcBuf);
-template bool ScriptSource::ExclusiveSourceData::assignSource(
-    FrontendContext* fc, const ReadOnlyCompileOptions& options,
-    ScriptSource* ss, SourceText<Utf8Unit>& srcBuf);
+template bool ScriptSource::assignSource(FrontendContext* fc,
+                                         const ReadOnlyCompileOptions& options,
+                                         SourceText<char16_t>& srcBuf);
+template bool ScriptSource::assignSource(FrontendContext* fc,
+                                         const ReadOnlyCompileOptions& options,
+                                         SourceText<Utf8Unit>& srcBuf);
 
 [[nodiscard]] static bool reallocUniquePtr(UniqueChars& unique, size_t size) {
   auto newPtr = static_cast<char*>(js_realloc(unique.get(), size));
@@ -1734,20 +1759,18 @@ template bool ScriptSource::ExclusiveSourceData::assignSource(
 
 template <typename Unit>
 void SourceCompressionTaskEntry::workEncodingSpecific(Compressor& comp) {
-  ScriptSource::DataReader reader(source_);
-  MOZ_ASSERT(reader.hasSourceText());
-  MOZ_ASSERT(reader->isUncompressed<Unit>());
+  MOZ_ASSERT(source_->isUncompressed<Unit>());
 
   // Try to keep the maximum memory usage down by only allocating half the
   // size of the string, first.
-  size_t inputBytes = reader->length() * sizeof(Unit);
+  size_t inputBytes = source_->length() * sizeof(Unit);
   size_t firstSize = inputBytes / 2;
   UniqueChars compressed(js_pod_malloc<char>(firstSize));
   if (!compressed) {
     return;
   }
 
-  const Unit* chars = reader->uncompressedData<Unit>()->units();
+  const Unit* chars = source_->uncompressedData<Unit>()->units();
   if (!comp.setInput(reinterpret_cast<const unsigned char*>(chars),
                      inputBytes)) {
     return;
@@ -1832,10 +1855,10 @@ struct SourceCompressionTaskEntry::PerformTaskWork {
   }
 };
 
-void ScriptSource::ExclusiveSourceData::performTaskWork(
-    SourceCompressionTaskEntry* task, Compressor& comp) const {
+void ScriptSource::performTaskWork(SourceCompressionTaskEntry* task,
+                                   Compressor& comp) {
   MOZ_ASSERT(hasUncompressedSource());
-  data_.match(SourceCompressionTaskEntry::PerformTaskWork(task, comp));
+  data.match(SourceCompressionTaskEntry::PerformTaskWork(task, comp));
 }
 
 void SourceCompressionTaskEntry::runTask(Compressor& comp) {
@@ -1843,9 +1866,9 @@ void SourceCompressionTaskEntry::runTask(Compressor& comp) {
     return;
   }
 
-  ScriptSource::DataReader reader(source_);
-  MOZ_ASSERT(reader.hasSourceText());
-  reader->performTaskWork(this, comp);
+  MOZ_ASSERT(source_->hasUncompressedSource());
+
+  source_->performTaskWork(this, comp);
 }
 
 void SourceCompressionTask::runTask() {
@@ -1876,20 +1899,14 @@ void SourceCompressionTask::runHelperThreadTask(
   }
 }
 
-void ScriptSource::DataWriter::triggerConvertToCompressedSourceFromTask(
+void ScriptSource::triggerConvertToCompressedSourceFromTask(
     SharedImmutableString compressed) {
-  if (!hasWriteAccess()) {
-    getConst()->setPendingCompressedFor(guard_, std::move(compressed));
-    return;
-  }
-
-  getMutable()->triggerConvertToCompressedSourceFromTask(std::move(compressed));
+  data.match(TriggerConvertToCompressedSourceFromTask(this, compressed));
 }
 
 void SourceCompressionTaskEntry::complete() {
   if (!shouldCancel() && resultString_) {
-    ScriptSource::DataWriter writer(source_);
-    writer.triggerConvertToCompressedSourceFromTask(std::move(resultString_));
+    source_->triggerConvertToCompressedSourceFromTask(std::move(resultString_));
   }
 }
 
@@ -1917,25 +1934,20 @@ bool js::SynchronouslyCompressSource(JSContext* cx,
   ScriptSource* ss = script->scriptSource();
 #ifdef DEBUG
   {
-    ScriptSource::DataWriter writer(ss);
-    MOZ_ASSERT(writer.hasWriteAccess(),
-               "can't synchronously compress while the source data is in use");
+    auto guard = ss->readers_.lock();
+    MOZ_ASSERT(guard->count == 0,
+               "can't synchronously compress while source units are in use");
   }
 #endif
 
-  {
-    ScriptSource::DataReader reader(ss);
-    MOZ_ASSERT(reader.hasSourceText(),
-               "Should be called only when the source exists");
-    // In principle a previously-triggered compression on a helper thread could
-    // have already completed.  If that happens, there's nothing more to do.
-    if (reader->hasCompressedSource()) {
-      return true;
-    }
-
-    MOZ_ASSERT(reader->hasUncompressedSource(),
-               "shouldn't be compressing uncompressible source");
+  // In principle a previously-triggered compression on a helper thread could
+  // have already completed.  If that happens, there's nothing more to do.
+  if (ss->hasCompressedSource()) {
+    return true;
   }
+
+  MOZ_ASSERT(ss->hasUncompressedSource(),
+             "shouldn't be compressing uncompressible source");
 
   // Use an explicit scope to delineate the lifetime of |task|, for simplicity.
   {
@@ -1969,9 +1981,8 @@ bool js::SynchronouslyCompressSource(JSContext* cx,
     MOZ_ASSERT(!cx->isExceptionPending());
   }
 
-  ScriptSource::DataReader reader(ss);
   // The only way source won't be compressed here is if OOM happened.
-  return reader->hasCompressedSource();
+  return ss->hasCompressedSource();
 }
 
 void ScriptSource::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
@@ -2063,19 +2074,16 @@ bool ScriptSourceObject::isSharingDelazifications() const {
 }
 
 template <typename Unit>
-[[nodiscard]] bool
-ScriptSource::ExclusiveSourceData::initializeUnretrievableUncompressedSource(
+[[nodiscard]] bool ScriptSource::initializeUnretrievableUncompressedSource(
     FrontendContext* fc, EntryUnits<Unit>&& source, size_t length) {
-  MOZ_ASSERT(data_.is<Missing>(), "must be initializing a fresh ScriptSource");
+  MOZ_ASSERT(data.is<Missing>(), "must be initializing a fresh ScriptSource");
   return setUncompressedSourceHelper(fc, std::move(source), length,
                                      SourceRetrievable::No);
 }
 
-template bool
-ScriptSource::ExclusiveSourceData::initializeUnretrievableUncompressedSource(
+template bool ScriptSource::initializeUnretrievableUncompressedSource(
     FrontendContext* fc, EntryUnits<Utf8Unit>&& source, size_t length);
-template bool
-ScriptSource::ExclusiveSourceData::initializeUnretrievableUncompressedSource(
+template bool ScriptSource::initializeUnretrievableUncompressedSource(
     FrontendContext* fc, EntryUnits<char16_t>&& source, size_t length);
 
 // Format and return a cx->pod_malloc'ed URL for a generated script like:
