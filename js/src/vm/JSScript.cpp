@@ -936,10 +936,10 @@ class ScriptSource::SourcePropertiesGetter {
   }
 };
 
-void ScriptSource::getSourceProperties(bool* hasSourceText,
+void ScriptSource::getSourceProperties(ScriptSource* ss, bool* hasSourceText,
                                        bool* retrievable,
                                        bool* isTwoByteString) {
-  data.match(
+  ss->data.match(
       SourcePropertiesGetter(hasSourceText, retrievable, isTwoByteString));
 }
 
