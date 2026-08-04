@@ -831,8 +831,10 @@ void ScriptLoader::PrepareCacheInfoChannel(nsIChannel* aChannel,
       // the serialized stencil disk cache instead of the sources, if such entry
       // is already registered.
       LOG(("ScriptLoadRequest (%p): Maybe request the disk cache", aRequest));
+      nsAutoCString mimeType;
+      ScriptLoader::BytecodeMimeTypeFor(aRequest->getLoadedScript(), mimeType);
       cic->PreferAlternativeDataType(
-          ScriptLoader::BytecodeMimeTypeFor(aRequest), ""_ns,
+          mimeType, ""_ns,
           nsICacheInfoChannel::PreferredAlternativeDataDeliveryType::ASYNC);
     } else {
       // If we are explicitly loading from the sources, such as after a
@@ -3820,21 +3822,19 @@ void ScriptLoader::TryCacheRequest(ScriptLoadRequest* aRequest) {
 }
 
 /* static */
-nsCString& ScriptLoader::BytecodeMimeTypeFor(
-    const ScriptLoadRequest* aRequest) {
-  if (aRequest->IsModuleRequest()) {
-    return nsContentUtils::JSModuleBytecodeMimeType();
-  }
-  return nsContentUtils::JSScriptBytecodeMimeType();
-}
-
-/* static */
-nsCString& ScriptLoader::BytecodeMimeTypeFor(
-    const JS::loader::LoadedScript* aLoadedScript) {
+void ScriptLoader::BytecodeMimeTypeFor(
+    const JS::loader::LoadedScript* aLoadedScript, nsAutoCString& aMIMEType) {
   if (aLoadedScript->IsModuleScript()) {
-    return nsContentUtils::JSModuleBytecodeMimeType();
+    aMIMEType.Assign(nsContentUtils::JSModuleBytecodeMimeType());
+    return;
   }
-  return nsContentUtils::JSScriptBytecodeMimeType();
+
+  aMIMEType.Assign(nsContentUtils::JSScriptBytecodeMimeType());
+  aMIMEType.Append("-");
+  const Encoding* encoding = aLoadedScript->ClassicScriptFallbackEncoding();
+  nsAutoCString name;
+  encoding->Name(name);
+  aMIMEType.Append(name);
 }
 
 const Encoding* ScriptLoader::GetClassicScriptFallbackEncoding(
@@ -4294,9 +4294,11 @@ bool ScriptLoader::SaveToDiskCache(
   // We don't wait for the parent process here because there's nothing we can
   // do for the error case.
   nsCOMPtr<nsIAsyncOutputStream> output;
+  nsAutoCString mimeType;
+  ScriptLoader::BytecodeMimeTypeFor(aLoadedScript, mimeType);
   nsresult rv = aLoadedScript->mCacheEntry->OpenAlternativeOutputStream(
-      BytecodeMimeTypeFor(aLoadedScript),
-      static_cast<int64_t>(aCompressed.length()), getter_AddRefs(output));
+      mimeType, static_cast<int64_t>(aCompressed.length()),
+      getter_AddRefs(output));
   if (NS_FAILED(rv)) {
     LOG(
         ("LoadedScript (%p): Cannot open the disk cache (rv = %X, output "

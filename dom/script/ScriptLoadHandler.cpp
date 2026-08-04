@@ -358,7 +358,9 @@ nsresult ScriptLoadHandler::EnsureKnownDataType(nsIChannel* aChannel) {
   if (nsCOMPtr<nsICacheInfoChannel> cic = do_QueryInterface(aChannel)) {
     nsAutoCString altDataType;
     cic->GetAlternativeDataType(altDataType);
-    if (altDataType.Equals(ScriptLoader::BytecodeMimeTypeFor(mRequest))) {
+    nsAutoCString mimeType;
+    ScriptLoader::BytecodeMimeTypeFor(mRequest->getLoadedScript(), mimeType);
+    if (altDataType.Equals(mimeType)) {
       mRequest->SetSerializedStencil();
       TRACE_FOR_TEST(mRequest, "load:diskcache");
       return NS_OK;
