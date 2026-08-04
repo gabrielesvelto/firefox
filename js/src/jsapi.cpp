@@ -2778,7 +2778,7 @@ JS_PUBLIC_API JSString* JS_DecompileScript(JSContext* cx, HandleScript script) {
     return JS_DecompileFunction(cx, fun);
   }
   bool haveSource;
-  if (!script->scriptSource()->tryLoadSource(cx, &haveSource)) {
+  if (!ScriptSource::loadSource(cx, script->scriptSource(), &haveSource)) {
     return nullptr;
   }
   return haveSource ? JSScript::sourceData(cx, script)

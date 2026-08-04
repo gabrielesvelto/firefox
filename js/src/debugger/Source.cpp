@@ -199,7 +199,7 @@ class DebuggerSourceGetTextMatcher {
   ReturnType match(Handle<ScriptSourceObject*> sourceObject) {
     ScriptSource* ss = sourceObject->source();
     bool hasSourceText;
-    if (!ss->tryLoadSource(cx_, &hasSourceText)) {
+    if (!ScriptSource::loadSource(cx_, ss, &hasSourceText)) {
       return nullptr;
     }
     if (!hasSourceText) {
