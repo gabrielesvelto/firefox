@@ -73,9 +73,8 @@ class ScriptHashKey : public PLDHashEntryHdr {
 
   // Create a key which can be used only for lookup.
   // aKey is the result of ToStringForLookup.
-  static Maybe<ScriptHashKey> FromStringsForLookup(
-      const nsACString& aKey, const nsACString& aURI,
-      const nsACString& aHintCharset);
+  static Maybe<ScriptHashKey> FromStringsForLookup(const nsACString& aKey,
+                                                   const nsACString& aURI);
 
  private:
   ScriptHashKey(nsIURI* aURI, nsIPrincipal* aPartitionPrincipal,
@@ -266,7 +265,6 @@ class SharedScriptCache final
 
   static bool GetCachedScriptSource(JSContext* aCx, const nsACString& aKey,
                                     const nsACString& aURI,
-                                    const nsACString& aHintCharset,
                                     JS::MutableHandle<JS::Value> aRetval);
 
   static void PrepareForLastCC();
