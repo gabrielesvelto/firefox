@@ -191,19 +191,23 @@ using ProfileStringMap =
                        DefaultHasher<HeapPtr<BaseScript*>>, SystemAllocPolicy>;
 
 struct ScriptSourceChunk {
-  ScriptSource* ss = nullptr;
+  // The actual type is |const ScriptSource::ExclusiveSourceData*|, but given
+  // that the nested class cannot be forward declared, we use |const void*|
+  // instead.
+  const void* sourceData = nullptr;
   uint32_t chunk = 0;
 
   ScriptSourceChunk() = default;
 
-  ScriptSourceChunk(ScriptSource* ss, uint32_t chunk) : ss(ss), chunk(chunk) {
+  ScriptSourceChunk(const void* sourceData, uint32_t chunk)
+      : sourceData(sourceData), chunk(chunk) {
     MOZ_ASSERT(valid());
   }
 
-  bool valid() const { return ss != nullptr; }
+  bool valid() const { return sourceData != nullptr; }
 
   bool operator==(const ScriptSourceChunk& other) const {
-    return ss == other.ss && chunk == other.chunk;
+    return sourceData == other.sourceData && chunk == other.chunk;
   }
 };
 
@@ -211,7 +215,7 @@ struct ScriptSourceChunkHasher {
   using Lookup = ScriptSourceChunk;
 
   static HashNumber hash(const ScriptSourceChunk& ssc) {
-    return mozilla::AddToHash(DefaultHasher<ScriptSource*>::hash(ssc.ss),
+    return mozilla::AddToHash(DefaultHasher<const void*>::hash(ssc.sourceData),
                               ssc.chunk);
   }
   static bool match(const ScriptSourceChunk& c1, const ScriptSourceChunk& c2) {
@@ -398,73 +402,9 @@ class ScriptSource {
   friend class frontend::StencilXDR;
 
  private:
-  // Common base class of the templated variants of PinnedUnits<T>.
-  class PinnedUnitsBase {
-   protected:
-    ScriptSource* source_;
-
-    explicit PinnedUnitsBase(ScriptSource* source) : source_(source) {}
-
-    void addReader();
-
-    template <typename Unit>
-    void removeReader();
-  };
-
- public:
-  // Any users that wish to manipulate the char buffer of the ScriptSource
-  // needs to do so via PinnedUnits for GC safety. A GC may compress
-  // ScriptSources. If the source were initially uncompressed, then any raw
-  // pointers to the char buffer would now point to the freed, uncompressed
-  // chars. This is analogous to Rooted.
-  template <typename Unit>
-  class PinnedUnits : public PinnedUnitsBase {
-    const Unit* units_;
-
-   public:
-    // If maybeCx is nullptr, compressed sources will still be decompressed but
-    // the result will not be cached. This allows off-main-thread use without
-    // a JSContext.
-    PinnedUnits(JSContext* maybeCx, ScriptSource* source,
-                UncompressedSourceCache::AutoHoldEntry& holder, size_t begin,
-                size_t len);
-
-    ~PinnedUnits();
-
-    const Unit* get() const { return units_; }
-
-    const typename SourceTypeTraits<Unit>::CharT* asChars() const {
-      return SourceTypeTraits<Unit>::toString(get());
-    }
-  };
-
-  template <typename Unit>
-  class PinnedUnitsIfUncompressed : public PinnedUnitsBase {
-    const Unit* units_;
-
-   public:
-    PinnedUnitsIfUncompressed(ScriptSource* source, size_t begin, size_t len);
-
-    ~PinnedUnitsIfUncompressed();
-
-    const Unit* get() const { return units_; }
-
-    const typename SourceTypeTraits<Unit>::CharT* asChars() const {
-      return SourceTypeTraits<Unit>::toString(get());
-    }
-  };
-
-  class GenericReader : public PinnedUnitsBase {
-   public:
-    explicit GenericReader(ScriptSource* source);
-
-    ~GenericReader();
-  };
-
- private:
   // Missing source text that isn't retrievable using the source hook.  (All
   // ScriptSources initially begin in this state.  Users that are compiling
-  // source text will overwrite |data| to store a different state.)
+  // source text will overwrite |data_| to store a different state.)
   struct Missing {};
 
   // Source that can be retrieved using the registered source hook.  |Unit|
@@ -525,6 +465,45 @@ class ScriptSource {
   };
 
   // The set of currently allowed encoding modes.
+  //
+  // The state transition happens in the following way, where the compress
+  // transition can happen only when there's no DataReader instance with
+  // read access.
+  // See the comment for ExclusiveSourceDataLockState as well.
+  //
+  // Once the source is compressed, uncompressing the source data doesn't
+  // modify the state, but the uncompressed string is stored into the
+  // UncompressedSourceCache.
+  //
+  // +-----------+
+  // |  Missing  |------------------------------+
+  // +-----------+                              |
+  //   |      |                                 |
+  //   |      | compile with non-lazy source    |
+  //   |      | or XDR decode                   | XDR decode
+  //   |      v                                 v
+  //   |    +--------------------+            +--------------------+
+  //   |    |  Uncompressed      |  compress  |  Compressed        |
+  //   |    |  Retrievable::No   |----------->|  Retrievable::No   |
+  //   |    +--------------------+            +--------------------+
+  //   |
+  //   | compile with lazy source
+  //   | or XDR decode
+  //   v
+  // +-------------+
+  // | Retrievable |
+  // +-------------+
+  //          |
+  //          | load
+  //          v
+  //        +--------------------+            +--------------------+
+  //        |  Uncompressed      |  compress  |  Compressed        |
+  //        |  Retrievable::Yes  |----------->|  Retrievable::Yes  |
+  //        +--------------------+            +--------------------+
+  //
+  // When XDR encoding, Uncompressed and Compressed with Retrievable::Yes are
+  // encoded as Retrievable, and thus decoding the buffer will create an
+  // instance with the Retrievable state.
   using SourceType =
       mozilla::Variant<Compressed<mozilla::Utf8Unit, SourceRetrievable::Yes>,
                        Uncompressed<mozilla::Utf8Unit, SourceRetrievable::Yes>,
@@ -537,358 +516,587 @@ class ScriptSource {
                        Retrievable<mozilla::Utf8Unit>, Retrievable<char16_t>,
                        Missing>;
 
-  // If the GC calls triggerConvertToCompressedSource with PinnedUnits present,
-  // the last PinnedUnits instance will install the compressed chars upon
-  // destruction.
+ public:
+  class DataReader;
+
+ private:
+  class ExclusiveSourceData;
+
+  // Combined with ExclusiveData template (see ScriptSource::sourceDataState_
+  // field), this provides multiple-readers / single-writer lock for
+  // ExclusiveSourceData, with the delayed compression.
   //
-  // Retrievability isn't part of the type here because uncompressed->compressed
-  // transitions must preserve existing retrievability.
-  struct ReaderInstances {
-    size_t count = 0;
+  // See DataReader/DataWriter below also.
+  //
+  // If the GC calls triggerConvertToCompressedSourceFromTask with DataReader
+  // present, the last DataReader instance will install the compressed chars
+  // upon destruction.
+  class ExclusiveSourceDataLockState {
+   public:
+    void addReader();
+    void removeReader(ScriptSource* ss, DataReader& reader);
+
+    // Remove reader when converting DataReader into DataWriter.
+    void removeReaderForWrite();
+
+    bool hasReaders() const { return readers_ > 0; }
+
+    template <typename Unit>
+    void setPendingCompressed(SharedImmutableString compressed,
+                              size_t uncompressedLength);
+
+   private:
+    template <typename Unit>
+    void performDelayedConvertToCompressedSource(DataReader& reader);
+
+    // The number of existing readers.
+    // If this is non-zero, ExclusiveSourceData is locked by readers,
+    // and DataWriter cannot modify ExclusiveSourceData.
+    size_t readers_ = 0;
+
+    // The pending conversion to the compressed data.
+    //
+    // Retrievability isn't part of the type here because
+    // uncompressed->compressed transitions must preserve existing
+    // retrievability.
     mozilla::MaybeOneOf<CompressedData<mozilla::Utf8Unit>,
                         CompressedData<char16_t>>
-        pendingCompressed;
+        pendingCompressed_;
   };
 
-  // ==== Read properties ====
-
-  class SourcePropertiesGetter;
-
- public:
-  // Returns the source data properties of the script source.
+  // The script source data, locked by the combination of the following:
+  //   * ExclusiveSourceDataLockState,
+  //   * RWLocked
+  //   * DataReader
+  //   * DataWriter
   //
-  // *loaded indicates whether source text is available, *retrievable indicates
-  // whether the source can be retrieved later via source hook, and
-  // *isTwoByteString indicates if the underlying source data is char16_t-typed.
-  void getSourceProperties(bool* hasSourceText, bool* retrievable,
-                           bool* isTwoByteString);
+  // All access to this class instance should be performed through either
+  // DataReader or DataWriter, for GC safety.
+  class ExclusiveSourceData {
+    friend class frontend::StencilXDR;
+    friend class ScriptSource;
 
- private:
-  struct HasUncompressedSource {
-    template <typename Unit, SourceRetrievable CanRetrieve>
-    bool operator()(const Uncompressed<Unit, CanRetrieve>&) {
-      return true;
+    // ==== Read properties ====
+
+    class SourcePropertiesGetter;
+
+   public:
+    // Returns the source data properties of the script source.
+    //
+    // *loaded indicates whether source text is available, *retrievable
+    // indicates whether the source can be retrieved later via source hook, and
+    // *isTwoByteString indicates if the underlying source data is
+    // char16_t-typed.
+    void getSourceProperties(bool* hasSourceText, bool* retrievable,
+                             bool* isTwoByteString) const;
+
+   private:
+    struct HasUncompressedSource {
+      template <typename Unit, SourceRetrievable CanRetrieve>
+      bool operator()(const Uncompressed<Unit, CanRetrieve>&) {
+        return true;
+      }
+
+      template <typename Unit, SourceRetrievable CanRetrieve>
+      bool operator()(const Compressed<Unit, CanRetrieve>&) {
+        return false;
+      }
+
+      template <typename Unit>
+      bool operator()(const Retrievable<Unit>&) {
+        return false;
+      }
+
+      bool operator()(const Missing&) { return false; }
+    };
+
+   public:
+    bool hasUncompressedSource() const {
+      return data_.match(HasUncompressedSource());
     }
 
-    template <typename Unit, SourceRetrievable CanRetrieve>
-    bool operator()(const Compressed<Unit, CanRetrieve>&) {
-      return false;
+   private:
+    template <typename Unit>
+    struct IsUncompressed {
+      template <SourceRetrievable CanRetrieve>
+      bool operator()(const Uncompressed<Unit, CanRetrieve>&) {
+        return true;
+      }
+
+      template <typename T>
+      bool operator()(const T&) {
+        return false;
+      }
+    };
+
+   public:
+    template <typename Unit>
+    bool isUncompressed() const {
+      return data_.match(IsUncompressed<Unit>());
+    }
+
+   private:
+    struct HasCompressedSource {
+      template <typename Unit, SourceRetrievable CanRetrieve>
+      bool operator()(const Compressed<Unit, CanRetrieve>&) {
+        return true;
+      }
+
+      template <typename T>
+      bool operator()(const T&) {
+        return false;
+      }
+    };
+
+   public:
+    bool hasCompressedSource() const {
+      return data_.match(HasCompressedSource());
+    }
+
+    bool hasSourceText() const {
+      return hasUncompressedSource() || hasCompressedSource();
+    }
+
+   private:
+    template <typename Unit>
+    struct IsCompressed {
+      template <SourceRetrievable CanRetrieve>
+      bool operator()(const Compressed<Unit, CanRetrieve>&) {
+        return true;
+      }
+
+      template <typename T>
+      bool operator()(const T&) {
+        return false;
+      }
+    };
+
+   public:
+    template <typename Unit>
+    bool isCompressed() const {
+      return data_.match(IsCompressed<Unit>());
+    }
+
+    template <template <typename U, SourceRetrievable CanRetrieve> class Data,
+              typename Unit>
+    bool isRetrievableData() const {
+      return data_.is<Data<Unit, SourceRetrievable::Yes>>();
     }
 
     template <typename Unit>
-    bool operator()(const Retrievable<Unit>&) {
-      return false;
+    bool isRetrievable() const {
+      return data_.is<Retrievable<Unit>>();
     }
 
-    bool operator()(const Missing&) { return false; }
-  };
+    bool isMissing() const { return data_.is<Missing>(); }
 
- public:
-  bool hasUncompressedSource() const {
-    return data.match(HasUncompressedSource());
-  }
+   private:
+    template <typename Unit>
+    struct SourceTypeMatcher {
+      template <template <typename C, SourceRetrievable R> class Data,
+                SourceRetrievable CanRetrieve>
+      bool operator()(const Data<Unit, CanRetrieve>&) {
+        return true;
+      }
 
- private:
-  template <typename Unit>
-  struct IsUncompressed {
-    template <SourceRetrievable CanRetrieve>
-    bool operator()(const Uncompressed<Unit, CanRetrieve>&) {
-      return true;
+      template <template <typename C, SourceRetrievable R> class Data,
+                typename NotUnit, SourceRetrievable CanRetrieve>
+      bool operator()(const Data<NotUnit, CanRetrieve>&) {
+        return false;
+      }
+
+      bool operator()(const Retrievable<Unit>&) {
+        MOZ_CRASH("source type only applies where actual text is available");
+        return false;
+      }
+
+      template <typename NotUnit>
+      bool operator()(const Retrievable<NotUnit>&) {
+        return false;
+      }
+
+      bool operator()(const Missing&) {
+        MOZ_CRASH("doesn't make sense to ask source type when missing");
+        return false;
+      }
+    };
+
+   public:
+    template <typename Unit>
+    bool hasSourceType() const {
+      return data_.match(SourceTypeMatcher<Unit>());
     }
 
-    template <typename T>
-    bool operator()(const T&) {
-      return false;
-    }
-  };
+   private:
+    struct UncompressedLengthMatcher {
+      template <typename Unit, SourceRetrievable CanRetrieve>
+      size_t operator()(const Uncompressed<Unit, CanRetrieve>& u) {
+        return u.length();
+      }
 
- public:
-  template <typename Unit>
-  bool isUncompressed() const {
-    return data.match(IsUncompressed<Unit>());
-  }
+      template <typename Unit, SourceRetrievable CanRetrieve>
+      size_t operator()(const Compressed<Unit, CanRetrieve>& u) {
+        return u.uncompressedLength;
+      }
 
- private:
-  struct HasCompressedSource {
-    template <typename Unit, SourceRetrievable CanRetrieve>
-    bool operator()(const Compressed<Unit, CanRetrieve>&) {
-      return true;
-    }
+      template <typename Unit>
+      size_t operator()(const Retrievable<Unit>&) {
+        MOZ_CRASH("ScriptSource::length on a missing-but-retrievable source");
+        return 0;
+      }
 
-    template <typename T>
-    bool operator()(const T&) {
-      return false;
-    }
-  };
+      size_t operator()(const Missing& m) {
+        MOZ_CRASH("ScriptSource::length on a missing source");
+        return 0;
+      }
+    };
 
- public:
-  bool hasCompressedSource() const { return data.match(HasCompressedSource()); }
-
-  bool hasSourceText() const {
-    return hasUncompressedSource() || hasCompressedSource();
-  }
-
- private:
-  template <typename Unit>
-  struct IsCompressed {
-    template <SourceRetrievable CanRetrieve>
-    bool operator()(const Compressed<Unit, CanRetrieve>&) {
-      return true;
+   public:
+    size_t length() const {
+      MOZ_ASSERT(hasSourceText());
+      return data_.match(UncompressedLengthMatcher());
     }
 
-    template <typename T>
-    bool operator()(const T&) {
-      return false;
-    }
-  };
+   private:
+    template <typename Unit>
+    struct UncompressedDataMatcher {
+      template <SourceRetrievable CanRetrieve>
+      const UncompressedData<Unit>* operator()(
+          const Uncompressed<Unit, CanRetrieve>& u) {
+        return &u;
+      }
 
- public:
-  template <typename Unit>
-  bool isCompressed() const {
-    return data.match(IsCompressed<Unit>());
-  }
+      template <typename T>
+      const UncompressedData<Unit>* operator()(const T&) {
+        MOZ_CRASH(
+            "attempting to access uncompressed data in a ScriptSource not "
+            "containing it");
+        return nullptr;
+      }
+    };
 
- private:
-  template <typename Unit>
-  struct SourceTypeMatcher {
-    template <template <typename C, SourceRetrievable R> class Data,
-              SourceRetrievable CanRetrieve>
-    bool operator()(const Data<Unit, CanRetrieve>&) {
-      return true;
-    }
-
-    template <template <typename C, SourceRetrievable R> class Data,
-              typename NotUnit, SourceRetrievable CanRetrieve>
-    bool operator()(const Data<NotUnit, CanRetrieve>&) {
-      return false;
+   public:
+    template <typename Unit>
+    const UncompressedData<Unit>* uncompressedData() const {
+      return data_.match(UncompressedDataMatcher<Unit>());
     }
 
-    bool operator()(const Retrievable<Unit>&) {
-      MOZ_CRASH("source type only applies where actual text is available");
-      return false;
+   private:
+    template <typename Unit>
+    struct CompressedDataMatcher {
+      template <SourceRetrievable CanRetrieve>
+      const CompressedData<Unit>* operator()(
+          const Compressed<Unit, CanRetrieve>& c) {
+        return &c;
+      }
+
+      template <typename T>
+      const CompressedData<Unit>* operator()(const T&) {
+        MOZ_CRASH(
+            "attempting to access compressed data in a ScriptSource not "
+            "containing it");
+        return nullptr;
+      }
+    };
+
+   public:
+    template <typename Unit>
+    const CompressedData<Unit>* compressedData() const {
+      return data_.match(CompressedDataMatcher<Unit>());
     }
 
-    template <typename NotUnit>
-    bool operator()(const Retrievable<NotUnit>&) {
-      return false;
-    }
+   private:
+    // Decompress and return the specified chunk of source code.
+    // If maybeCx is nullptr, decompression still works but the uncompressed
+    // result will not be cached. This allows off-main-thread callers to
+    // decompress source without a JSContext, at the cost of potentially
+    // decompressing the same chunk multiple times.
+    template <typename Unit>
+    const Unit* chunkUnits(JSContext* maybeCx,
+                           UncompressedSourceCache::AutoHoldEntry& holder,
+                           size_t chunk) const;
 
-    bool operator()(const Missing&) {
-      MOZ_CRASH("doesn't make sense to ask source type when missing");
-      return false;
-    }
-  };
+   public:
+    // Return a string containing the chars starting at |begin| and ending at
+    // |begin + len|.
+    //
+    // If maybeCx is nullptr, compressed sources will still be decompressed but
+    // the result will not be cached. See chunkUnits comment above.
+    template <typename Unit>
+    const Unit* units(JSContext* maybeCx,
+                      UncompressedSourceCache::AutoHoldEntry& asp, size_t begin,
+                      size_t len) const;
 
- public:
-  template <typename Unit>
-  bool hasSourceType() const {
-    return data.match(SourceTypeMatcher<Unit>());
-  }
-
- private:
-  struct UncompressedLengthMatcher {
-    template <typename Unit, SourceRetrievable CanRetrieve>
-    size_t operator()(const Uncompressed<Unit, CanRetrieve>& u) {
-      return u.length();
-    }
-
-    template <typename Unit, SourceRetrievable CanRetrieve>
-    size_t operator()(const Compressed<Unit, CanRetrieve>& u) {
-      return u.uncompressedLength;
-    }
+    // A variant of |units| above, which returns a char sequence.
+    template <typename Unit>
+    const typename SourceTypeTraits<Unit>::CharT* unitsChars(
+        JSContext* maybeCx, UncompressedSourceCache::AutoHoldEntry& asp,
+        size_t begin, size_t len) const;
 
     template <typename Unit>
-    size_t operator()(const Retrievable<Unit>&) {
-      MOZ_CRASH("ScriptSource::length on a missing-but-retrievable source");
-      return 0;
-    }
+    const Unit* uncompressedUnits(size_t begin, size_t len) const;
 
-    size_t operator()(const Missing& m) {
-      MOZ_CRASH("ScriptSource::length on a missing source");
-      return 0;
-    }
+    JSLinearString* substring(JSContext* cx, size_t start, size_t stop) const;
+    JSLinearString* substringDontDeflate(JSContext* cx, size_t start,
+                                         size_t stop) const;
+
+    // Get substring characters without creating a JSString. Returns a variant
+    // containing either UniqueChars (UTF-8) or UniqueTwoByteChars (UTF-16).
+    //
+    // IMPORTANT: The returned buffer is NOT null-terminated. Callers must track
+    // the length separately (stop - start). This is designed for consumers that
+    // store length explicitly (e.g., ProfilerJSSourceData).
+    //
+    // Callers must handle empty sources before calling this (the function
+    // asserts non-empty length). Returns nullptr only on allocation failures.
+    // Designed for off-main-thread use where JSContext is not available for
+    // error reporting.
+    SubstringCharsResult substringChars(size_t start, size_t stop) const;
+
+    [[nodiscard]] bool appendSubstring(JSContext* cx, js::StringBuilder& buf,
+                                       size_t start, size_t stop) const;
+
+    JSLinearString* functionBodyString(JSContext* cx,
+                                       ScriptSource* source) const;
+
+    // Returns the function body substring. Unlike substringChars, this can
+    // return an empty result (nullptr with *outLength == 0) for empty function
+    // bodies. The caller doesn't need to check the length before calling.
+    SubstringCharsResult functionBodyStringChars(ScriptSource* source,
+                                                 size_t* outLength) const;
+
+    // ==== Write units ====
+
+    // Assign source data from |srcBuf| to this recently-created |ScriptSource|.
+    template <typename Unit>
+    [[nodiscard]] bool assignSource(FrontendContext* fc,
+                                    const JS::ReadOnlyCompileOptions& options,
+                                    ScriptSource* ss,
+                                    JS::SourceText<Unit>& srcBuf);
+
+   private:
+    // Overwrites |data_| with the uncompressed data from |source|.
+    //
+    // This function asserts nothing about |data_|.  Users should use assertions
+    // to double-check their own understandings of the |data_| state transition
+    // being performed.
+    template <typename ContextT, typename Unit>
+    [[nodiscard]] bool setUncompressedSourceHelper(
+        ContextT* cx, EntryUnits<Unit>&& source, size_t length,
+        SourceRetrievable retrievable);
+
+   public:
+    // Initialize a fresh |ScriptSource| with unretrievable, uncompressed
+    // source.
+    template <typename Unit>
+    [[nodiscard]] bool initializeUnretrievableUncompressedSource(
+        FrontendContext* fc, EntryUnits<Unit>&& source, size_t length);
+
+    // Set the retrieved source for a |ScriptSource| whose source was recorded
+    // as missing but retrievable.
+    template <typename Unit>
+    [[nodiscard]] bool setRetrievedSource(JSContext* cx,
+                                          EntryUnits<Unit>&& source,
+                                          size_t length);
+
+    // Initialize a fresh ScriptSource as containing unretrievable compressed
+    // source of the indicated original encoding.
+    template <typename Unit>
+    [[nodiscard]] bool initializeWithUnretrievableCompressedSource(
+        FrontendContext* fc, UniqueChars&& raw, size_t rawLength,
+        size_t sourceLength);
+
+    // ==== Compression ====
+
+    void performTaskWork(SourceCompressionTaskEntry* task,
+                         Compressor& comp) const;
+
+   private:
+    struct TriggerConvertToCompressedSourceFromTask;
+    friend struct TriggerConvertToCompressedSourceFromTask;
+
+    template <typename Unit>
+    void convertToCompressedSource(SharedImmutableString compressed,
+                                   size_t uncompressedLength);
+
+   public:
+    void triggerConvertToCompressedSourceFromTask(
+        SharedImmutableString compressed);
+
+   private:
+    struct SetPendingCompressedFor;
+
+   public:
+    void setPendingCompressedFor(
+        ExclusiveData<ExclusiveSourceDataLockState>::Guard& guard,
+        SharedImmutableString compressed) const;
+
+   private:
+    SourceType data_ = SourceType(Missing());
   };
 
  public:
-  size_t length() const {
-    MOZ_ASSERT(hasSourceText());
-    return data.match(UncompressedLengthMatcher());
-  }
+  // Provides mutable access to ExclusiveSourceData.
+  // This can fail to get the write access if there's any reader.
+  //
+  // The consumer should check hasWriteAccess() before mutating.
+  //
+  // If hasWriteAccess() fails, getConst() can be used to get read-only
+  // access.
+  class DataWriter {
+    // For DataReader ctor which reuses the lock.
+    friend class DataReader;
 
-  // ==== Read units ====
-
- private:
-  template <typename Unit>
-  struct UncompressedDataMatcher {
-    template <SourceRetrievable CanRetrieve>
-    const UncompressedData<Unit>* operator()(
-        const Uncompressed<Unit, CanRetrieve>& u) {
-      return &u;
+   public:
+    explicit DataWriter(ScriptSource* source)
+        : source_(source), guard_(source_->sourceDataState_.lock()) {
+      hasWriteAccess_ = !guard_->hasReaders();
     }
 
-    template <typename T>
-    const UncompressedData<Unit>* operator()(const T&) {
-      MOZ_CRASH(
-          "attempting to access uncompressed data in a ScriptSource not "
-          "containing it");
-      return nullptr;
+    explicit DataWriter(mozilla::Maybe<DataReader>&& reader);
+
+    ~DataWriter() = default;
+
+    bool hasWriteAccess() const { return hasWriteAccess_; }
+
+    const ExclusiveSourceData* getConst() const {
+      return &source_->sourceData_.getConst(*this);
     }
+
+    ExclusiveSourceData* getMutable() const {
+      MOZ_ASSERT(hasWriteAccess_);
+      return &source_->sourceData_.getMutable(*this);
+    }
+
+    ExclusiveSourceData* operator->() { return getMutable(); }
+
+    void triggerConvertToCompressedSourceFromTask(
+        SharedImmutableString compressed);
+
+   private:
+    bool hasWriteAccess_ = false;
+    ScriptSource* source_;
+
+    ExclusiveData<ExclusiveSourceDataLockState>::Guard guard_;
   };
 
- public:
-  template <typename Unit>
-  const UncompressedData<Unit>* uncompressedData() {
-    return data.match(UncompressedDataMatcher<Unit>());
-  }
+  // Provides read-only access to ExclusiveSourceData.
+  //
+  // The consumer should first check hasSourceText().
+  //
+  // If hasSourceText() returns true, the properties read through the
+  // DataReader is guaranteed to be consistent only while the DataReader is
+  // alive.
+  // Once the DataReader goes out of the scope, the underlying buffer can be
+  // compressed, and the properties retrieved before that can go out of sync.
+  //
+  // If the consumer want to get the source length, and then access the units,
+  // it should use single DataReader for both calls.
+  //
+  // If hasSourceText() returns false, the access to the ExclusiveSourceData
+  // is denied from this DataReader instance. For this case, the underlying
+  // ExclusiveSourceData is either Retrievable or Missing, and the Retrievable
+  // state can make a transition to the Uncompressed state when the source is
+  // loaded.  DataReader instances constructed after the transition will have
+  // hasSourceText()==true.
+  class DataReader {
+    // For getMutableForDelayedConvertToCompressedSource.
+    friend class ExclusiveSourceDataLockState;
 
- private:
-  template <typename Unit>
-  struct CompressedDataMatcher {
-    template <SourceRetrievable CanRetrieve>
-    const CompressedData<Unit>* operator()(
-        const Compressed<Unit, CanRetrieve>& c) {
-      return &c;
+    // For DataWriter ctor which takes over the implicit lock.
+    friend class DataWriter;
+
+   public:
+    explicit DataReader(ScriptSource* source) : source_(source) {
+      auto guard_ = source_->sourceDataState_.lock();
+      getConstWithLock()->getSourceProperties(&hasSourceText_, &retrievable_,
+                                      &isTwoByteString_);
+      if (hasSourceText_) {
+        guard_->addReader();
+      }
     }
 
-    template <typename T>
-    const CompressedData<Unit>* operator()(const T&) {
-      MOZ_CRASH(
-          "attempting to access compressed data in a ScriptSource not "
-          "containing it");
-      return nullptr;
+    explicit DataReader(mozilla::Maybe<DataReader>&& reader)
+        : source_(reader->source_),
+          hasSourceText_(reader->hasSourceText_),
+          retrievable_(reader->retrievable_),
+          isTwoByteString_(reader->isTwoByteString_) {
+      reader->source_ = nullptr;
+      reader.reset();
     }
+
+    explicit DataReader(mozilla::Maybe<DataWriter>&& writer)
+        : source_(writer->source_) {
+      getConstWithLock()->getSourceProperties(&hasSourceText_, &retrievable_,
+                                              &isTwoByteString_);
+      if (hasSourceText_) {
+        (*writer).guard_->addReader();
+      }
+      writer.reset();
+    }
+
+    ~DataReader() {
+      if (!source_) {
+        // Already converted into other DataReader or DataWriter.
+        return;
+      }
+      if (!hasSourceText_) {
+        // Constructor didn't add reader.
+        return;
+      }
+      auto guard_ = source_->sourceDataState_.lock();
+      guard_->removeReader(source_, *this);
+    }
+
+    bool hasSourceText() const { return hasSourceText_; }
+    bool isRetrievable() const { return retrievable_; }
+    bool isTwoByteString() const { return isTwoByteString_; }
+
+    const ExclusiveSourceData* getConst() const {
+      MOZ_ASSERT(hasSourceText());
+      return &source_->sourceData_.getConst(*this);
+    }
+
+    const ExclusiveSourceData* operator->() const { return getConst(); }
+
+   private:
+    const ExclusiveSourceData* getConstWithLock() const {
+      return &source_->sourceData_.getConst(*this);
+    }
+
+    ExclusiveSourceData* getMutableForDelayedConvertToCompressedSource() {
+      MOZ_ASSERT(hasSourceText());
+      return &source_->sourceData_
+                  .getMutableForDelayedConvertToCompressedSource(*this);
+    }
+
+    ScriptSource* source_;
+
+    bool hasSourceText_;
+    bool retrievable_;
+    bool isTwoByteString_;
   };
 
- public:
-  template <typename Unit>
-  const CompressedData<Unit>* compressedData() {
-    return data.match(CompressedDataMatcher<Unit>());
-  }
-
  private:
-  // Decompress and return the specified chunk of source code.
-  // If maybeCx is nullptr, decompression still works but the uncompressed
-  // result will not be cached. This allows off-main-thread callers to
-  // decompress source without a JSContext, at the cost of potentially
-  // decompressing the same chunk multiple times.
-  template <typename Unit>
-  const Unit* chunkUnits(JSContext* maybeCx,
-                         UncompressedSourceCache::AutoHoldEntry& holder,
-                         size_t chunk);
+  // Provides lock for ExclusiveSourceData.
+  // See the comment above ExclusiveSourceData.
+  template <typename T>
+  class RWLocked {
+    friend class DataReader;
+    friend class DataWriter;
 
-  // Return a string containing the chars starting at |begin| and ending at
-  // |begin + len|.
-  //
-  // Warning: this is *not* GC-safe! Any chars to be handed out must use
-  // PinnedUnits. See comment below.
-  //
-  // If maybeCx is nullptr, compressed sources will still be decompressed but
-  // the result will not be cached. See chunkUnits comment above.
-  template <typename Unit>
-  const Unit* units(JSContext* maybeCx,
-                    UncompressedSourceCache::AutoHoldEntry& asp, size_t begin,
-                    size_t len);
+    const T& getConst(const DataReader&) const { return value; }
 
-  template <typename Unit>
-  const Unit* uncompressedUnits(size_t begin, size_t len);
+    T& getMutableForDelayedConvertToCompressedSource(const DataReader&) {
+      return value;
+    }
 
- public:
-  JSLinearString* substring(JSContext* cx, size_t start, size_t stop);
-  JSLinearString* substringDontDeflate(JSContext* cx, size_t start,
-                                       size_t stop);
-  // Get substring characters without creating a JSString. Returns a variant
-  // containing either UniqueChars (UTF-8) or UniqueTwoByteChars (UTF-16).
-  //
-  // IMPORTANT: The returned buffer is NOT null-terminated. Callers must track
-  // the length separately (stop - start). This is designed for consumers that
-  // store length explicitly (e.g., ProfilerJSSourceData).
-  //
-  // Callers must handle empty sources before calling this (the function asserts
-  // non-empty length). Returns nullptr only on allocation failures. Designed
-  // for off-main-thread use where JSContext is not available for error
-  // reporting.
-  SubstringCharsResult substringChars(size_t start, size_t stop);
+    const T& getConst(const DataWriter&) const { return value; }
 
-  [[nodiscard]] bool appendSubstring(JSContext* cx, js::StringBuilder& buf,
-                                     size_t start, size_t stop);
+    T& getMutable(const DataWriter&) { return value; }
 
-  JSLinearString* functionBodyString(JSContext* cx);
-
-  // Returns the function body substring. Unlike substringChars, this can return
-  // an empty result (nullptr with *outLength == 0) for empty function bodies.
-  // The caller doesn't need to check the length before calling.
-  SubstringCharsResult functionBodyStringChars(size_t* outLength);
-
-  // ==== Write units ====
-
-  // Assign source data from |srcBuf| to this recently-created |ScriptSource|.
-  template <typename Unit>
-  [[nodiscard]] bool assignSource(FrontendContext* fc,
-                                  const JS::ReadOnlyCompileOptions& options,
-                                  JS::SourceText<Unit>& srcBuf);
-
- private:
-  // Overwrites |data| with the uncompressed data from |source|.
-  //
-  // This function asserts nothing about |data|.  Users should use assertions to
-  // double-check their own understandings of the |data| state transition being
-  // performed.
-  template <typename ContextT, typename Unit>
-  [[nodiscard]] bool setUncompressedSourceHelper(ContextT* cx,
-                                                 EntryUnits<Unit>&& source,
-                                                 size_t length,
-                                                 SourceRetrievable retrievable);
-
- public:
-  // Initialize a fresh |ScriptSource| with unretrievable, uncompressed source.
-  template <typename Unit>
-  [[nodiscard]] bool initializeUnretrievableUncompressedSource(
-      FrontendContext* fc, EntryUnits<Unit>&& source, size_t length);
-
-  // Set the retrieved source for a |ScriptSource| whose source was recorded as
-  // missing but retrievable.
-  template <typename Unit>
-  [[nodiscard]] bool setRetrievedSource(JSContext* cx,
-                                        EntryUnits<Unit>&& source,
-                                        size_t length);
-
-  // *Trigger* the conversion of this ScriptSource from containing uncompressed
-  // |Unit|-encoded source to containing compressed source.  Conversion may not
-  // be complete when this function returns: it'll be delayed if there's ongoing
-  // use of the uncompressed source via |PinnedUnits|, in which case conversion
-  // won't occur until the outermost |PinnedUnits| is destroyed.
-  //
-  // Compressed source is in bytes, no matter that |Unit| might be |char16_t|.
-  // |sourceLength| is the length in code units (not bytes) of the uncompressed
-  // source.
-  template <typename Unit>
-  void triggerConvertToCompressedSource(SharedImmutableString compressed,
-                                        size_t sourceLength);
-
-  // Initialize a fresh ScriptSource as containing unretrievable compressed
-  // source of the indicated original encoding.
-  template <typename Unit>
-  [[nodiscard]] bool initializeWithUnretrievableCompressedSource(
-      FrontendContext* fc, UniqueChars&& raw, size_t rawLength,
-      size_t sourceLength);
-
- private:
-  // ==== Compression ====
-
-  void performTaskWork(SourceCompressionTaskEntry* task, Compressor& comp);
-
-  struct TriggerConvertToCompressedSourceFromTask;
-
-  template <typename Unit>
-  void convertToCompressedSource(SharedImmutableString compressed,
-                                 size_t uncompressedLength);
-
-  template <typename Unit>
-  void performDelayedConvertToCompressedSource(
-      ExclusiveData<ReaderInstances>::Guard& g);
-
-  void triggerConvertToCompressedSourceFromTask(
-      SharedImmutableString compressed);
+    T value;
+  };
 
   //
   // Start of fields.
@@ -904,10 +1112,9 @@ class ScriptSource {
   // unique anymore.
   uint32_t id_ = 0;
 
-  // Source data (as a mozilla::Variant).
-  SourceType data = SourceType(Missing());
+  RWLocked<ExclusiveSourceData> sourceData_;
 
-  ExclusiveData<ReaderInstances> readers_;
+  ExclusiveData<ExclusiveSourceDataLockState> sourceDataState_;
 
   // The UTF-8 encoded filename of this script.
   SharedImmutableString filename_;
@@ -976,7 +1183,7 @@ class ScriptSource {
   static const size_t SourceDeflateLimit = 100;
 
   explicit ScriptSource()
-      : id_(++idCount_), readers_(js::mutexid::SourceCompression) {}
+      : id_(++idCount_), sourceDataState_(js::mutexid::SourceCompression) {}
   ~ScriptSource() { MOZ_ASSERT(refs == 0); }
 
   void AddRef() { refs++; }
@@ -1001,13 +1208,25 @@ class ScriptSource {
                                                   UniqueTwoByteChars&& str);
 
  private:
-  class LoadSourceMatcher;
+  template <typename Unit>
+  bool setRetrievedSource(JSContext* cx,
+                          mozilla::Maybe<ScriptSource::DataReader>& readerIn,
+                          mozilla::Maybe<ScriptSource::DataReader>& readerOut,
+                          Unit* source, size_t length);
 
  public:
   // Attempt to load usable source -- source text on which substring operations
   // and the like can be performed.  On success return true and set |*loaded|
   // to indicate whether usable source could be loaded; otherwise return false.
-  bool tryLoadSource(JSContext* cx, bool* loaded);
+  //
+  // In both case, the reader is emplaced for this ScriptSource, and the
+  // consumer should use the reader to operate on the loaded source.
+  // The |*loaded| value is valid only while the reader is alive.
+  //
+  // Once the reader goes out of the scope, the source can be compressed.
+  bool tryLoadSource(JSContext* cx,
+                     mozilla::Maybe<ScriptSource::DataReader>& reader,
+                     bool* loaded);
 
   void setParameterListEnd(uint32_t parameterListEnd) {
     parameterListEnd_ = parameterListEnd;
@@ -1948,8 +2167,6 @@ class JSScript : public js::BaseScript {
   // Returns true if the script may read formal arguments on the stack
   // directly, via lazy arguments or a rest parameter.
   bool mayReadFrameArgsDirectly();
-
-  static JSLinearString* sourceData(JSContext* cx, JS::HandleScript script);
 
 #ifdef MOZ_VTUNE
   // Unique Method ID passed to the VTune profiler. Allows attribution of
