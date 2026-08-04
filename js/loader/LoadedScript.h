@@ -695,6 +695,10 @@ class LoadedScriptDelegate {
   const mozilla::Encoding* ClassicScriptFallbackEncoding() const {
     return GetLoadedScript()->ClassicScriptFallbackEncoding();
   }
+
+  const mozilla::Encoding* MaybeClassicScriptFallbackEncoding() const {
+    return GetLoadedScript()->IsModuleScript() ? nullptr : GetLoadedScript()->ClassicScriptFallbackEncoding();
+  }
 };
 
 // A single module script. May be used to satisfy multiple load requests.

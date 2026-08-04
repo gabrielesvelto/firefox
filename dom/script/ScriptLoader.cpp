@@ -1227,9 +1227,10 @@ void ScriptLoader::NotifyObserversForCachedScript(
     return;
   }
 
-  ScriptHashKey key(this, aRequest, aRequest->ReferrerPolicy(),
+  ScriptHashKey key(this, aRequest->mKind, aRequest->ReferrerPolicy(),
                     aRequest->FetchOptions(),
-                    aRequest->getLoadedScript()->GetURI());
+                    aRequest->getLoadedScript()->GetURI(),
+                    aRequest->MaybeClassicScriptFallbackEncoding());
   nsAutoCString keyStr;
   key.ToStringForLookup(keyStr);
 
@@ -1317,7 +1318,8 @@ void ScriptLoader::TryUseCache(ReferrerPolicy aReferrerPolicy,
   //       backed by ScriptFetchInfo, and aRequest->URI() and
   //       aRequest->ClassicScriptFallbackEncoding() are backed by
   //       LoadedScript, and we cannot use them here.
-  ScriptHashKey key(this, aRequest, aReferrerPolicy, aFetchOptions, aURI);
+  ScriptHashKey key(this, aRequest->mKind, aReferrerPolicy, aFetchOptions, aURI,
+                    aClassicScriptFallbackEncoding);
   auto cacheResult = mCache->Lookup(*this, key, /* aSyncLoad = */ true);
   MOZ_ASSERT_IF(cacheResult.mState == CachedSubResourceState::Complete,
                 cacheResult.mCompleteValue->IsCachedStencil() ||
@@ -3667,9 +3669,10 @@ ScriptLoader::CacheBehavior ScriptLoader::GetCacheBehavior(
     return CacheBehavior::Insert;
   }
 
-  ScriptHashKey key(this, aRequest, aRequest->ReferrerPolicy(),
+  ScriptHashKey key(this, aRequest->mKind, aRequest->ReferrerPolicy(),
                     aRequest->FetchOptions(),
-                    aRequest->getLoadedScript()->GetURI());
+                    aRequest->getLoadedScript()->GetURI(),
+                    aRequest->MaybeClassicScriptFallbackEncoding());
   auto cacheResult = mCache->Lookup(*this, key,
                                     /* aSyncLoad = */ true);
   MOZ_ASSERT_IF(cacheResult.mState == CachedSubResourceState::Complete,
@@ -3753,8 +3756,9 @@ void ScriptLoader::TryCacheRequest(ScriptLoadRequest* aRequest) {
     // Evict any existing cache.
 
     MOZ_ASSERT(cacheBehavior == CacheBehavior::Evict);
-    ScriptHashKey key(this, aRequest, aRequest->ReferrerPolicy(),
-                      aRequest->FetchOptions(), aRequest->URI());
+    ScriptHashKey key(this, aRequest->mKind, aRequest->ReferrerPolicy(),
+                      aRequest->FetchOptions(), aRequest->URI(),
+                      aRequest->MaybeClassicScriptFallbackEncoding());
     mCache->Evict(key);
     LOG(("ScriptLoader (%p): Evicting in-memory cache for %s.", this,
          aRequest->URI()->GetSpecOrDefault().get()));
@@ -4645,8 +4649,9 @@ nsresult ScriptLoader::OnStreamComplete(
         if (aRequest->HasDirtyCache()) {
           // This request found a dirty cache.
           // Validate the cache with the response's cache ID.
-          ScriptHashKey key(this, aRequest, aRequest->ReferrerPolicy(),
-                            aRequest->FetchOptions(), aRequest->URI());
+          ScriptHashKey key(this, aRequest->mKind, aRequest->ReferrerPolicy(),
+                            aRequest->FetchOptions(), aRequest->URI(),
+                            aRequest->MaybeClassicScriptFallbackEncoding());
           auto cacheResult = mCache->Lookup(*this, key, /* aSyncLoad = */ true);
           MOZ_ASSERT_IF(
               cacheResult.mState == CachedSubResourceState::Complete,

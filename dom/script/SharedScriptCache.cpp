@@ -28,23 +28,18 @@
 namespace mozilla::dom {
 
 ScriptHashKey::ScriptHashKey(
-    ScriptLoader* aLoader, const JS::loader::ScriptLoadRequest* aRequest,
+    ScriptLoader* aLoader, JS::loader::ScriptKind aKind,
     mozilla::dom::ReferrerPolicy aReferrerPolicy,
     const JS::loader::ScriptFetchOptions* aFetchOptions,
-    const nsCOMPtr<nsIURI> aURI)
+    const nsCOMPtr<nsIURI> aURI, const Encoding* aClassicScriptFallbackEncoding)
     : PLDHashEntryHdr(),
       mURI(aURI),
       mPartitionPrincipal(aLoader->PartitionedPrincipal()),
       mLoaderPrincipal(aLoader->LoaderPrincipal()),
-      mKind(aRequest->mKind),
+      mKind(aKind),
       mCORSMode(aFetchOptions->mCORSMode),
-      mReferrerPolicy(aReferrerPolicy) {
-  if (mKind == JS::loader::ScriptKind::eClassic) {
-    if (aRequest->GetScriptLoadContext()->HasScriptElement()) {
-      aRequest->GetScriptLoadContext()->GetHintCharset(mHintCharset);
-    }
-  }
-
+      mReferrerPolicy(aReferrerPolicy),
+      mClassicScriptFallbackEncoding(aClassicScriptFallbackEncoding) {
   MOZ_COUNT_CTOR(ScriptHashKey);
 }
 
@@ -78,11 +73,8 @@ bool ScriptHashKey::KeyEquals(const ScriptHashKey& aKey) const {
     return false;
   }
 
-  // NOTE: module always use UTF-8.
-  if (mKind == JS::loader::ScriptKind::eClassic) {
-    if (mHintCharset != aKey.mHintCharset) {
-      return false;
-    }
+  if (mClassicScriptFallbackEncoding != aKey.mClassicScriptFallbackEncoding) {
+    return false;
   }
 
   return true;
@@ -153,13 +145,12 @@ void ScriptHashKey::ToStringForLookup(nsACString& aResult) {
       break;
   }
 
-  if (mHintCharset.FindChar(KeyEncodingSeparator) != kNotFound) {
-    aResult.Append("INVALID");
-    aResult.Append(KeyEncodingSeparator);
-  } else {
-    aResult.Append(NS_ConvertUTF16toUTF8(mHintCharset));
-    aResult.Append(KeyEncodingSeparator);
+  if (mClassicScriptFallbackEncoding) {
+    nsAutoCString name;
+    mClassicScriptFallbackEncoding->Name(name);
+    aResult.Append(name);
   }
+  aResult.Append(KeyEncodingSeparator);
 
   nsAutoCString partitionPrincipal;
   BasePrincipal::Cast(mPartitionPrincipal)->ToJSON(partitionPrincipal);
@@ -234,6 +225,17 @@ Maybe<ScriptHashKey> ScriptHashKey::FromStringsForLookup(
     return Nothing();
   }
 
+  const Encoding* encoding;
+  if (sep == EncodingStartPos) {
+    encoding = nullptr;
+  } else {
+    encoding = Encoding::ForLabel(
+        Substring(aKey, EncodingStartPos, sep - EncodingStartPos));
+    if (!encoding) {
+      return Nothing();
+    }
+  }
+
   nsCOMPtr<nsIPrincipal> partitionPrincipal =
       BasePrincipal::FromJSON(Substring(aKey, sep + 1));
   if (!partitionPrincipal) {
@@ -246,10 +248,8 @@ Maybe<ScriptHashKey> ScriptHashKey::FromStringsForLookup(
     return Nothing();
   }
 
-  return Some(
-      ScriptHashKey(uri, partitionPrincipal, kind, corsMode, referrerPolicy,
-                    NS_ConvertUTF8toUTF16(Substring(aKey, EncodingStartPos,
-                                                    sep - EncodingStartPos))));
+  return Some(ScriptHashKey(uri, partitionPrincipal, kind, corsMode,
+                            referrerPolicy, encoding));
 }
 
 NS_IMPL_ISUPPORTS(ScriptLoadData, nsISupports)
@@ -260,8 +260,9 @@ ScriptLoadData::ScriptLoadData(ScriptLoader* aLoader,
                                JS::loader::LoadedScript* aLoadedScript)
     : mExpirationTime(aExpirationTime),
       mLoader(aLoader),
-      mKey(aLoader, aRequest, aRequest->ReferrerPolicy(),
-           aRequest->FetchOptions(), aLoadedScript->GetURI()),
+      mKey(aLoader, aRequest->mKind, aRequest->ReferrerPolicy(),
+           aRequest->FetchOptions(), aLoadedScript->GetURI(),
+           aRequest->MaybeClassicScriptFallbackEncoding()),
       mLoadedScript(aLoadedScript),
       mNetworkMetadata(aRequest->mNetworkMetadata) {}
 
