@@ -618,7 +618,7 @@ HRESULT MFMediaEngineParent::SetMediaInfo(const MediaInfoIPDL& aInfo,
   }
 
   if (isEncrypted && mContentProtectionManager) {
-    auto* proxy = mContentProtectionManager->GetCDMProxy();
+    RefPtr<MFCDMProxy> proxy = mContentProtectionManager->GetCDMProxy();
     MOZ_ASSERT(proxy);
     mMediaSource->SetCDMProxy(proxy);
   }

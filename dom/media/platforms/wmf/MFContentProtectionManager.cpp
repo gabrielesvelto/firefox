@@ -20,7 +20,8 @@ using Microsoft::WRL::ComPtr;
               "MFContentProtectionManager={}, " msg, fmt::ptr(this), \
               ##__VA_ARGS__)
 
-MFContentProtectionManager::MFContentProtectionManager() {
+MFContentProtectionManager::MFContentProtectionManager()
+    : mMutex("MFContentProtectionManager::mMutex") {
   MOZ_COUNT_CTOR(MFContentProtectionManager);
   LOG("MFContentProtectionManager created");
 }
@@ -73,13 +74,21 @@ HRESULT MFContentProtectionManager::BeginEnableContent(
     return HRESULT_FROM_WIN32(ERROR_INVALID_IMAGE_HASH);
   }
 
-  if (!mCDMProxy) {
+  RefPtr<MFCDMProxy> proxy;
+  bool hasNotifyWaitingForKeyCb;
+  {
+    MutexAutoLock lock(mMutex);
+    proxy = mCDMProxy;
+    hasNotifyWaitingForKeyCb = !!mNotifyWaitingForKeyCb;
+  }
+
+  if (!proxy) {
     return MF_E_SHUTDOWN;
   }
   RETURN_IF_FAILED(
-      mCDMProxy->SetContentEnabler(unknownObject.Get(), asyncResult.Get()));
+      proxy->SetContentEnabler(unknownObject.Get(), asyncResult.Get()));
 
-  if (mNotifyWaitingForKeyCb) {
+  if (hasNotifyWaitingForKeyCb) {
     mManagerThread->Dispatch(NS_NewRunnableFunction(
         "MFContentProtectionManager::ArmWaitingForKeyTimer",
         [self = ComPtr<MFContentProtectionManager>(this)] {
@@ -151,11 +160,19 @@ HRESULT MFContentProtectionManager::get_Properties(
 
 HRESULT MFContentProtectionManager::SetCDMProxy(MFCDMProxy* aCDMProxy) {
   MOZ_ASSERT(aCDMProxy);
-  mCDMProxy = aCDMProxy;
+  {
+    MutexAutoLock lock(mMutex);
+    mCDMProxy = aCDMProxy;
+  }
   ComPtr<ABI::Windows::Media::Protection::IMediaProtectionPMPServer> pmpServer;
-  RETURN_IF_FAILED(mCDMProxy->GetPMPServer(IID_PPV_ARGS(&pmpServer)));
+  RETURN_IF_FAILED(aCDMProxy->GetPMPServer(IID_PPV_ARGS(&pmpServer)));
   RETURN_IF_FAILED(SetPMPServer(pmpServer.Get()));
   return S_OK;
+}
+
+RefPtr<MFCDMProxy> MFContentProtectionManager::GetCDMProxy() {
+  MutexAutoLock lock(mMutex);
+  return mCDMProxy;
 }
 
 HRESULT MFContentProtectionManager::SetPMPServer(
@@ -177,13 +194,19 @@ HRESULT MFContentProtectionManager::SetPMPServer(
 
 void MFContentProtectionManager::SetNotifyWaitingForKeyCallback(
     std::function<void()>&& aCallback) {
+  MutexAutoLock lock(mMutex);
   mNotifyWaitingForKeyCb = std::move(aCallback);
 }
 
 void MFContentProtectionManager::NotifyWaitingForKey() {
   LOG("NotifyWaitingForKey");
-  if (mNotifyWaitingForKeyCb) {
-    mNotifyWaitingForKeyCb();
+  std::function<void()> notifyWaitingForKeyCb;
+  {
+    MutexAutoLock lock(mMutex);
+    notifyWaitingForKeyCb = mNotifyWaitingForKeyCb;
+  }
+  if (notifyWaitingForKeyCb) {
+    notifyWaitingForKeyCb();
   }
 }
 
@@ -193,7 +216,14 @@ void MFContentProtectionManager::AssertOnManagerThread() const {
 
 void MFContentProtectionManager::ArmWaitingForKeyTimer() {
   AssertOnManagerThread();
-  if (!mCDMProxy || !mNotifyWaitingForKeyCb) {
+  RefPtr<MFCDMProxy> proxy;
+  bool hasNotifyWaitingForKeyCb;
+  {
+    MutexAutoLock lock(mMutex);
+    proxy = mCDMProxy;
+    hasNotifyWaitingForKeyCb = !!mNotifyWaitingForKeyCb;
+  }
+  if (!proxy || !hasNotifyWaitingForKeyCb) {
     return;
   }
   CancelWaitingForKeyTimer();
@@ -223,7 +253,11 @@ void MFContentProtectionManager::CancelWaitingForKeyTimer() {
 void MFContentProtectionManager::Shutdown() {
   LOG("Shutdown");
   CancelWaitingForKeyTimer();
-  mCDMProxy = nullptr;
+  {
+    MutexAutoLock lock(mMutex);
+    mCDMProxy = nullptr;
+    mNotifyWaitingForKeyCb = nullptr;
+  }
 }
 
 #undef LOG
