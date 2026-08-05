@@ -691,11 +691,10 @@ class ScriptSource {
   class SourcePropertiesGetter;
 
  public:
-  // Attempt to load usable source for |ss| -- source text on which substring
-  // operations and the like can be performed.  On success return true and set
-  // |*loaded| to indicate whether usable source could be loaded; otherwise
-  // return false.
-  static bool loadSource(JSContext* cx, ScriptSource* ss, bool* loaded);
+  // Attempt to load usable source -- source text on which substring operations
+  // and the like can be performed.  On success return true and set |*loaded|
+  // to indicate whether usable source could be loaded; otherwise return false.
+  bool tryLoadSource(JSContext* cx, bool* loaded);
 
   // Returns the source data properties of the script source.
   //
