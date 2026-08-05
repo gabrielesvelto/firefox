@@ -35,7 +35,7 @@ class MFContentProtectionManager
   MFContentProtectionManager();
   ~MFContentProtectionManager();
 
-  HRESULT RuntimeClassInitialize();
+  HRESULT RuntimeClassInitialize(nsISerialEventTarget* aManagerThread);
 
   void Shutdown();
 
@@ -68,11 +68,10 @@ class MFContentProtectionManager
 
   HRESULT SetCDMProxy(MFCDMProxy* aCDMProxy);
 
-  // Set a callback that fires on aManagerThread after a delay if
+  // Set a callback that fires on the manager thread after a delay if
   // BeginEnableContent has not been answered by EndEnableContent, signalling a
   // key wait.
-  void SetNotifyWaitingForKeyCallback(std::function<void()>&& aCallback,
-                                      nsISerialEventTarget* aManagerThread);
+  void SetNotifyWaitingForKeyCallback(std::function<void()>&& aCallback);
 
   MFCDMProxy* GetCDMProxy() const { return mCDMProxy; }
 
@@ -80,12 +79,21 @@ class MFContentProtectionManager
   HRESULT SetPMPServer(
       ABI::Windows::Media::Protection::IMediaProtectionPMPServer* aPMPServer);
 
+  void AssertOnManagerThread() const;
+
   void NotifyWaitingForKey();
-  static void WaitingForKeyTimerCallback(nsITimer* aTimer, void* aClosure);
+
+  void ArmWaitingForKeyTimer();
+  void CancelWaitingForKeyTimer();
 
   RefPtr<MFCDMProxy> mCDMProxy;
   std::function<void()> mNotifyWaitingForKeyCb;
+
+  // Set once during construction, before Media Foundation is given this
+  // manager, so it is safe to read from any thread.
   nsCOMPtr<nsISerialEventTarget> mManagerThread;
+
+  // Only used on mManagerThread, which is also the timer's target thread.
   nsCOMPtr<nsITimer> mWaitingForKeyTimer;
 
   Microsoft::WRL::ComPtr<ABI::Windows::Foundation::Collections::IPropertySet>

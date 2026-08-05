@@ -9,6 +9,7 @@
 #include "MFMediaEngineUtils.h"
 #include "WMF.h"
 #include "WMFUtils.h"
+#include "nsThreadUtils.h"
 
 namespace mozilla {
 
@@ -29,7 +30,10 @@ MFContentProtectionManager::~MFContentProtectionManager() {
   LOG("MFContentProtectionManager destroyed");
 }
 
-HRESULT MFContentProtectionManager::RuntimeClassInitialize() {
+HRESULT MFContentProtectionManager::RuntimeClassInitialize(
+    nsISerialEventTarget* aManagerThread) {
+  MOZ_ASSERT(aManagerThread);
+  mManagerThread = aManagerThread;
   ScopedHString propertyId(
       RuntimeClass_Windows_Foundation_Collections_PropertySet);
   RETURN_IF_FAILED(RoActivateInstance(propertyId.Get(), &mPMPServerSet));
@@ -76,17 +80,11 @@ HRESULT MFContentProtectionManager::BeginEnableContent(
       mCDMProxy->SetContentEnabler(unknownObject.Get(), asyncResult.Get()));
 
   if (mNotifyWaitingForKeyCb) {
-    // Follow Chromium's approach of a 500ms delay before
-    // signalling waitingforkey, to avoid noise from transient
-    // content enabler requests.
-    // https://source.chromium.org/chromium/chromium/src/+/main:media/renderers/win/media_foundation_protection_manager.cc;l=201-203
-    auto result = NS_NewTimerWithFuncCallback(
-        &MFContentProtectionManager::WaitingForKeyTimerCallback, this, 500,
-        nsITimer::TYPE_ONE_SHOT, "MFContentProtectionManager::WaitingForKey"_ns,
-        mManagerThread);
-    if (result.isOk()) {
-      mWaitingForKeyTimer = result.unwrap();
-    }
+    mManagerThread->Dispatch(NS_NewRunnableFunction(
+        "MFContentProtectionManager::ArmWaitingForKeyTimer",
+        [self = ComPtr<MFContentProtectionManager>(this)] {
+          self->ArmWaitingForKeyTimer();
+        }));
   }
   LOG("Finished BeginEnableContent");
   return S_OK;
@@ -94,10 +92,11 @@ HRESULT MFContentProtectionManager::BeginEnableContent(
 
 HRESULT MFContentProtectionManager::EndEnableContent(
     IMFAsyncResult* aAsyncResult) {
-  if (mWaitingForKeyTimer) {
-    mWaitingForKeyTimer->Cancel();
-    mWaitingForKeyTimer = nullptr;
-  }
+  mManagerThread->Dispatch(NS_NewRunnableFunction(
+      "MFContentProtectionManager::CancelWaitingForKeyTimer",
+      [self = ComPtr<MFContentProtectionManager>(this)] {
+        self->CancelWaitingForKeyTimer();
+      }));
   HRESULT hr = aAsyncResult->GetStatus();
   if (FAILED(hr)) {
     // Follow Chromium to not to return failure, which avoid doing
@@ -177,9 +176,8 @@ HRESULT MFContentProtectionManager::SetPMPServer(
 }
 
 void MFContentProtectionManager::SetNotifyWaitingForKeyCallback(
-    std::function<void()>&& aCallback, nsISerialEventTarget* aManagerThread) {
+    std::function<void()>&& aCallback) {
   mNotifyWaitingForKeyCb = std::move(aCallback);
-  mManagerThread = aManagerThread;
 }
 
 void MFContentProtectionManager::NotifyWaitingForKey() {
@@ -189,18 +187,42 @@ void MFContentProtectionManager::NotifyWaitingForKey() {
   }
 }
 
-/* static */
-void MFContentProtectionManager::WaitingForKeyTimerCallback(nsITimer* aTimer,
-                                                            void* aClosure) {
-  auto* self = static_cast<MFContentProtectionManager*>(aClosure);
-  self->NotifyWaitingForKey();
+void MFContentProtectionManager::AssertOnManagerThread() const {
+  MOZ_ASSERT(mManagerThread->IsOnCurrentThread());
 }
 
-void MFContentProtectionManager::Shutdown() {
+void MFContentProtectionManager::ArmWaitingForKeyTimer() {
+  AssertOnManagerThread();
+  if (!mCDMProxy || !mNotifyWaitingForKeyCb) {
+    return;
+  }
+  CancelWaitingForKeyTimer();
+  // Follow Chromium's approach of a 500ms delay before
+  // signalling waitingforkey, to avoid noise from transient
+  // content enabler requests.
+  // https://source.chromium.org/chromium/chromium/src/+/main:media/renderers/win/media_foundation_protection_manager.cc;l=201-203
+  auto result = NS_NewTimerWithCallback(
+      [self = ComPtr<MFContentProtectionManager>(this)](nsITimer*) {
+        self->NotifyWaitingForKey();
+      },
+      500, nsITimer::TYPE_ONE_SHOT,
+      "MFContentProtectionManager::WaitingForKey"_ns, mManagerThread);
+  if (result.isOk()) {
+    mWaitingForKeyTimer = result.unwrap();
+  }
+}
+
+void MFContentProtectionManager::CancelWaitingForKeyTimer() {
+  AssertOnManagerThread();
   if (mWaitingForKeyTimer) {
     mWaitingForKeyTimer->Cancel();
     mWaitingForKeyTimer = nullptr;
   }
+}
+
+void MFContentProtectionManager::Shutdown() {
+  LOG("Shutdown");
+  CancelWaitingForKeyTimer();
   mCDMProxy = nullptr;
 }
 
