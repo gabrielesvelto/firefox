@@ -3527,8 +3527,12 @@ nsDocShell::DisplayLoadError(nsresult aError, nsIURI* aURI,
         error = "clientSocketMisconfiguration";
         break;
       case NS_ERROR_NET_RESET:
+      case NS_ERROR_OS_LOCAL_NETWORK_ACCESS_DENIED:
         // Doc failed to load because the server kept reseting the connection
         // before we could read any data from it
+        // NS_ERROR_OS_LOCAL_NETWORK_ACCESS_DENIED is temporarily grouped
+        // with netReset; it will get its own dedicated error page in
+        // bug 2060188.
         error = "netReset";
         break;
       case NS_ERROR_DOCUMENT_NOT_CACHED:
@@ -6150,6 +6154,7 @@ nsresult nsDocShell::FilterStatusForErrorPage(
 
   if (aStatus == NS_ERROR_NET_TIMEOUT ||
       aStatus == NS_ERROR_NET_TIMEOUT_EXTERNAL ||
+      aStatus == NS_ERROR_OS_LOCAL_NETWORK_ACCESS_DENIED ||
       aStatus == NS_ERROR_NET_EMPTY_RESPONSE ||
       aStatus == NS_ERROR_NET_ERROR_RESPONSE ||
       aStatus == NS_ERROR_PROXY_GATEWAY_TIMEOUT ||
