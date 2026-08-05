@@ -747,7 +747,8 @@ int NrSocket::sendto(const void* msg, size_t len, int flags,
   // Block outgoing packets to ports that are not allowed for webrtc. This runs
   // in whatever process opened the socket -- the socket process (socket-process
   // mtransport) or the parent process -- never the content process, which uses
-  // NrUdpSocketIpc/NrTcpSocket.
+  // NrUdpSocketIpc/NrTcpSocket (gated in NrUdpSocketIpc::sendto and enforced by
+  // STUNUDPSocketFilter in the parent process).
   if (IsForbiddenAddress(to)) {
     // Drop the packet, but report success so the caller does not retry.
     _status = 0;
@@ -1279,6 +1280,15 @@ int NrUdpSocketIpc::sendto(const void* msg, size_t len, int flags,
 
   if (state_ != NR_CONNECTED) {
     return R_INTERNAL;
+  }
+
+  // Block outgoing packets to ports that are not allowed for webrtc, the same
+  // way NrSocket::sendto does for sockets we own. This is the content process,
+  // so it is not a trust boundary; STUNUDPSocketFilter enforces the same
+  // restriction in the parent process. Drop the packet, but report success so
+  // the caller does not retry.
+  if (IsForbiddenAddress(to)) {
+    return 0;
   }
 
   int r;
