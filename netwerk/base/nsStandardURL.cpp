@@ -3697,6 +3697,9 @@ bool nsStandardURL::CheckSegmentInvariants() const {
   NS_ENSURE_TRUE(mRef.mLen == -1 || (mRef.mPos > mPath.mPos &&
                                      mSpec.CharAt(mRef.mPos - 1) == '#'),
                  false);
+  NS_ENSURE_TRUE(mQuery.mLen == -1 || mRef.mLen == -1 ||
+                     mQuery.mPos + mQuery.mLen < mRef.mPos,
+                 false);
 
   // mDirectory, mBasename, mExtension must be sub-ranges of mFilepath,
   // which must be a sub-range of mPath.
