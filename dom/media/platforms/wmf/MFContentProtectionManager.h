@@ -13,6 +13,7 @@
 #include <functional>
 
 #include "MFCDMProxy.h"
+#include "mozilla/Mutex.h"
 #include "nsISerialEventTarget.h"
 #include "nsITimer.h"
 
@@ -73,7 +74,7 @@ class MFContentProtectionManager
   // key wait.
   void SetNotifyWaitingForKeyCallback(std::function<void()>&& aCallback);
 
-  MFCDMProxy* GetCDMProxy() const { return mCDMProxy; }
+  RefPtr<MFCDMProxy> GetCDMProxy();
 
  private:
   HRESULT SetPMPServer(
@@ -86,8 +87,10 @@ class MFContentProtectionManager
   void ArmWaitingForKeyTimer();
   void CancelWaitingForKeyTimer();
 
-  RefPtr<MFCDMProxy> mCDMProxy;
-  std::function<void()> mNotifyWaitingForKeyCb;
+  mozilla::Mutex mMutex;
+
+  RefPtr<MFCDMProxy> mCDMProxy MOZ_GUARDED_BY(mMutex);
+  std::function<void()> mNotifyWaitingForKeyCb MOZ_GUARDED_BY(mMutex);
 
   // Set once during construction, before Media Foundation is given this
   // manager, so it is safe to read from any thread.
