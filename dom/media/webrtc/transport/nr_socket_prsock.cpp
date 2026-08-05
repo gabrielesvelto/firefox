@@ -1628,7 +1628,7 @@ abort:
 
 // static
 bool NrSocketBase::IsForbiddenAddress(const nr_transport_addr* addr) {
-  uint16_t port;
+  int32_t port;
   int r;
 
   r = nr_transport_addr_get_port(addr, &port);
