@@ -1285,6 +1285,16 @@ class SelectableProfileServiceClass extends EventEmitter {
       Services.prefs.addObserver(name, this.prefObserver);
       this.#observedPrefs.add(name);
     }
+
+    // Add shared prefs not already in the db to the db
+    const permanentSharedPrefsSet = new Set(
+      SelectableProfileServiceClass.permanentSharedPrefs
+    );
+    for (let prefName of permanentSharedPrefsSet.difference(
+      this.#observedPrefs
+    )) {
+      await this.flushSharedPrefToDatabase(prefName);
+    }
   }
 
   /**
