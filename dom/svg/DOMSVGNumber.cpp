@@ -25,7 +25,10 @@ namespace mozilla::dom {
 NS_IMPL_CYCLE_COLLECTION_CLASS(DOMSVGNumber)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(DOMSVGNumber)
-  tmp->CleanupWeakRefs();
+  // We may not belong to a list, so we must null check tmp->mList.
+  if (tmp->mList) {
+    tmp->mList->mItems[tmp->mListIndex] = nullptr;
+  }
   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mList)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mParent)
@@ -68,18 +71,6 @@ DOMSVGNumber::DOMSVGNumber(SVGSVGElement* aParent)
       mAttrEnum(0),
       mIsAnimValItem(false),
       mValue(0.0f) {}
-
-void DOMSVGNumber::CleanupWeakRefs() {
-  // Our mList's weak ref to us must be nulled out when we die (or when we're
-  // cycle collected), so that we don't leave behind a pointer to
-  // free / soon-to-be-free memory. If GC has unlinked us using the cycle
-  // collector code, then that has already happened, and mList is null.
-  if (mList) {
-    MOZ_RELEASE_ASSERT(mList->mItems[mListIndex] == this,
-                       "Clearing out the wrong list index...?");
-    mList->mItems[mListIndex] = nullptr;
-  }
-}
 
 float DOMSVGNumber::Value() {
   if (mIsAnimValItem && HasOwner()) {

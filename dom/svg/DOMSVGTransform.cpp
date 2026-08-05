@@ -41,7 +41,10 @@ SVGMatrixTearoffTable() {
 NS_IMPL_CYCLE_COLLECTION_CLASS(DOMSVGTransform)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(DOMSVGTransform)
-  tmp->CleanupWeakRefs();
+  // We may not belong to a list, so we must null check tmp->mList.
+  if (tmp->mList) {
+    tmp->mList->mItems[tmp->mListIndex] = nullptr;
+  }
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mList)
   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
@@ -112,17 +115,10 @@ DOMSVGTransform::~DOMSVGTransform() {
     SVGMatrixTearoffTable().RemoveTearoff(this);
     NS_RELEASE(matrix);
   }
-  CleanupWeakRefs();
-}
-
-void DOMSVGTransform::CleanupWeakRefs() {
-  // Our mList's weak ref to us must be nulled out when we die (or when we're
-  // cycle collected), so that we don't leave behind a pointer to
-  // free / soon-to-be-free memory. If GC has unlinked us using the cycle
-  // collector code, then that has already happened, and mList is null.
+  // Our mList's weak ref to us must be nulled out when we die. If GC has
+  // unlinked us using the cycle collector code, then that has already
+  // happened, and mList is null.
   if (mList) {
-    MOZ_RELEASE_ASSERT(mList->mItems[mListIndex] == this,
-                       "Clearing out the wrong list index...?");
     mList->mItems[mListIndex] = nullptr;
   }
 }
