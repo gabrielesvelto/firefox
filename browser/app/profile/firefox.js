@@ -2330,6 +2330,9 @@ pref("places.semanticHistory.smartwindow.featureGate", false);
 // TODO Bug 2053495: remove with mistral release pref
 pref("browser.smartwindow.mistralRelease", false);
 
+// Semantic distance threshold for Smart Window history search only.
+pref("places.semanticHistory.smartwindow.distanceThreshold", "0.6");
+
 // Smart Window: Auto Tab Grouping (bug 2054500).
 pref("browser.smartwindow.autoTabGrouping.enabled", false);
 pref("browser.smartwindow.autoTabGrouping.maxGroups", 3);
