@@ -7518,7 +7518,7 @@ public class GeckoSession {
      * @param permissions List of permissions to request; possible values are,
      *     android.Manifest.permission.ACCESS_COARSE_LOCATION
      *     android.Manifest.permission.ACCESS_FINE_LOCATION android.Manifest.permission.CAMERA
-     *     android.Manifest.permission.RECORD_AUDIO
+     *     android.Manifest.permission.RECORD_AUDIO android.Manifest.permission.ACCESS_LOCAL_NETWORK
      * @param callback Callback interface.
      */
     @UiThread

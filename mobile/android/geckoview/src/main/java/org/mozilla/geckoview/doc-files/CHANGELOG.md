@@ -13,6 +13,10 @@ exclude: true
 
 ⚠️  breaking change and deprecation notices
 
+
+## v155
+- Added [WebRequestError.ERROR_LOCAL_NETWORK_ACCESS_DENIED] to indicate that a load failed because the user denied the local network access permission on Android 17+.
+
 ## v154
 - Added [`Autofill.Node.getDatalist`][154.1] to expose predefined values by [`datalist`][154.2] elements for input fields.
 - Added experimental [`ContentPermission.notifyShown`][154.3] so embedders can signal that a permission prompt UI has been displayed to the user, enabling per-prompt telemetry on the Gecko side (e.g. for local network access). ([bug 2009145]({{bugzilla}}2009145))
@@ -2022,4 +2026,4 @@ to allow adding gecko profiler markers.
 [65.24]: {{javadoc_uri}}/CrashReporter.html#sendCrashReport(android.content.Context,android.os.Bundle,java.lang.String)
 [65.25]: {{javadoc_uri}}/GeckoResult.html
 
-[api-version]: 7852d43e8d3683b804f976bf71ae4339afd0f3d7
+[api-version]: 603ed284843bb818c0dde1ee20c1375c9aebd02e

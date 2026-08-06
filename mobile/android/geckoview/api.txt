@@ -3359,6 +3359,7 @@ package org.mozilla.geckoview {
     field public static final int ERROR_HARMFULADDON_URI = 103;
     field public static final int ERROR_HTTPS_ONLY = 163;
     field public static final int ERROR_INVALID_CONTENT_ENCODING = 84;
+    field public static final int ERROR_LOCAL_NETWORK_ACCESS_DENIED = 195;
     field public static final int ERROR_MALFORMED_URI = 53;
     field public static final int ERROR_NET_INTERRUPT = 35;
     field public static final int ERROR_NET_RESET = 147;
