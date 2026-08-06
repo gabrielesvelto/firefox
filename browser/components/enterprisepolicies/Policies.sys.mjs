@@ -41,8 +41,6 @@ const PREF_LOGLEVEL = "browser.policies.loglevel";
 const BROWSER_DOCUMENT_URL = AppConstants.BROWSER_CHROME_URL;
 const ABOUT_CONTRACT = "@mozilla.org/network/protocol/about;1?what=";
 
-const isXpcshell = Services.env.exists("XPCSHELL_TEST_PROFILE_DIR");
-
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
   let { ConsoleAPI } = ChromeUtils.importESModule(
     "resource://gre/modules/Console.sys.mjs"
@@ -87,7 +85,7 @@ export var Policies = {
   // Use the same timing that you used for setting up the policy.
   _cleanup: {
     onBeforeAddons() {
-      if (Cu.isInAutomation || isXpcshell) {
+      if (Cu.isInAutomation) {
         console.log("_cleanup from onBeforeAddons");
         clearBlockedAboutPages();
       }
