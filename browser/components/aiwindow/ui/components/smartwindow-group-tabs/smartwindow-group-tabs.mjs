@@ -36,6 +36,7 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
     suggestions: { attribute: false },
     recent: { attribute: false },
     ungrouped: { type: Number },
+    duplicates: { type: Number },
   };
 
   constructor() {
@@ -44,6 +45,7 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
     this.suggestions = [];
     this.recent = [];
     this.ungrouped = 0;
+    this.duplicates = 0;
     this.addEventListener("keydown", e => this.#onKeyDown(e));
   }
 
@@ -227,6 +229,16 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
                 data-l10n-id="smartwindow-group-tabs-ungroup"
               ></span>
             </button>`
+        : nothing,
+      this.duplicates
+        ? html`<hr class="swgt-separator" />
+            <button
+              type="button"
+              class="swgt-row swgt-close-duplicates"
+              data-l10n-id="smartwindow-group-tabs-close-duplicates"
+              data-l10n-args=${JSON.stringify({ tabCount: this.duplicates })}
+              @click=${() => this.#emit("close-duplicates")}
+            ></button>`
         : nothing,
     ];
   }

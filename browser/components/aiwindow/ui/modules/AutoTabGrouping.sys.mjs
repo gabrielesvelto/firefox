@@ -282,6 +282,9 @@ export const AutoTabGrouping = {
       this._createById(win, panel, e.detail.id)
     );
     card.addEventListener("ungroup", () => this._ungroupRecent(win, panel));
+    card.addEventListener("close-duplicates", () =>
+      this._closeDuplicateTabs(win, panel)
+    );
     card.addEventListener("preview", e => {
       // Focusing a row whose flyout was just dismissed must not reopen it;
       // pointing at it again is a fresh request and does.
@@ -289,6 +292,9 @@ export const AutoTabGrouping = {
         e.detail.source === "focus" &&
         panel._dismissedRow === e.detail.anchor
       ) {
+        return;
+      }
+      if (e.detail.source === "hover" && this._flyoutHasFocus(panel)) {
         return;
       }
       panel._dismissedRow = null;
@@ -395,6 +401,7 @@ export const AutoTabGrouping = {
     card.recent = [...state.recent];
     card.ungrouped =
       lazy.AutoTabGroupingSuggestions.getCandidateTabs(win).length;
+    card.duplicates = win.gBrowser.getAllDuplicateTabsToClose().length;
     return hidden;
   },
 
@@ -517,21 +524,26 @@ export const AutoTabGrouping = {
     panel.hidePopup();
   },
 
+  _flyoutHasFocus(panel) {
+    const active = panel.ownerDocument.activeElement;
+    return !!active && !!panel._flyoutPanel?.contains(active);
+  },
+
   _scheduleHideFlyout(panel) {
     this._cancelHideFlyout(panel);
-    const win = panel.ownerGlobal;
-    if (!win) {
+    if (this._flyoutHasFocus(panel)) {
       return;
     }
-    panel._hideTimer = win.setTimeout(() => {
+    panel._hideTimer = lazy.setTimeout(() => {
       panel._hideTimer = 0;
+      panel._dismissedRow = panel._activeRow;
       this._hideFlyout(panel);
     }, FLYOUT_HIDE_DELAY_MS);
   },
 
   _cancelHideFlyout(panel) {
     if (panel._hideTimer) {
-      panel.ownerGlobal.clearTimeout(panel._hideTimer);
+      lazy.clearTimeout(panel._hideTimer);
       panel._hideTimer = 0;
     }
   },
@@ -689,6 +701,21 @@ export const AutoTabGrouping = {
       Glean.smartWindow.autoTabGroupUndone.record({ count });
     }
     this._focusAfterRowRemoved(panel, this._syncCard(win, panel));
+  },
+
+  /**
+   * Close this window's duplicate tabs, reusing the same tabbrowser action the
+   * All Tabs menu offers. The panel is dismissed first: closing tabs raises a
+   * confirmation hint anchored to the All Tabs button, which an open panel
+   * would cover, and the warning prompt is modal.
+   *
+   * @param {ChromeWindow} win
+   * @param {XULElement} panel
+   */
+  _closeDuplicateTabs(win, panel) {
+    panel._restoreFocus = true;
+    panel.hidePopup();
+    win.gBrowser.removeAllDuplicateTabs();
   },
 
   _ungroup(win, entry) {

@@ -43,3 +43,11 @@ smartwindow-group-tabs-just-created-heading = Just created
 # Action that dissolves every group in the "Just created" list. The tabs stay
 # open; only the grouping is removed.
 smartwindow-group-tabs-ungroup = Ungroup Tabs
+# Action that closes this window's duplicate tabs, keeping the most recently
+# used tab of each set. Only shown when there are duplicates to close, and
+# $tabCount is exactly how many tabs activating it closes.
+smartwindow-group-tabs-close-duplicates =
+    { $tabCount ->
+        [one] Close { $tabCount } Duplicate Tab
+       *[other] Close { $tabCount } Duplicate Tabs
+    }
