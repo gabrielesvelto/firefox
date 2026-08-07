@@ -730,12 +730,7 @@ already_AddRefed<ScriptLoadRequest> WorkerScriptLoader::CreateScriptLoadRequest(
   // Set the mURL, it will be used for error handling and debugging.
   request->mURL = NS_ConvertUTF16toUTF8(aScriptURL);
 
-  // Worker scripts are always decoded as UTF-8 per spec.
-  request->NoCacheEntryFound(
-      referrerPolicy, fetchOptions, uri,
-      request->IsModuleRequest()
-          ? nullptr
-          : static_cast<const mozilla::Encoding*>(UTF_8_ENCODING));
+  request->NoCacheEntryFound(referrerPolicy, fetchOptions, uri);
 
   return request.forget();
 }

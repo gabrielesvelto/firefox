@@ -235,8 +235,7 @@ class ScriptLoadRequest : public nsISupports,
   // a new LoadedScript which is matching the ScriptKind provided when
   // constructing this ScriptLoadRequest.
   void NoCacheEntryFound(mozilla::dom::ReferrerPolicy aReferrerPolicy,
-                         ScriptFetchOptions* aFetchOptions, nsIURI* aURI,
-                         const mozilla::Encoding* aClassicScriptFallbackEncoding = nullptr);
+                         ScriptFetchOptions* aFetchOptions, nsIURI* aURI);
 
  private:
   void SetCacheEntry(LoadedScript* aLoadedScript,

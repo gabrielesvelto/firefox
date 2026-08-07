@@ -232,14 +232,13 @@ void ScriptLoadRequest::SetCacheEntry(LoadedScript* aLoadedScript,
 
 void ScriptLoadRequest::NoCacheEntryFound(
     mozilla::dom::ReferrerPolicy aReferrerPolicy,
-    ScriptFetchOptions* aFetchOptions, nsIURI* aURI,
-    const mozilla::Encoding* aClassicScriptFallbackEncoding) {
+    ScriptFetchOptions* aFetchOptions, nsIURI* aURI) {
   MOZ_ASSERT(IsCheckingCache());
   MOZ_ASSERT(mKind != ScriptKind::eEvent, "eEvent is only for ScriptFetchInfo");
   MOZ_ASSERT(!IsRetrievedFromMemoryCache());
 
   mFetchInfo = new ScriptFetchInfo(mKind, aReferrerPolicy, aFetchOptions, aURI);
-  mLoadedScript = new LoadedScript(mKind, aURI, aClassicScriptFallbackEncoding);
+  mLoadedScript = new LoadedScript(mKind, aURI);
   mState = State::Fetching;
 }
 
