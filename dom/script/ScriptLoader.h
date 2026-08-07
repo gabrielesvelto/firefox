@@ -748,8 +748,9 @@ class ScriptLoader final : public JS::loader::ScriptLoaderInterface {
       JS::MutableHandle<JSScript*> aScript,
       JS::Handle<JSScript*> aDebuggerIntroductionScript, ErrorResult& aRv);
 
-  static void BytecodeMimeTypeFor(const JS::loader::LoadedScript* aLoadedScript,
-                                  nsAutoCString& aMIMEType);
+  static nsCString& BytecodeMimeTypeFor(const ScriptLoadRequest* aRequest);
+  static nsCString& BytecodeMimeTypeFor(
+      const JS::loader::LoadedScript* aLoadedScript);
 
   // Return the encoding for the classic script, which is used by the
   // ScriptLoadHandler::TrySetDecoder method when neither the BOM or the charset
