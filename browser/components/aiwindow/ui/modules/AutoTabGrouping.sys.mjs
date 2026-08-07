@@ -335,8 +335,8 @@ export const AutoTabGrouping = {
   },
 
   /**
-   * Lazily create the flyout sub-panel that floats to the left of a hovered
-   * suggestion row.
+   * Lazily create the flyout sub-panel that floats past the end side of a
+   * hovered suggestion row.
    *
    * @param {ChromeWindow} win
    * @param {XULElement} panel - The main panel.
@@ -348,6 +348,9 @@ export const AutoTabGrouping = {
     }
     const flyoutPanel = this._createPanel(win, FLYOUT_ID);
     flyoutPanel.setAttribute("animate", "false");
+    // Slide along the block axis to stay on screen near the bottom edge, and
+    // keep flipping to the panel's other side when there is no room beside it.
+    flyoutPanel.setAttribute("flip", "slide");
     const flyoutEl = win.document.createElement(FLYOUT_ID);
     flyoutEl.addEventListener("select-tab", e =>
       this._selectTab(win, panel, e.detail.id, e.detail.index)
@@ -422,14 +425,15 @@ export const AutoTabGrouping = {
     anchorRow.setAttribute("aria-expanded", "true");
     panel._activeRow = anchorRow;
 
-    // Float the flyout to the left of the hovered row, top-aligned with it.
+    // Float the flyout past the end of the hovered row, top-aligned with it.
     // moveToAnchor repositions without a hide/show flicker when the pointer
-    // slides between rows.
+    // slides between rows; the panel is an arrow panel, so it keeps following
+    // its anchor instead of freezing to the screen position of the first row.
     const flyoutState = flyoutPanel.state;
     if (flyoutState === "open" || flyoutState === "showing") {
-      flyoutPanel.moveToAnchor(anchorRow, "start_before", 0, 0);
+      flyoutPanel.moveToAnchor(anchorRow, "end_before", 0, 0);
     } else {
-      flyoutPanel.openPopup(anchorRow, "start_before", 0, 0, false, false);
+      flyoutPanel.openPopup(anchorRow, "end_before", 0, 0, false, false);
     }
   },
 

@@ -474,6 +474,12 @@ describe("Auto Tab Grouping toolbar button", () => {
       const panel = await openPanelWithSuggestions(win);
       const { tabRows } = await openFlyout(panel);
 
+      Assert.equal(
+        panel._flyoutPanel.getAttribute("flip"),
+        "slide",
+        "The flyout slides rather than flipping when it meets a screen edge"
+      );
+
       const suggestion = AutoTabGrouping._getState(win).suggestions[0];
       Assert.equal(
         tabRows.length,
