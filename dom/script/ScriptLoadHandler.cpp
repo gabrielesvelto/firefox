@@ -281,13 +281,40 @@ bool ScriptLoadHandler::TrySetDecoder(nsIChannel* aChannel,
     return true;
   }
 
-  // Use the pre-calculated fallback encoding, from the script element or the
-  // preload, or the document.
-  encoding = mRequest->ClassicScriptFallbackEncoding();
-  MOZ_ASSERT(encoding);
+  // Check the hint charset from the script element or preload
+  // request.
+  nsAutoString hintCharset;
+  if (!mRequest->GetScriptLoadContext()->IsPreload()) {
+    mRequest->GetScriptLoadContext()->GetHintCharset(hintCharset);
+  } else {
+    nsTArray<ScriptLoader::PreloadInfo>::index_type i =
+        mScriptLoader->mPreloads.IndexOf(
+            mRequest, 0, ScriptLoader::PreloadRequestComparator());
 
-  mDecoder =
-      MakeUnique<ScriptDecoder>(encoding, ScriptDecoder::BOMHandling::Ignore);
+    NS_ASSERTION(i != mScriptLoader->mPreloads.NoIndex,
+                 "Incorrect preload bookkeeping");
+    hintCharset = mScriptLoader->mPreloads[i].mCharset;
+  }
+
+  if ((encoding = Encoding::ForLabel(hintCharset))) {
+    mDecoder =
+        MakeUnique<ScriptDecoder>(encoding, ScriptDecoder::BOMHandling::Ignore);
+    return true;
+  }
+
+  // Get the charset from the charset of the document.
+  if (mScriptLoader->mDocument) {
+    encoding = mScriptLoader->mDocument->GetDocumentCharacterSet();
+    mDecoder =
+        MakeUnique<ScriptDecoder>(encoding, ScriptDecoder::BOMHandling::Ignore);
+    return true;
+  }
+
+  // Curiously, there are various callers that don't pass aDocument. The
+  // fallback in the old code was ISO-8859-1, which behaved like
+  // windows-1252.
+  mDecoder = MakeUnique<ScriptDecoder>(WINDOWS_1252_ENCODING,
+                                       ScriptDecoder::BOMHandling::Ignore);
   return true;
 }
 

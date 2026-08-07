@@ -16,7 +16,6 @@
 #include "js/loader/ScriptLoadRequest.h"
 #include "js/loader/ScriptLoadRequestList.h"
 #include "mozilla/CORSMode.h"
-#include "mozilla/Encoding.h"
 #include "mozilla/MaybeOneOf.h"
 #include "mozilla/MozPromise.h"
 #include "mozilla/dom/ScriptLoadContext.h"
@@ -490,8 +489,7 @@ class ScriptLoader final : public JS::loader::ScriptLoaderInterface {
       RequestPriority aRequestPriority, const SRIMetadata& aIntegrity,
       ReferrerPolicy aReferrerPolicy,
       JS::loader::ParserMetadata aParserMetadata,
-      ScriptLoadRequestType aRequestType,
-      const nsAString* aMaybePreloadCharset);
+      ScriptLoadRequestType aRequestType);
 
   /**
    * Helper function to lookup the cache entry and associate it to the
@@ -501,8 +499,7 @@ class ScriptLoader final : public JS::loader::ScriptLoaderInterface {
       ReferrerPolicy aReferrerPolicy, ScriptFetchOptions* aFetchOptions,
       nsIURI* aURI, ScriptLoadRequest* aRequest,
       nsIScriptElement* aElement = nullptr, const nsAString& aNonce = u""_ns,
-      ScriptLoadRequestType aRequestType = ScriptLoadRequestType::External,
-      const Encoding* aClassicScriptFallbackEncoding = nullptr);
+      ScriptLoadRequestType aRequestType = ScriptLoadRequestType::External);
 
   /**
    * Helper function to notify network observers for cached request.
@@ -751,13 +748,6 @@ class ScriptLoader final : public JS::loader::ScriptLoaderInterface {
   static nsCString& BytecodeMimeTypeFor(const ScriptLoadRequest* aRequest);
   static nsCString& BytecodeMimeTypeFor(
       const JS::loader::LoadedScript* aLoadedScript);
-
-  // Return the encoding for the classic script, which is used by the
-  // ScriptLoadHandler::TrySetDecoder method when neither the BOM or the charset
-  // is provided in the response.
-  const Encoding* GetClassicScriptFallbackEncoding(
-      nsIScriptElement* aMaybeScriptElement,
-      const nsAString* aMaybePreloadCharset);
 
   // Queue the script load request for caching if we decided to cache it, or
   // cleanup the script load request fields otherwise.
