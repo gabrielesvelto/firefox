@@ -46,9 +46,8 @@ XPCOMUtils.defineLazyPreferenceGetter(
 
 // Tab-group color names, mirroring MozTabbrowserTabGroupMenu.COLORS. Each name
 // resolves to the themed --tab-group-<name> custom property (defined on :root),
-// so both created groups and the per-tab tiles reuse the real tab-strip palette
-// rather than hardcoded values. Assigned to suggestions in order; tiles pick a
-// name by hashing the host so a given site always renders the same color.
+// so created groups reuse the real tab-strip palette rather than hardcoded
+// values. Assigned to suggestions in order.
 const TAB_GROUP_COLORS = [
   "blue",
   "purple",
@@ -61,11 +60,13 @@ const TAB_GROUP_COLORS = [
   "red",
 ];
 
+const DEFAULT_FAVICON_URL = "chrome://global/skin/icons/defaultFavicon.svg";
+
 /**
  * The suggestion engine for the Smart Window "Group my tabs" feature: the only
  * code that talks to the on-device clustering model. Given a window it picks
  * candidate tabs, clusters and labels them, and turns each cluster into the
- * display data the panel shows: a name, a color, and one tile per tab. Kept
+ * display data the panel shows: a name, a color, and one row per tab. Kept
  * free of any DOM so the pure parts stay unit-testable and every model call is
  * guarded against throwing.
  */
@@ -206,7 +207,7 @@ export const AutoTabGroupingSuggestions = {
    */
   toSuggestionData(proposal, index) {
     return {
-      label: proposal.label || "Group",
+      label: proposal.label,
       color: TAB_GROUP_COLORS[index % TAB_GROUP_COLORS.length],
       tabs: proposal.tabs,
       tabInfos: proposal.tabs.map(tab => this._tabInfo(tab)),
@@ -229,19 +230,15 @@ export const AutoTabGroupingSuggestions = {
     const title = tab.label || site;
     // Only show the site next to the title when it adds information.
     const siteName = site && site !== title ? site : "";
-    const identifier = site || title;
-    const letter = identifier.trim()[0]?.toUpperCase() || "•";
-    const colorName =
-      TAB_GROUP_COLORS[this._hash(identifier) % TAB_GROUP_COLORS.length];
-    const tileColor = `var(--tab-group-${colorName})`;
-    return { letter, tileColor, title, siteName };
+    return { iconUrl: this._faviconUrl(tab), title, siteName };
   },
 
-  _hash(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = (hash * 31 + str.charCodeAt(i)) | 0;
+  _faviconUrl(tab) {
+    const uri = tab.linkedBrowser?.currentURI;
+    const icon = tab.linkedBrowser?.mIconURL;
+    if (uri && (!icon || icon.startsWith("http"))) {
+      return `page-icon:${uri.spec}`;
     }
-    return Math.abs(hash);
+    return icon || DEFAULT_FAVICON_URL;
   },
 };

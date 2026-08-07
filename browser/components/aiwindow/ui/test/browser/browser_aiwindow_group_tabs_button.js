@@ -62,8 +62,7 @@ async function openPanelWithSuggestions(win) {
     win.document.getElementById("smartwindow-group-tabs-panel")
   );
   await TestUtils.waitForCondition(
-    () =>
-      panel.querySelectorAll(".swgt-row:not(.swgt-create-all)").length === 2,
+    () => panel.querySelectorAll(".swgt-suggestion").length === 2,
     "Two suggested group rows render once clustering finishes"
   );
   return panel;
@@ -383,8 +382,7 @@ describe("Auto Tab Grouping toolbar button", () => {
       await BrowserTestUtils.waitForMutationCondition(
         card,
         { childList: true, subtree: true },
-        () =>
-          card.querySelectorAll(".swgt-row:not(.swgt-create-all)").length === 2
+        () => card.querySelectorAll(".swgt-suggestion").length === 2
       );
 
       Assert.equal(card.getAttribute("role"), "dialog", "Card is a dialog");
@@ -409,9 +407,7 @@ describe("Auto Tab Grouping toolbar button", () => {
         "smartwindow-group-tabs-create-all",
         "'Create all' label is localized via Fluent"
       );
-      const suggestionRow = panel.querySelector(
-        ".swgt-row:not(.swgt-create-all)"
-      );
+      const suggestionRow = panel.querySelector(".swgt-suggestion");
       Assert.equal(
         suggestionRow.getAttribute("data-l10n-id"),
         "smartwindow-group-tabs-suggestion",
@@ -425,10 +421,17 @@ describe("Auto Tab Grouping toolbar button", () => {
         return acc && acc.name && acc.name.trim();
       }, "Suggestion row exposes a non-empty accessible name");
 
+      const favicons = suggestionRow.querySelector(".swgt-favicons");
       Assert.equal(
-        suggestionRow.querySelector(".swgt-tiles").getAttribute("aria-hidden"),
+        favicons.getAttribute("aria-hidden"),
         "true",
-        "Color tiles are hidden from assistive technology"
+        "Tab favicons are hidden from assistive technology"
+      );
+      const images = [...favicons.querySelectorAll("img.swgt-favicon")];
+      Assert.greater(images.length, 0, "Suggestion row shows tab favicons");
+      Assert.ok(
+        images.every(img => img.src.startsWith("page-icon:")),
+        "Each favicon loads through page-icon:"
       );
 
       suggestionRow.focus();
@@ -553,9 +556,7 @@ describe("Auto Tab Grouping toolbar button", () => {
       releaseClusters();
 
       await TestUtils.waitForCondition(
-        () =>
-          panel.querySelectorAll(".swgt-row:not(.swgt-create-all)").length ===
-          2,
+        () => panel.querySelectorAll(".swgt-suggestion").length === 2,
         "Reopened panel renders suggestions once clustering settles"
       );
     });

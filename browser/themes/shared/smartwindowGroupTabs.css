@@ -139,45 +139,51 @@
   text-overflow: ellipsis;
 }
 
-.swgt-chevron {
-  color: var(--swgt-text-dim);
-  opacity: 0.7;
-  flex: none;
-}
-
-.swgt-tiles {
-  display: flex;
-  flex: none;
-}
-
-.swgt-tile {
-  width: var(--size-item-small);
-  height: var(--size-item-small);
-  border-radius: var(--border-radius-small);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
+.swgt-favicons {
   display: flex;
   align-items: center;
-  justify-content: center;
-  text-transform: uppercase;
+  flex: none;
 }
 
-/* Overlap the row's preview tiles, leftmost on top. */
-.swgt-tiles > .swgt-tile {
+.swgt-favicon {
+  width: var(--size-item-small);
+  height: var(--size-item-small);
+  border-radius: var(--border-radius-xsmall);
+  background-color: var(--background-color-box);
+  box-shadow: var(--box-shadow-level-1);
+  flex: none;
+
+  @media (forced-colors: active) {
+    /* Without the shadow the overlapping edges need an outline to stay apart. */
+    box-shadow: none;
+    outline: var(--border-width) solid var(--border-color);
+  }
+}
+
+/* Overlap the row's favicons, leading icon on top. */
+.swgt-favicons > .swgt-favicon {
   position: relative;
+
+  &:not(:first-child) {
+    margin-inline-start: calc(-1 * var(--space-small));
+  }
+
+  &:nth-child(1) {
+    z-index: 2;
+  }
+
+  &:nth-child(2) {
+    z-index: 1;
+  }
 }
 
-.swgt-tiles > .swgt-tile:not(:first-child) {
-  margin-inline-start: -5px;
-}
-
-.swgt-tiles > .swgt-tile:nth-child(1) {
-  z-index: 2;
-}
-
-.swgt-tiles > .swgt-tile:nth-child(2) {
-  z-index: 1;
+.swgt-swatch {
+  width: var(--size-item-small);
+  height: var(--size-item-small);
+  border-radius: var(--border-radius-xsmall);
+  flex: none;
+  /* Set inline per group by the card, from the tab strip's --tab-group-* palette. */
+  background-color: var(--swgt-swatch-color);
 }
 
 .swgt-dot {

@@ -6,9 +6,23 @@ import { html, nothing } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 
 const HEADING_ID = "smartwindow-group-tabs-heading";
+const DEFAULT_FAVICON_URL = "chrome://global/skin/icons/defaultFavicon.svg";
 
 function colorVar(colorName) {
   return `var(--tab-group-${colorName})`;
+}
+
+function favicon(info) {
+  return html`<img
+    class="swgt-favicon"
+    src=${info.iconUrl}
+    alt=""
+    @error=${e => {
+      if (e.target.src !== DEFAULT_FAVICON_URL) {
+        e.target.src = DEFAULT_FAVICON_URL;
+      }
+    }}
+  />`;
 }
 
 /**
@@ -46,23 +60,16 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
     this.dispatchEvent(new CustomEvent(type, { detail }));
   }
 
-  #tiles(tabInfos) {
-    return html`<div class="swgt-tiles" aria-hidden="true">
-      ${tabInfos
-        .slice(0, 3)
-        .map(
-          info =>
-            html`<span class="swgt-tile" style="background:${info.tileColor}"
-              >${info.letter}</span
-            >`
-        )}
+  #favicons(tabInfos) {
+    return html`<div class="swgt-favicons" aria-hidden="true">
+      ${tabInfos.slice(0, 3).map(info => favicon(info))}
     </div>`;
   }
 
   #suggestionRow(suggestion) {
     return html`<button
       type="button"
-      class="swgt-row"
+      class="swgt-row swgt-suggestion"
       data-l10n-id="smartwindow-group-tabs-suggestion"
       data-l10n-args=${JSON.stringify({
         groupLabel: suggestion.label,
@@ -76,18 +83,17 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
       @blur=${() => this.#emit("preview-end")}
       @click=${() => this.#emit("create-one", { id: suggestion.id })}
     >
-      ${this.#tiles(suggestion.tabInfos)}
+      ${this.#favicons(suggestion.tabInfos)}
       <span class="swgt-row-label">${suggestion.label}</span>
-      <span class="swgt-chevron" aria-hidden="true">›</span>
     </button>`;
   }
 
   #recentRow(entry) {
     return html`<div class="swgt-recent-row">
       <span
-        class="swgt-dot"
+        class="swgt-swatch"
         aria-hidden="true"
-        style="background:${colorVar(entry.color)}"
+        style="--swgt-swatch-color:${colorVar(entry.color)}"
       ></span>
       <span class="swgt-row-label">${entry.label}</span>
     </div>`;
@@ -199,12 +205,7 @@ export class SmartwindowGroupTabsFlyout extends MozLitElement {
         ${suggestion.tabInfos.map(
           info =>
             html`<div class="swgt-flyout-tab" role="listitem">
-              <span
-                class="swgt-tile"
-                aria-hidden="true"
-                style="background:${info.tileColor}"
-                >${info.letter}</span
-              >
+              ${favicon(info)}
               ${info.siteName
                 ? html`<span
                     class="swgt-flyout-tab-label"
