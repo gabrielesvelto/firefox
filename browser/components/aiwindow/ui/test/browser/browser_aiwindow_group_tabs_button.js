@@ -65,6 +65,10 @@ async function openPanelWithSuggestions(win) {
     win.document.getElementById("smartwindow-group-tabs-panel")
   );
   await TestUtils.waitForCondition(
+    () => panel.state === "open",
+    "Panel finished opening"
+  );
+  await TestUtils.waitForCondition(
     () => panel.querySelectorAll(".swgt-suggestion").length === 2,
     "Two suggested group rows render once clustering finishes"
   );
@@ -500,9 +504,8 @@ describe("Auto Tab Grouping toolbar button", () => {
       const { row, tabRows } = await openFlyout(panel);
 
       EventUtils.synthesizeKey("KEY_ArrowRight", {}, win);
-      Assert.equal(
-        win.document.activeElement,
-        tabRows[0],
+      await TestUtils.waitForCondition(
+        () => win.document.activeElement === tabRows[0],
         "The forward arrow moves focus to the first tab"
       );
 
@@ -578,6 +581,25 @@ describe("Auto Tab Grouping toolbar button", () => {
       Assert.ok(
         win.document.getElementById("smartwindow-group-tabs-panel"),
         "The panel itself stays open"
+      );
+    });
+
+    it("drops a focus request when the flyout hides before it opens", async () => {
+      win = await openGroupingWindowWithTabs();
+      const panel = await openPanelWithSuggestions(win);
+      const rows = [...panel.querySelectorAll(".swgt-suggestion")];
+      const suggestions = AutoTabGrouping._getState(win).suggestions;
+
+      AutoTabGrouping._showFlyoutById(win, panel, suggestions[0].id, rows[0]);
+      AutoTabGrouping._focusFlyout(panel);
+      AutoTabGrouping._hideFlyout(panel);
+
+      rows[1].focus();
+      await BrowserTestUtils.waitForEvent(panel._flyoutPanel, "popupshown");
+      Assert.equal(
+        win.document.activeElement,
+        rows[1],
+        "Reopening the flyout on hover does not steal focus into it"
       );
     });
   });

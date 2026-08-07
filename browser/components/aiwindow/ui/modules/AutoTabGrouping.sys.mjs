@@ -268,7 +268,7 @@ export const AutoTabGrouping = {
   _buildPanelSkeleton(win) {
     const doc = win.document;
 
-    const panel = this._createBarePanel(win, PANEL_ID);
+    const panel = this._createPanel(win, PANEL_ID);
 
     const card = doc.createElement(CARD_TAG);
     card.addEventListener("create-all", () =>
@@ -307,13 +307,15 @@ export const AutoTabGrouping = {
     panel._activeRow = null;
     panel._hideTimer = 0;
     panel._dismissedRow = null;
+    panel._focusFlyoutController = null;
     panel._restoreFocus = false;
     return panel;
   },
 
   /**
-   * Create a chrome-less, transparent, non-auto-hiding panel that hosts one of
-   * our white cards. Shared by the main panel and the hover flyout. Styling
+   * Create a non-auto-hiding panel that hosts one of our cards. Shared by the
+   * main panel and the hover flyout. `type="arrow"` is what makes popup.css
+   * paint the panel from the --panel-* design tokens; the rest of the styling
    * lives in the smartwindowGroupTabs.css theme sheet, scoped to the panel ids
    * and swgt- classes.
    *
@@ -321,13 +323,14 @@ export const AutoTabGrouping = {
    * @param {string} id
    * @returns {XULElement}
    */
-  _createBarePanel(win, id) {
+  _createPanel(win, id) {
     const panel = win.document.createXULElement("panel");
     panel.id = id;
+    panel.setAttribute("type", "arrow");
+    panel.setAttribute("orient", "vertical");
     panel.setAttribute("noautofocus", "true");
     panel.setAttribute("noautohide", "true");
     panel.setAttribute("ignorekeys", "true");
-    panel.setAttribute("class", "panel-no-padding");
     return panel;
   },
 
@@ -343,7 +346,8 @@ export const AutoTabGrouping = {
     if (panel._flyoutPanel?.parentNode) {
       return panel._flyoutPanel;
     }
-    const flyoutPanel = this._createBarePanel(win, FLYOUT_ID);
+    const flyoutPanel = this._createPanel(win, FLYOUT_ID);
+    flyoutPanel.setAttribute("animate", "false");
     const flyoutEl = win.document.createElement(FLYOUT_ID);
     flyoutEl.addEventListener("select-tab", e =>
       this._selectTab(win, panel, e.detail.id, e.detail.index)
@@ -445,6 +449,7 @@ export const AutoTabGrouping = {
             flyoutPanel.addEventListener("popuphidden", resolve, { once: true })
           )
         : Promise.resolve();
+    panel._focusFlyoutController?.abort();
     flyoutPanel?.hidePopup();
     if (panel._activeRow) {
       panel._activeRow.classList.remove("is-active");
@@ -455,7 +460,24 @@ export const AutoTabGrouping = {
   },
 
   _focusFlyout(panel) {
-    panel._flyoutPanel?.querySelector(".swgt-flyout-tab")?.focus();
+    const flyoutPanel = panel._flyoutPanel;
+    if (!flyoutPanel) {
+      return;
+    }
+    // Focus is refused while the popup is still opening, and the request goes
+    // stale if the flyout hides before it opens.
+    const focusFirstTab = () =>
+      flyoutPanel.querySelector(".swgt-flyout-tab")?.focus();
+    if (flyoutPanel.state === "open") {
+      focusFirstTab();
+      return;
+    }
+    panel._focusFlyoutController?.abort();
+    panel._focusFlyoutController = new AbortController();
+    flyoutPanel.addEventListener("popupshown", focusFirstTab, {
+      once: true,
+      signal: panel._focusFlyoutController.signal,
+    });
   },
 
   /**

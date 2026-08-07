@@ -184,6 +184,7 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
         id=${HEADING_ID}
         data-l10n-id="smartwindow-group-tabs-panel-heading"
       ></h1>`,
+      html`<hr class="swgt-separator" />`,
       this.computing
         ? html`<div
             class="swgt-message swgt-loading"
@@ -197,23 +198,23 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
           </div>`
         : nothing,
       hasSuggestions
-        ? html`<button
+        ? html`<h2
+              class="swgt-section"
+              data-l10n-id="smartwindow-group-tabs-suggested-heading"
+            ></h2>
+            <button
               type="button"
               class="swgt-row swgt-create-all"
               data-l10n-id="smartwindow-group-tabs-create-all"
               @click=${() => this.#emit("create-all")}
             ></button>
-            <div
-              class="swgt-section"
-              data-l10n-id="smartwindow-group-tabs-suggested-heading"
-            ></div>
             ${this.suggestions.map(s => this.#suggestionRow(s))}`
         : nothing,
       hasRecent
-        ? html`<div
+        ? html`<h2
               class="swgt-section"
               data-l10n-id="smartwindow-group-tabs-just-created-heading"
-            ></div>
+            ></h2>
             ${this.recent.map(entry => this.#recentRow(entry))}
             <button
               type="button"

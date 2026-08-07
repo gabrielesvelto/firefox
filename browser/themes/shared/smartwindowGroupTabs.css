@@ -2,109 +2,83 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* Smart Window "Group my tabs" panels. These are chrome-side XUL <panel>s
- * (built in AutoTabGrouping.sys.mjs) that host HTML content styled through the
- * swgt- ("smart window group tabs") class namespace.
- *
- * The colors below are placeholder light-theme values; they will be replaced
- * with design tokens and light-dark() support alongside the Fluent/theming
- * follow-up. */
-/* stylelint-disable stylelint-plugin-mozilla/use-design-tokens -- placeholder light-theme colors, tokenized in a follow-up */
-
+/* Smart Window "Group my tabs" panels. These are chrome-side XUL <panel>s */
 #smartwindow-group-tabs-panel,
 #smartwindow-group-tabs-flyout {
-  --panel-padding: 0;
-  --panel-background-color: transparent;
-  --panel-border-color: transparent;
-  --panel-box-shadow: none;
-  --panel-border-radius: var(--border-radius-large);
-  -moz-theme: non-native;
-  -moz-window-shadow: none;
-  background-color: transparent;
+  --panel-padding: var(--space-small) 0;
+  font: menu;
+}
+
+#smartwindow-group-tabs-panel {
+  --panel-width: 23em;
+}
+
+#smartwindow-group-tabs-flyout {
+  --panel-width: 22em;
 }
 
 .swgt-card,
 .swgt-flyout {
-  --swgt-text: #1c1b22;
-  --swgt-text-dim: #5b5b66;
-  --swgt-card-bg: #ffffff;
-  --swgt-divider: rgba(0, 0, 0, 0.09);
-  --swgt-hover: rgba(120, 90, 220, 0.08);
-  /* Fixed horizontal content inset for headers, sections, and rows. Kept in px
-   * rather than a --space-* token because those are rem-based and resolve
-   * unpredictably under the panel's `font: menu`. */
-  --swgt-inline-padding: 20px;
-  background: var(--swgt-card-bg);
-  color: var(--swgt-text);
-  border: var(--border-width) solid var(--swgt-divider);
-  border-radius: var(--border-radius-large);
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22);
-  overflow: hidden;
   display: flex;
+  flex: 1;
   flex-direction: column;
-  font: menu;
-}
-
-.swgt-card {
-  width: 340px;
-  padding: var(--space-small);
-}
-
-.swgt-flyout {
-  width: 300px;
+  min-width: 0;
 }
 
 .swgt-header {
-  margin-block: 0;
-  margin-inline: calc(-1 * var(--space-small));
-  padding-block: 18px;
-  padding-inline: 20px;
-  font-size: 1.25em;
-  font-weight: 700;
+  margin: 0;
+  padding: var(--panel-menuitem-padding);
+  font-size: inherit;
+  font-weight: var(--font-weight-semibold);
   text-align: center;
-  border-block-end: var(--border-width) solid var(--swgt-divider);
+}
+
+.swgt-separator {
+  /* stylelint-disable stylelint-plugin-mozilla/use-design-tokens */
+  height: var(--border-width);
+  background-color: var(--panel-separator-color);
+  /* stylelint-enable stylelint-plugin-mozilla/use-design-tokens */
+  margin: var(--panel-separator-padding);
+  border: none;
 }
 
 .swgt-section {
-  padding-block: var(--space-medium) var(--space-xsmall);
-  padding-inline: 20px;
-  font-size: 0.82em;
-  color: var(--swgt-text-dim);
+  box-sizing: border-box;
+  margin: var(--panel-menuitem-margin);
+  padding: var(--panel-menuitem-padding);
+  padding-block: var(--space-xsmall);
+  font-weight: inherit;
+  color: var(--text-color-deemphasized);
 }
 
-.swgt-row {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: inherit;
-  text-align: start;
+.swgt-row,
+.swgt-flyout-tab,
+.swgt-recent-row {
   box-sizing: border-box;
-  width: 100%;
-  padding-block: var(--space-medium);
-  --swgt-row-padding-inline: 20px;
-  padding-inline: var(--swgt-row-padding-inline);
-  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: var(--space-medium);
-  font: inherit;
-  border-radius: calc(var(--border-radius-medium) * 1.5);
+  gap: var(--space-small);
+  margin: var(--panel-menuitem-margin);
+  padding: var(--panel-menuitem-padding);
+  border-radius: var(--panel-menuitem-border-radius);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .swgt-row {
-    transition: padding-inline 150ms var(--animation-easing-function);
-  }
+.swgt-row,
+.swgt-flyout-tab {
+  appearance: none;
+  border: none;
+  background-color: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
 }
 
 .swgt-row:hover,
-.swgt-row.is-active {
-  background: var(--swgt-hover);
-}
-
-.swgt-row:not(.swgt-create-all):not(.swgt-ungroup):hover,
-.swgt-row:not(.swgt-create-all):not(.swgt-ungroup).is-active {
-  padding-inline: calc(var(--swgt-row-padding-inline) + var(--space-small));
+.swgt-row.is-active,
+.swgt-flyout-tab:hover {
+  background-color: var(--button-background-color-menu-hover);
+  color: var(--button-text-color-menu-hover);
 }
 
 /* The card takes programmatic focus when the panel opens (to move screen-reader
@@ -120,20 +94,10 @@
   outline-offset: var(--focus-outline-inset);
 }
 
-.swgt-create-all {
-  font-size: 1.1em;
-  padding-block: var(--space-large);
-  padding-inline: calc(var(--swgt-row-padding-inline) + var(--space-small));
-  margin-inline: calc(-1 * var(--space-small));
-  width: auto;
-  border-radius: 0;
-  border-block-end: var(--border-width) solid var(--swgt-divider);
-}
-
-.swgt-row-label {
+.swgt-row-label,
+.swgt-flyout-tab-label {
   flex: 1;
   min-width: 0;
-  font-size: 1.05em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -182,14 +146,15 @@
   height: var(--size-item-small);
   border-radius: var(--border-radius-xsmall);
   flex: none;
-  /* Set inline per group by the card, from the tab strip's --tab-group-* palette. */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens --
+     set inline per group by the card, from the tab strip's --tab-group-* palette. */
   background-color: var(--swgt-swatch-color);
 }
 
 .swgt-message {
-  padding-block: var(--space-medium);
-  padding-inline: 20px;
-  color: var(--swgt-text-dim);
+  margin: var(--panel-menuitem-margin);
+  padding: var(--panel-menuitem-padding);
+  color: var(--text-color-deemphasized);
 }
 
 @media not (prefers-contrast) {
@@ -206,6 +171,8 @@
     background-image: var(--swgt-loading-gradient);
     background-size: 200% auto;
     background-clip: text;
+    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens --
+       the gradient above is the text color. */
     color: transparent;
     font-weight: var(--font-weight-semibold);
   }
@@ -232,7 +199,7 @@
   --swgt-note-border-color: var(--border-color);
   display: flex;
   align-items: center;
-  margin: var(--space-medium) 20px;
+  margin: var(--space-medium) var(--panel-menuitem-margin-inline);
   padding: var(--space-medium);
   background-color: var(--swgt-note-background);
   border: var(--border-width) solid var(--swgt-note-border-color);
@@ -248,6 +215,7 @@
 .swgt-note > .swgt-message {
   flex: 1;
   min-width: 0;
+  margin: 0;
   padding: 0;
 }
 
@@ -255,8 +223,11 @@
  * the way the design crops it. */
 .swgt-note-art {
   flex: none;
+  /* stylelint-disable stylelint-plugin-mozilla/use-design-tokens --
+     the artwork is cropped at 56px in the design and no size token matches. */
   width: 56px;
   height: 56px;
+  /* stylelint-enable stylelint-plugin-mozilla/use-design-tokens */
   margin-block: calc(-1 * var(--space-medium));
   margin-inline-start: var(--space-medium);
   background-image: url("chrome://browser/content/aiwindow/assets/kit-meditating.svg");
@@ -272,51 +243,10 @@
 .swgt-flyout-list {
   display: flex;
   flex-direction: column;
-  padding-block: 6px;
-  padding-inline: 0;
-}
-
-.swgt-flyout-tab {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: start;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: var(--space-medium);
-  padding-block: var(--space-small);
-  padding-inline: 18px;
-
-  &:hover {
-    background: var(--swgt-hover);
-  }
-}
-
-.swgt-flyout-tab-label {
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.swgt-recent-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-medium);
-  padding-block: var(--space-small);
-  padding-inline: var(--swgt-inline-padding);
 }
 
 .swgt-ungroup {
-  color: var(--swgt-text-dim);
-  padding-inline: calc(var(--swgt-row-padding-inline) + var(--space-small));
-  margin-inline: calc(-1 * var(--space-small));
-  width: auto;
-  border-radius: 0;
+  color: var(--text-color-deemphasized);
 }
 
 .swgt-ungroup-icon {
