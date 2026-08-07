@@ -115,7 +115,7 @@
 }
 
 .swgt-row:focus-visible,
-.swgt-flyout-header:focus-visible {
+.swgt-flyout-tab:focus-visible {
   outline: var(--focus-outline);
   outline-offset: var(--focus-outline-inset);
 }
@@ -186,13 +186,6 @@
   background-color: var(--swgt-swatch-color);
 }
 
-.swgt-dot {
-  width: 11px;
-  height: 11px;
-  border-radius: var(--border-radius-circle);
-  flex: none;
-}
-
 .swgt-message {
   padding-block: 26px;
   padding-inline: 20px;
@@ -200,52 +193,30 @@
   text-align: center;
 }
 
-.swgt-flyout-header {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  width: 100%;
-  text-align: start;
-  padding-block: var(--space-large) var(--space-medium);
-  padding-inline: 18px;
-  cursor: pointer;
+.swgt-flyout-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xxsmall);
-  border-block-end: var(--border-width) solid var(--swgt-divider);
-}
-
-.swgt-flyout-header:hover {
-  background: var(--swgt-hover);
-}
-
-.swgt-flyout-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-small);
-  font-size: 1.1em;
-  font-weight: 700;
-}
-
-.swgt-flyout-subtitle {
-  color: var(--swgt-text-dim);
-  font-size: 0.9em;
-  padding-inline-start: 19px;
-}
-
-.swgt-flyout-list {
   padding-block: 6px;
   padding-inline: 0;
 }
 
 .swgt-flyout-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
   display: flex;
   align-items: center;
   gap: var(--space-medium);
   padding-block: var(--space-small);
   padding-inline: 18px;
+
+  &:hover {
+    background: var(--swgt-hover);
+  }
 }
 
 .swgt-flyout-tab-label {

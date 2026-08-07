@@ -42,6 +42,7 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
     this.computing = false;
     this.suggestions = [];
     this.recent = [];
+    this.addEventListener("keydown", e => this.#onKeyDown(e));
   }
 
   createRenderRoot() {
@@ -66,21 +67,86 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
     </div>`;
   }
 
+  get #rows() {
+    return [...this.querySelectorAll(".swgt-row")];
+  }
+
+  #focusRowAt(index) {
+    const rows = this.#rows;
+    if (rows.length) {
+      rows.at(index % rows.length)?.focus();
+    }
+  }
+
+  #moveRowFocus(direction) {
+    const current = this.#rows.indexOf(
+      this.ownerDocument.activeElement?.closest(".swgt-row")
+    );
+    if (current < 0) {
+      this.#focusRowAt(direction > 0 ? 0 : -1);
+      return;
+    }
+    this.#focusRowAt(current + direction);
+  }
+
+  #onKeyDown(event) {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return;
+    }
+    switch (event.key) {
+      case "ArrowDown":
+        this.#moveRowFocus(1);
+        break;
+      case "ArrowUp":
+        this.#moveRowFocus(-1);
+        break;
+      case "Home":
+        this.#focusRowAt(0);
+        break;
+      case "End":
+        this.#focusRowAt(-1);
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+  }
+
+  #onSuggestionKeyDown(event, suggestion) {
+    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      this.#emit("preview-enter", {
+        id: suggestion.id,
+        anchor: event.currentTarget,
+      });
+    }
+  }
+
   #suggestionRow(suggestion) {
     return html`<button
       type="button"
       class="swgt-row swgt-suggestion"
+      aria-expanded="false"
       data-l10n-id="smartwindow-group-tabs-suggestion"
       data-l10n-args=${JSON.stringify({
         groupLabel: suggestion.label,
         tabCount: suggestion.tabInfos.length,
       })}
       @mouseenter=${e =>
-        this.#emit("preview", { id: suggestion.id, anchor: e.currentTarget })}
+        this.#emit("preview", {
+          id: suggestion.id,
+          anchor: e.currentTarget,
+          source: "hover",
+        })}
       @focus=${e =>
-        this.#emit("preview", { id: suggestion.id, anchor: e.currentTarget })}
+        this.#emit("preview", {
+          id: suggestion.id,
+          anchor: e.currentTarget,
+          source: "focus",
+        })}
       @mouseleave=${() => this.#emit("preview-end")}
       @blur=${() => this.#emit("preview-end")}
+      @keydown=${e => this.#onSuggestionKeyDown(e, suggestion)}
       @click=${() => this.#emit("create-one", { id: suggestion.id })}
     >
       ${this.#favicons(suggestion.tabInfos)}
@@ -155,7 +221,8 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
 customElements.define("smartwindow-group-tabs-card", SmartwindowGroupTabsCard);
 
 /**
- * Flyout that previews a single suggested group to the side of its row.
+ * Flyout listing the tabs of one suggested group, to the side of its row.
+ * Activating a tab switches to it.
  */
 export class SmartwindowGroupTabsFlyout extends MozLitElement {
   static properties = {
@@ -171,56 +238,58 @@ export class SmartwindowGroupTabsFlyout extends MozLitElement {
     this.classList.add("swgt-flyout");
   }
 
+  #emit(type, detail) {
+    this.dispatchEvent(new CustomEvent(type, { detail }));
+  }
+
+  #onKeyDown(event) {
+    const row = event.target.closest(".swgt-flyout-tab");
+    if (!row) {
+      return;
+    }
+    switch (event.key) {
+      case "ArrowDown":
+        row.nextElementSibling?.focus();
+        break;
+      case "ArrowUp":
+        row.previousElementSibling?.focus();
+        break;
+      case "ArrowLeft":
+      case "ArrowRight":
+        this.#emit("close-flyout");
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+  }
+
   render() {
     const suggestion = this.suggestion;
     if (!suggestion) {
       return nothing;
     }
-    return html`<button
-        type="button"
-        class="swgt-flyout-header"
-        @click=${() =>
-          this.dispatchEvent(
-            new CustomEvent("create-one", { detail: { id: suggestion.id } })
-          )}
-      >
-        <span class="swgt-flyout-title">
-          <span
-            class="swgt-dot"
-            aria-hidden="true"
-            style="background:${colorVar(suggestion.color)}"
-          ></span>
-          <span data-l10n-id="smartwindow-group-tabs-flyout-create"></span>
-        </span>
-        <span
-          class="swgt-flyout-subtitle"
-          data-l10n-id="smartwindow-group-tabs-flyout-subtitle"
-          data-l10n-args=${JSON.stringify({
-            groupLabel: suggestion.label,
-            tabCount: suggestion.tabInfos.length,
-          })}
-        ></span>
-      </button>
-      <div class="swgt-flyout-list" role="list">
-        ${suggestion.tabInfos.map(
-          info =>
-            html`<div class="swgt-flyout-tab" role="listitem">
-              ${favicon(info)}
-              ${info.siteName
-                ? html`<span
-                    class="swgt-flyout-tab-label"
-                    data-l10n-id="smartwindow-group-tabs-flyout-tab"
-                    data-l10n-args=${JSON.stringify({
-                      siteName: info.siteName,
-                      title: info.title,
-                    })}
-                  ></span>`
-                : html`<span class="swgt-flyout-tab-label"
-                    >${info.title}</span
-                  >`}
-            </div>`
-        )}
-      </div>`;
+    return html`<div
+      class="swgt-flyout-list"
+      role="group"
+      data-l10n-id="smartwindow-group-tabs-flyout-list"
+      data-l10n-args=${JSON.stringify({ groupLabel: suggestion.label })}
+      @keydown=${e => this.#onKeyDown(e)}
+    >
+      ${suggestion.tabInfos.map(
+        (info, index) =>
+          html`<button
+            type="button"
+            class="swgt-flyout-tab"
+            title=${info.title}
+            @click=${() =>
+              this.#emit("select-tab", { id: suggestion.id, index })}
+          >
+            ${favicon(info)}
+            <span class="swgt-flyout-tab-label">${info.title}</span>
+          </button>`
+      )}
+    </div>`;
   }
 }
 customElements.define(

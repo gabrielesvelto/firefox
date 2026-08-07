@@ -144,7 +144,7 @@ add_task(function test_selectClusters_filtersSortsAndCaps() {
 });
 
 add_task(function test_selectClusters_dropsLowCohesion() {
-  // A large but incohesive cluster (below the 0.1 threshold) is dropped even
+  // A large but incohesive cluster (below the 0.15 threshold) is dropped even
   // though it clears the size minimum, so weakly-related tabs aren't grouped.
   const clusters = [makeCluster(5, 0.05), makeCluster(3, 0.4)];
 
@@ -159,7 +159,7 @@ add_task(function test_selectClusters_dropsLowCohesion() {
 
 add_task(function test_selectClusters_minCohesionPrefTunesThreshold() {
   // Raising the pref to 0.5 now drops a 0.4-cohesion cluster that the default
-  // 0.1 threshold would have kept.
+  // 0.15 threshold would have kept.
   Services.prefs.setCharPref(
     "browser.smartwindow.autoTabGrouping.minCohesion",
     "0.5"

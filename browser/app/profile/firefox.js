@@ -2343,7 +2343,7 @@ pref("browser.smartwindow.autoTabGrouping.enabled", false);
 pref("browser.smartwindow.autoTabGrouping.maxGroups", 5);
 pref("browser.smartwindow.autoTabGrouping.minTabsPerGroup", 2);
 pref("browser.smartwindow.autoTabGrouping.minCandidateTabs", 4);
-pref("browser.smartwindow.autoTabGrouping.minCohesion", "0.1");
+pref("browser.smartwindow.autoTabGrouping.minCohesion", "0.15");
 pref("browser.smartwindow.autoTabGrouping.timeoutMs", 8000);
 pref("browser.smartwindow.autoTabGrouping.loglevel", "Warn");
 

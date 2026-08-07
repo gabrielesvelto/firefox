@@ -39,7 +39,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "minCohesion",
   "browser.smartwindow.autoTabGrouping.minCohesion",
-  "0.1",
+  "0.15",
   null,
   value => parseFloat(value)
 );
@@ -227,10 +227,7 @@ export const AutoTabGroupingSuggestions = {
         site = "";
       }
     }
-    const title = tab.label || site;
-    // Only show the site next to the title when it adds information.
-    const siteName = site && site !== title ? site : "";
-    return { iconUrl: this._faviconUrl(tab), title, siteName };
+    return { iconUrl: this._faviconUrl(tab), title: tab.label || site };
   },
 
   _faviconUrl(tab) {

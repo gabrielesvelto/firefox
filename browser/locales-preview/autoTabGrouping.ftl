@@ -15,19 +15,11 @@ smartwindow-group-tabs-loading = Finding groups…
 smartwindow-group-tabs-empty = No suggestions right now
 smartwindow-group-tabs-create-all = Create all suggested groups
 smartwindow-group-tabs-suggested-heading = Suggested groups
-# Title of the flyout that previews a single suggested group; activating it
-# creates that group.
-smartwindow-group-tabs-flyout-create = Create group
-# Flyout subtitle. $groupLabel is the suggested group's name, $tabCount the
-# number of tabs it would contain.
-smartwindow-group-tabs-flyout-subtitle =
-    { $tabCount ->
-        [one] { $groupLabel } · { $tabCount } tab
-       *[other] { $groupLabel } · { $tabCount } tabs
-    }
-# A tab listed in the flyout. $siteName is derived from the tab's domain
-# (e.g. "Github"); $title is the page title.
-smartwindow-group-tabs-flyout-tab = { $siteName } · { $title }
+# Accessible name for the flyout that lists the tabs of one suggested group.
+# Activating a tab in the list switches to it. $groupLabel is the suggested
+# group's name.
+smartwindow-group-tabs-flyout-list =
+    .aria-label = Tabs in { $groupLabel }
 # Accessible name for a suggested-group row. Activating the row creates the
 # group. $groupLabel is the suggested group's name, $tabCount the number of
 # tabs it would contain.
