@@ -77,7 +77,7 @@ const int32_t kHackyDowngradeSchemaVersion = 25;
 const int32_t kHackyPaddingSizePresentVersion = 27;
 //
 // Update this whenever the DB schema is changed.
-const int32_t kLatestSchemaVersion = 31;
+const int32_t kLatestSchemaVersion = 29;
 // ---------
 // The following constants define the SQL schema.  These are defined in the
 // same order the SQL should be executed in CreateOrMigrateSchema().  They are
@@ -146,8 +146,7 @@ const char kTableEntries[] =
     "request_url_fragment TEXT NOT NULL, "
     "response_padding_size INTEGER NULL, "
     "request_body_disk_size INTEGER NULL, "
-    "response_body_disk_size INTEGER NULL, "
-    "response_credentials INTEGER NOT NULL "
+    "response_body_disk_size INTEGER NULL "
     // New columns must be added at the end of table to migrate and
     // validate properly.
     ")";
@@ -1727,7 +1726,6 @@ nsresult InsertEntry(mozIStorageConnection& aConn, CacheId aCacheId,
                        "response_security_info_id, "
                        "response_principal_info, "
                        "response_padding_size, "
-                       "response_credentials, "
                        "cache_id "
                        ") VALUES ("
                        ":request_method, "
@@ -1756,7 +1754,6 @@ nsresult InsertEntry(mozIStorageConnection& aConn, CacheId aCacheId,
                        ":response_security_info_id, "
                        ":response_principal_info, "
                        ":response_padding_size, "
-                       ":response_credentials, "
                        ":cache_id "
                        ");"_ns));
 
@@ -1879,10 +1876,6 @@ nsresult InsertEntry(mozIStorageConnection& aConn, CacheId aCacheId,
                                                   aResponse.paddingSize())));
     }
 
-    QM_TRY(MOZ_TO_RESULT(
-        state->BindInt32ByName("response_credentials"_ns,
-                               static_cast<int32_t>(aResponse.credentials()))));
-
     QM_TRY(MOZ_TO_RESULT(state->BindInt64ByName("cache_id"_ns, aCacheId)));
 
     QM_TRY(MOZ_TO_RESULT(state->Execute()));
@@ -1995,7 +1988,7 @@ Result<SavedResponse, nsresult> ReadResponse(mozIStorageConnection& aConn,
           "entries.response_principal_info, "
           "entries.response_padding_size, "
           "security_info.data, "
-          "entries.response_credentials "
+          "entries.request_credentials "
           "FROM entries "
           "LEFT OUTER JOIN security_info "
           "ON entries.response_security_info_id=security_info.id "
@@ -2593,8 +2586,6 @@ nsresult MigrateFrom27To28(nsIFile& aDBDir, mozIStorageConnection& aConn,
                            bool& aRewriteSchema);
 nsresult MigrateFrom28To29(nsIFile& aDBDir, mozIStorageConnection& aConn,
                            bool& aRewriteSchema);
-nsresult MigrateFrom30To31(nsIFile& aDBDir, mozIStorageConnection& aConn,
-                           bool& aRewriteSchema);
 // Configure migration functions to run for the given starting version.
 constexpr Migration sMigrationList[] = {
     Migration{15, MigrateFrom15To16}, Migration{16, MigrateFrom16To17},
@@ -2604,7 +2595,6 @@ constexpr Migration sMigrationList[] = {
     Migration{23, MigrateFrom23To24}, Migration{24, MigrateFrom24To25},
     Migration{25, MigrateFrom25To26}, Migration{26, MigrateFrom26To27},
     Migration{27, MigrateFrom27To28}, Migration{28, MigrateFrom28To29},
-    Migration{30, MigrateFrom30To31},
 };
 
 nsresult RewriteEntriesSchema(mozIStorageConnection& aConn) {
@@ -3245,25 +3235,6 @@ nsresult MigrateFrom28To29(nsIFile& aDBDir, mozIStorageConnection& aConn,
       aConn.ExecuteSimpleSQL(nsLiteralCString(kTriggerEntriesDelete))));
 
   QM_TRY(MOZ_TO_RESULT(aConn.SetSchemaVersion(29)));
-
-  aRewriteSchema = true;
-
-  return NS_OK;
-}
-
-nsresult MigrateFrom30To31(nsIFile& aDBDir, mozIStorageConnection& aConn,
-                           bool& aRewriteSchema) {
-  MOZ_ASSERT(!NS_IsMainThread());
-
-  // Existing response objects would be getting credential type set to 2,
-  // which means that these response objects can no longer be loaded by
-  // credentialless cross-origin embedders which is fine; a network fetch
-  // would need to be performed for such objects.
-  QM_TRY(MOZ_TO_RESULT(aConn.ExecuteSimpleSQL(
-      "ALTER TABLE entries "
-      "ADD COLUMN response_credentials INTEGER NOT NULL DEFAULT 2;"_ns)));
-
-  QM_TRY(MOZ_TO_RESULT(aConn.SetSchemaVersion(31)));
 
   aRewriteSchema = true;
 
