@@ -20,6 +20,7 @@ The most commonly used surfaces are listed below. "Multistage content" means the
 | Toolbar badge | `toolbar_badge` | No |
 | [Private browsing newtab](./private-browsing.md) | `pb_newtab` | No |
 | [Menu message](./menu-message.md) | `menu_message` | No |
+| [Sidebar chatbot promo](./sidebar-chatbot-promo.md) | `sidebar_chatbot_promo` | No |
 | Bookmarks bar button | `bookmarks_bar_button` | No |
 
 ## Special Message Actions
