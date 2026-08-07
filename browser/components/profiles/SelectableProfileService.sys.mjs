@@ -667,6 +667,7 @@ class SelectableProfileServiceClass extends EventEmitter {
     prefersDarkQuery?.addEventListener("change", this.matchMediaObserver);
 
     Services.obs.addObserver(this, "pds-datastore-changed");
+    Services.obs.addObserver(this, "taskbar-buttons-refreshed");
 
     this.#initialized = true;
 
@@ -720,6 +721,7 @@ class SelectableProfileServiceClass extends EventEmitter {
     lazy.EveryWindow.unregisterCallback(this.#everyWindowCallbackId);
 
     Services.obs.removeObserver(this, "pds-datastore-changed");
+    Services.obs.removeObserver(this, "taskbar-buttons-refreshed");
 
     this.#initialized = false;
   }
@@ -772,6 +774,17 @@ class SelectableProfileServiceClass extends EventEmitter {
       }
       case "lightweight-theme-styling-update": {
         this.themeObserver(subject, topic);
+        break;
+      }
+      case "taskbar-buttons-refreshed": {
+        // WinTaskbar::RefreshTaskbarButtons cycles DeleteTab/AddTab on each button,
+        // which creates fresh taskbar buttons with no overlay state, wiping the profile
+        // badge. Re-apply it.
+        if (this.#badge && "nsIWinTaskbar" in Ci) {
+          for (let win of lazy.EveryWindow.readyWindows) {
+            this.#setOverlayIcon({ win });
+          }
+        }
         break;
       }
     }

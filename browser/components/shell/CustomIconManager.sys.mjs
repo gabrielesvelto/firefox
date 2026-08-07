@@ -297,6 +297,18 @@ let gObserversRegistered = false;
 
 export const CustomIconManager = {
   /**
+   * Whether the custom icon is supported on this install.
+   *
+   * @returns {boolean}
+   */
+  get supported() {
+    return (
+      AppConstants.platform === "win" &&
+      !Services.sysinfo.getProperty("hasWinPackageId")
+    );
+  },
+
+  /**
    * Make the icon identified by `id` the active custom icon for this
    * install. On Windows this:
    *
@@ -398,10 +410,7 @@ export const CustomIconManager = {
    * Intended to be called from a browser-before-ui-startup hook.
    */
   applyRuntimeOverrideForStartup() {
-    if (AppConstants.platform !== "win") {
-      return;
-    }
-    if (Services.sysinfo.getProperty("hasWinPackageId")) {
+    if (!this.supported) {
       return;
     }
     // Register before the no-icon early-return so icons chosen later in the
@@ -492,11 +501,7 @@ export const CustomIconManager = {
    * @returns {Promise<void>}
    */
   async ensureAppliedOrRevert(remoteProfileUpdated = false) {
-    if (AppConstants.platform !== "win") {
-      return;
-    }
-
-    if (Services.sysinfo.getProperty("hasWinPackageId")) {
+    if (!this.supported) {
       return;
     }
 
@@ -545,6 +550,93 @@ export const CustomIconManager = {
     }
 
     applyRuntimeWindowsIcon(resolveResourceId(entry, osColorScheme()));
+  },
+
+  /**
+   * Ensure this install owns a per-user Start Menu shortcut.
+   *
+   * The taskbar gets its icon from Start Menu shortcuts with a matching AUMID,
+   * and prioritizes the shortcut present in the user's Roaming folder over
+   * the system-wide Start Menu directory.
+   *
+   * No-op if shortcut already exists.
+   *
+   * @returns {Promise<void>}
+   */
+  async ensureShortcutInPerUserStartMenu() {
+    if (!this.supported) {
+      return;
+    }
+    let aumid = lazy.WinTaskbar.defaultGroupId;
+    let shortcuts = [];
+    try {
+      shortcuts = await lazy.ShellService.enumerateInstallShortcuts(aumid);
+    } catch (ex) {
+      lazy.logConsole.error("enumerateInstallShortcuts failed", ex);
+      return;
+    }
+
+    let programs =
+      Services.dirsvc.get("Progs", Ci.nsIFile).path.toLowerCase() + "\\";
+    let hasShortcutInPerUserStartMenu = shortcuts.some(p =>
+      p.toLowerCase().startsWith(programs)
+    );
+
+    if (hasShortcutInPerUserStartMenu) {
+      return;
+    }
+
+    let exeFile = Services.dirsvc.get("XREExeF", Ci.nsIFile);
+
+    // The installer names shortcuts "${BrandShortName}.lnk"
+    // (from MOZ_APP_DISPLAYNAME in defines.nsi.in), so we use the
+    // same build-time constant to mirror that naming convention.
+    let name = AppConstants.MOZ_APP_DISPLAYNAME_DO_NOT_USE + ".lnk";
+    let strings = new Localization(
+      ["branding/brand.ftl", "browser/browser.ftl"],
+      true
+    );
+    let [description] = await strings.formatValues([
+      "browser-shortcut-description",
+    ]);
+
+    try {
+      await lazy.ShellService.createShortcut(
+        exeFile,
+        [],
+        description,
+        exeFile,
+        0,
+        aumid,
+        "Programs",
+        name
+      );
+    } catch (ex) {
+      lazy.logConsole.error("Creating per-user install shortcut failed", ex);
+    }
+  },
+
+  /**
+   * Add and remove the taskbar buttons associated with the browser's AUMID.
+   * This forces the button to rebind to the newly created shortcut, so we
+   * could read from it without a restart.
+   *
+   * @returns {void}
+   */
+  refreshTaskbarButtons() {
+    if (AppConstants.platform !== "win") {
+      return;
+    }
+    try {
+      lazy.WinTaskbar.refreshTaskbarButtons();
+    } catch (ex) {
+      lazy.logConsole.error("refreshTaskbarButtons failed", ex);
+      return;
+    }
+
+    // Cycling the taskbar buttons via DeleteTab/AddTab discards any overlay
+    // icon state (profile badge). Notify so consumers can re-apply it.
+    Services.obs.notifyObservers(null, "taskbar-buttons-refreshed");
   },
 };
 

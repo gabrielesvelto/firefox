@@ -60,11 +60,13 @@ let shellServiceMock = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIWindowsShellService]),
   enumerateInstallShortcuts: sinon.stub(),
   setShortcutsIcon: sinon.stub(),
+  createShortcut: sinon.stub(),
 };
 
 let winTaskbarMock = {
   QueryInterface: ChromeUtils.generateQI([Ci.nsIWinTaskbar]),
   setAllWindowIcons: sinon.stub(),
+  refreshTaskbarButtons: sinon.stub(),
   get defaultGroupId() {
     return TEST_AUMID;
   },
@@ -83,7 +85,10 @@ function resetMocks() {
   shellServiceMock.enumerateInstallShortcuts.resolves(TEST_SHORTCUTS.slice());
   shellServiceMock.setShortcutsIcon.reset();
   shellServiceMock.setShortcutsIcon.resolves();
+  shellServiceMock.createShortcut.reset();
+  shellServiceMock.createShortcut.resolves();
   winTaskbarMock.setAllWindowIcons.reset();
+  winTaskbarMock.refreshTaskbarButtons.reset();
   spsInitStub.reset();
   spsInitStub.resolves();
   Services.prefs.clearUserPref(PREF_ICON_ID);
@@ -731,4 +736,166 @@ add_task(skipOnMsix(), async function test_theme_change_reapplies_variant() {
     MockRegistrar.unregister(regCid);
     Services.prefs.clearUserPref(PREF_ICON_ID);
   }
+});
+
+/**
+ * This test verifies that ensureShortcutInPerUserStartMenu() does not create a
+ * shortcut when one already exists in the per-user Start Menu Programs folder.
+ */
+add_task(
+  skipOnMsix(),
+  async function test_ensureShortcutInPerUserStartMenu_already_exists() {
+    resetMocks();
+
+    let programsPath = Services.dirsvc.get("Progs", Ci.nsIFile).path;
+    shellServiceMock.enumerateInstallShortcuts.resolves([
+      programsPath + "\\Nightly.lnk",
+    ]);
+
+    await CustomIconManager.ensureShortcutInPerUserStartMenu();
+
+    Assert.ok(
+      shellServiceMock.createShortcut.notCalled,
+      "createShortcut not called when a per-user Start Menu shortcut already exists"
+    );
+  }
+);
+
+/**
+ * This test verifies that ensureShortcutInPerUserStartMenu() creates a shortcut
+ * in the Programs folder when none is found among the enumerated shortcuts.
+ */
+add_task(
+  skipOnMsix(),
+  async function test_ensureShortcutInPerUserStartMenu_creates_shortcut() {
+    resetMocks();
+    // TEST_SHORTCUTS ("C:\\fake\\Desktop\\Nightly.lnk") does not live in
+    // the Programs dir, so the method must create the missing shortcut.
+
+    await CustomIconManager.ensureShortcutInPerUserStartMenu();
+
+    Assert.ok(
+      shellServiceMock.createShortcut.calledOnce,
+      "createShortcut called when no per-user Start Menu shortcut exists"
+    );
+    let [exeFile, args, , iconFile, iconIndex, aumid, location, name] =
+      shellServiceMock.createShortcut.getCall(0).args;
+    Assert.equal(
+      exeFile.path,
+      exePath(),
+      "shortcut targets the running executable"
+    );
+    Assert.deepEqual(args, [], "no extra arguments");
+    Assert.equal(iconFile.path, exePath(), "icon source is the executable");
+    Assert.equal(
+      iconIndex,
+      0,
+      "icon index 0 selects the executable's default icon"
+    );
+    Assert.equal(aumid, TEST_AUMID, "shortcut carries the install AUMID");
+    Assert.equal(
+      location,
+      "Programs",
+      "shortcut placed in the Programs location"
+    );
+    Assert.ok(name.endsWith(".lnk"), "shortcut filename ends with .lnk");
+  }
+);
+
+/**
+ * This test verifies that when enumerateInstallShortcuts rejects,
+ * ensureShortcutInPerUserStartMenu() swallows the error and does not attempt
+ * to create a shortcut.
+ */
+add_task(
+  skipOnMsix(),
+  async function test_ensureShortcutInPerUserStartMenu_enumeration_failure() {
+    resetMocks();
+    shellServiceMock.enumerateInstallShortcuts.rejects(
+      Components.Exception("mock enum failure", Cr.NS_ERROR_FAILURE)
+    );
+
+    await CustomIconManager.ensureShortcutInPerUserStartMenu();
+
+    Assert.ok(
+      shellServiceMock.createShortcut.notCalled,
+      "createShortcut not attempted when enumeration fails"
+    );
+  }
+);
+
+/**
+ * This test verifies that when createShortcut rejects,
+ * ensureShortcutInPerUserStartMenu() swallows the error and does not throw.
+ */
+add_task(
+  skipOnMsix(),
+  async function test_ensureShortcutInPerUserStartMenu_create_failure() {
+    resetMocks();
+    shellServiceMock.createShortcut.rejects(
+      Components.Exception("mock create failure", Cr.NS_ERROR_FAILURE)
+    );
+
+    await CustomIconManager.ensureShortcutInPerUserStartMenu();
+
+    Assert.ok(
+      shellServiceMock.createShortcut.calledOnce,
+      "createShortcut was attempted despite the eventual failure"
+    );
+  }
+);
+
+/**
+ * This test verifies that ensureShortcutInPerUserStartMenu() is a no-op on
+ * MSIX (packaged) builds where shortcut creation is unsupported.
+ */
+add_task(
+  { skip_if: () => !ON_MSIX },
+  async function test_ensureShortcutInPerUserStartMenu_noop_on_msix() {
+    resetMocks();
+
+    await CustomIconManager.ensureShortcutInPerUserStartMenu();
+
+    Assert.ok(
+      shellServiceMock.enumerateInstallShortcuts.notCalled,
+      "no enumeration on MSIX"
+    );
+    Assert.ok(
+      shellServiceMock.createShortcut.notCalled,
+      "no shortcut creation on MSIX"
+    );
+  }
+);
+
+/**
+ * This test verifies that refreshTaskbarButtons() delegates to
+ * WinTaskbar.refreshTaskbarButtons().
+ */
+add_task(function test_refreshTaskbarButtons_calls_wintaskbar() {
+  winTaskbarMock.refreshTaskbarButtons.reset();
+
+  CustomIconManager.refreshTaskbarButtons();
+
+  Assert.ok(
+    winTaskbarMock.refreshTaskbarButtons.calledOnce,
+    "refreshTaskbarButtons delegates to WinTaskbar"
+  );
+});
+
+/**
+ * This test verifies that refreshTaskbarButtons() swallows errors thrown by
+ * WinTaskbar.refreshTaskbarButtons() rather than propagating them.
+ */
+add_task(function test_refreshTaskbarButtons_swallows_errors() {
+  winTaskbarMock.refreshTaskbarButtons.reset();
+  winTaskbarMock.refreshTaskbarButtons.throws(
+    Components.Exception("mock failure", Cr.NS_ERROR_FAILURE)
+  );
+
+  CustomIconManager.refreshTaskbarButtons();
+
+  Assert.ok(
+    winTaskbarMock.refreshTaskbarButtons.calledOnce,
+    "refreshTaskbarButtons was attempted"
+  );
 });
