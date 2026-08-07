@@ -35,6 +35,7 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
     computing: { type: Boolean },
     suggestions: { attribute: false },
     recent: { attribute: false },
+    ungrouped: { type: Number },
   };
 
   constructor() {
@@ -42,6 +43,7 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
     this.computing = false;
     this.suggestions = [];
     this.recent = [];
+    this.ungrouped = 0;
     this.addEventListener("keydown", e => this.#onKeyDown(e));
   }
 
@@ -168,11 +170,12 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
   render() {
     const hasSuggestions = !this.computing && !!this.suggestions.length;
     const hasRecent = !this.computing && !!this.recent.length;
-    let message = null;
-    if (this.computing) {
-      message = "smartwindow-group-tabs-loading";
-    } else if (!hasSuggestions && !hasRecent) {
-      message = "smartwindow-group-tabs-empty";
+    let note = null;
+    if (!this.computing && !hasSuggestions) {
+      note =
+        hasRecent && !this.ungrouped
+          ? "smartwindow-group-tabs-all-sorted"
+          : "smartwindow-group-tabs-empty";
     }
 
     return [
@@ -181,8 +184,17 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
         id=${HEADING_ID}
         data-l10n-id="smartwindow-group-tabs-panel-heading"
       ></h1>`,
-      message
-        ? html`<div class="swgt-message" data-l10n-id=${message}></div>`
+      this.computing
+        ? html`<div
+            class="swgt-message swgt-loading"
+            data-l10n-id="smartwindow-group-tabs-loading"
+          ></div>`
+        : nothing,
+      note
+        ? html`<div class="swgt-note">
+            <span class="swgt-message" data-l10n-id=${note}></span>
+            <span class="swgt-note-art" aria-hidden="true"></span>
+          </div>`
         : nothing,
       hasSuggestions
         ? html`<button

@@ -386,6 +386,8 @@ export const AutoTabGrouping = {
     card.computing = state.computing;
     card.suggestions = [...state.suggestions];
     card.recent = [...state.recent];
+    card.ungrouped =
+      lazy.AutoTabGroupingSuggestions.getCandidateTabs(win).length;
     return hidden;
   },
 

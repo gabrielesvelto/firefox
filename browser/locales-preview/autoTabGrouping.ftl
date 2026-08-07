@@ -13,6 +13,9 @@ smartwindow-group-tabs-panel-heading = Group my tabs
 smartwindow-group-tabs-loading = Finding groups…
 # Shown when clustering produced no group worth suggesting.
 smartwindow-group-tabs-empty = No suggestions right now
+# Shown in place of suggestions when every group the model found has already
+# been created.
+smartwindow-group-tabs-all-sorted = Nice work organizing your tabs
 smartwindow-group-tabs-create-all = Create all suggested groups
 smartwindow-group-tabs-suggested-heading = Suggested groups
 # Accessible name for the flyout that lists the tabs of one suggested group.

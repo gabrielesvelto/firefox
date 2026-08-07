@@ -377,6 +377,13 @@ describe("Auto Tab Grouping toolbar button", () => {
         panel.querySelector(".swgt-ungroup"),
         "'Ungroup' footer is shown"
       );
+      Assert.equal(
+        panel
+          .querySelector(".swgt-note .swgt-message")
+          .getAttribute("data-l10n-id"),
+        "smartwindow-group-tabs-empty",
+        "With ungrouped tabs left over the panel only says it has no suggestions"
+      );
 
       const ungroup = panel.querySelector(".swgt-ungroup");
       ungroup.focus();
@@ -405,6 +412,36 @@ describe("Auto Tab Grouping toolbar button", () => {
       await TestUtils.waitForCondition(
         () => win.document.activeElement === panel.querySelector(".swgt-card"),
         "Focus lands on the card once the 'Ungroup' row it was on is gone"
+      );
+    });
+  });
+
+  describe("when every tab ends up grouped", () => {
+    it("says everything is sorted", async () => {
+      win = await openGroupingWindowWithTabs();
+      const panel = await openPanelWithSuggestions(win);
+      const card = panel.querySelector(".swgt-card");
+
+      panel.querySelector(".swgt-create-all").click();
+      await TestUtils.waitForCondition(
+        () => card.querySelectorAll(".swgt-recent-row").length === 2,
+        "Both created groups are listed under 'Just created'"
+      );
+      Assert.greater(
+        card.ungrouped,
+        0,
+        "The panel is told about the tab clustering left ungrouped"
+      );
+
+      card.ungrouped = 0;
+      await card.updateComplete;
+
+      Assert.equal(
+        card
+          .querySelector(".swgt-note .swgt-message")
+          .getAttribute("data-l10n-id"),
+        "smartwindow-group-tabs-all-sorted",
+        "With no ungrouped tabs left the panel says everything is sorted"
       );
     });
   });
@@ -816,7 +853,9 @@ describe("Auto Tab Grouping toolbar button", () => {
         win.document.getElementById("smartwindow-group-tabs-panel")
       );
       await TestUtils.waitForCondition(
-        () => panel.querySelector(".swgt-message"),
+        () =>
+          panel.querySelector(".swgt-loading")?.getAttribute("data-l10n-id") ===
+          "smartwindow-group-tabs-loading",
         "Panel shows the loading state while clustering is pending"
       );
 
