@@ -69,7 +69,7 @@ function sizeStats(sizes) {
 }
 
 /**
- * Front-end orchestrator for the Smart Window "Group my tabs" feature. Opens a
+ * Front-end orchestrator for the Smart Window "Organize Tabs" feature. Opens a
  * toolbar-anchored panel that suggests tab groups (clustered on-device by
  * AutoTabGroupingSuggestions) and creates the ones the user picks.
  *
@@ -150,7 +150,7 @@ export const AutoTabGrouping = {
   },
 
   /**
-   * Toggle the "Group my tabs" panel from the toolbar button.
+   * Toggle the "Organize Tabs" panel from the toolbar button.
    *
    * @param {ChromeWindow} win - The Smart Window.
    */

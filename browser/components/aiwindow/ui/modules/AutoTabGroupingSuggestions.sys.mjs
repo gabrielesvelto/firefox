@@ -63,7 +63,7 @@ const TAB_GROUP_COLORS = [
 const DEFAULT_FAVICON_URL = "chrome://global/skin/icons/defaultFavicon.svg";
 
 /**
- * The suggestion engine for the Smart Window "Group my tabs" feature: the only
+ * The suggestion engine for the Smart Window "Organize Tabs" feature: the only
  * code that talks to the on-device clustering model. Given a window it picks
  * candidate tabs, clusters and labels them, and turns each cluster into the
  * display data the panel shows: a name, a color, and one row per tab. Kept
