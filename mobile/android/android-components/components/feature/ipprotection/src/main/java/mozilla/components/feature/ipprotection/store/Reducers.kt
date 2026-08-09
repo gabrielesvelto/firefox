@@ -55,7 +55,7 @@ internal fun iPProtectionReducer(
         // update with the service being READY, before EngineState updates itself with the new
         // account status.
         val newAccountStatus = if (action.info.serviceState == ServiceState.Ready &&
-            state.accountState.status != AccountStatus.NoAccount
+            state.accountState.status != AccountStatus.Uninitialized
         ) {
             AccountStatus.EnrolledAndEntitled
         } else {
@@ -122,12 +122,10 @@ internal fun iPProtectionReducer(
 
                 // We need to authenticate first because we haven't done so before or
                 // our account is in a wonky state.
-                val requiresAuthentication = status == AccountStatus.NeedsAuthentication ||
+                if (status == AccountStatus.NeedsAuthentication ||
                     status == AccountStatus.Uninitialized ||
-                    status == AccountStatus.WarmingUp ||
-                    status == AccountStatus.NoAccount
-
-                if (requiresAuthentication) {
+                    status == AccountStatus.WarmingUp
+                ) {
                     return state.copy(
                         accountState = state.accountState.copy(
                             status = AccountStatus.RequestingAuthentication,
@@ -229,8 +227,8 @@ internal fun internalReducer(
             AccountStatus.EnrolledAndEntitled,
                 -> state
 
-            AccountStatus.Uninitialized,
             AccountStatus.WarmingUp,
+            AccountStatus.NoAccount,
             AccountStatus.NeedsAuthentication,
             AccountStatus.NeedsAuthorization,
             AccountStatus.Authenticated,
@@ -248,7 +246,7 @@ internal fun internalReducer(
                 )
             }
 
-            AccountStatus.NoAccount -> state.clearProfileData(action)
+            AccountStatus.Uninitialized -> state.clearProfileData(action)
         }
     }
 
@@ -281,7 +279,6 @@ internal fun internalReducer(
             AccountStatus.AwaitingAuthentication,
             AccountStatus.WarmingUp,
             AccountStatus.Uninitialized,
-            AccountStatus.NoAccount,
                 -> {
                 AccountStatus.NeedsAuthentication
             }
