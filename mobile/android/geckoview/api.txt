@@ -2341,13 +2341,11 @@ package org.mozilla.geckoview {
   public static class IPProtectionController.IPProxyException extends RuntimeException {
     method @AnyThread @NonNull public static IPProtectionController.IPProxyException fromErrorString(@Nullable String);
     field public static final int ERROR_ACTIVATION_CANCELED = -6;
-    field public static final int ERROR_CATASTROPHIC = -7;
     field public static final int ERROR_NETWORK = -2;
     field public static final int ERROR_PASS_UNAVAILABLE = -4;
     field public static final int ERROR_SERVER_NOT_FOUND = -5;
     field public static final int ERROR_TIMEOUT = -3;
     field public static final int ERROR_UNKNOWN = -1;
-    field public static final int ERROR_VPN_UNAVAILABLE = -8;
     field public final int code;
   }
 
