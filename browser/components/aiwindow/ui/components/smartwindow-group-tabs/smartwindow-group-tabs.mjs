@@ -35,7 +35,6 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
     computing: { type: Boolean },
     suggestions: { attribute: false },
     recent: { attribute: false },
-    ungrouped: { type: Number },
     duplicates: { type: Number },
   };
 
@@ -44,7 +43,6 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
     this.computing = false;
     this.suggestions = [];
     this.recent = [];
-    this.ungrouped = 0;
     this.duplicates = 0;
     this.addEventListener("keydown", e => this.#onKeyDown(e));
   }
@@ -174,10 +172,9 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
     const hasRecent = !this.computing && !!this.recent.length;
     let note = null;
     if (!this.computing && !hasSuggestions) {
-      note =
-        hasRecent && !this.ungrouped
-          ? "smartwindow-group-tabs-all-sorted"
-          : "smartwindow-group-tabs-empty";
+      note = hasRecent
+        ? "smartwindow-group-tabs-all-sorted"
+        : "smartwindow-group-tabs-empty";
     }
 
     return [

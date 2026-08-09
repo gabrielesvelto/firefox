@@ -118,7 +118,8 @@ export const AutoTabGrouping = {
    *
    * recent holds the groups created from suggestions (newest first); the panel
    * lists them under "Just created" and the "Ungroup" button reverses all of
-   * them at once.
+   * them at once. It is emptied when the panel closes: a group is only "just
+   * created" while the panel that created it stays open.
    *
    * @type {WeakMap<ChromeWindow, {computed: boolean, computing: boolean,
    *   computeCount: number, computePromise: ?Promise<void>,
@@ -233,6 +234,7 @@ export const AutoTabGrouping = {
         win.removeEventListener("keydown", onKeyDown, true);
         this._cancelHideFlyout(panel);
         panel._flyoutPanel?.remove();
+        this._getState(win).recent = [];
         if (this._panels.get(win) === panel) {
           this._panels.delete(win);
         }
@@ -399,8 +401,6 @@ export const AutoTabGrouping = {
     card.computing = state.computing;
     card.suggestions = [...state.suggestions];
     card.recent = [...state.recent];
-    card.ungrouped =
-      lazy.AutoTabGroupingSuggestions.getCandidateTabs(win).length;
     card.duplicates = win.gBrowser.getAllDuplicateTabsToClose().length;
     return hidden;
   },

@@ -61,8 +61,7 @@ async function openGroupingWindowWithTabs() {
   return win;
 }
 
-// Open the panel and wait for the two clustered suggestion rows to render.
-async function openPanelWithSuggestions(win) {
+async function openPanel(win) {
   AIWindowUI.toggleGroupTabsPanel(win);
   const panel = await TestUtils.waitForCondition(() =>
     win.document.getElementById("smartwindow-group-tabs-panel")
@@ -71,6 +70,12 @@ async function openPanelWithSuggestions(win) {
     () => panel.state === "open",
     "Panel finished opening"
   );
+  return panel;
+}
+
+// Open the panel and wait for the two clustered suggestion rows to render.
+async function openPanelWithSuggestions(win) {
+  const panel = await openPanel(win);
   await TestUtils.waitForCondition(
     () => panel.querySelectorAll(".swgt-suggestion").length === 2,
     "Two suggested group rows render once clustering finishes"
@@ -388,8 +393,8 @@ describe("Auto Tab Grouping toolbar button", () => {
         panel
           .querySelector(".swgt-note .swgt-message")
           .getAttribute("data-l10n-id"),
-        "smartwindow-group-tabs-empty",
-        "With ungrouped tabs left over the panel only says it has no suggestions"
+        "smartwindow-group-tabs-all-sorted",
+        "Having created groups, the panel credits the work even with tabs left ungrouped"
       );
 
       const ungroup = panel.querySelector(".swgt-ungroup");
@@ -421,34 +426,74 @@ describe("Auto Tab Grouping toolbar button", () => {
         "Focus lands on the card once the 'Ungroup' row it was on is gone"
       );
     });
-  });
 
-  describe("when every tab ends up grouped", () => {
-    it("says everything is sorted", async () => {
+    it("only lists groups created while the panel was open", async () => {
       win = await openGroupingWindowWithTabs();
-      const panel = await openPanelWithSuggestions(win);
-      const card = panel.querySelector(".swgt-card");
+      let panel = await openPanelWithSuggestions(win);
 
       panel.querySelector(".swgt-create-all").click();
       await TestUtils.waitForCondition(
-        () => card.querySelectorAll(".swgt-recent-row").length === 2,
+        () => panel.querySelectorAll(".swgt-recent-row").length === 2,
         "Both created groups are listed under 'Just created'"
       );
-      Assert.greater(
-        card.ungrouped,
-        0,
-        "The panel is told about the tab clustering left ungrouped"
-      );
 
-      card.ungrouped = 0;
+      await closePanel(win);
+      panel = await openPanel(win);
+      const card = panel.querySelector(".swgt-card");
       await card.updateComplete;
 
+      Assert.ok(
+        card.querySelector(".swgt-header"),
+        "The reopened card rendered"
+      );
+      Assert.deepEqual(card.recent, [], "The 'Just created' list starts empty");
+      Assert.ok(
+        !card.querySelector(
+          '[data-l10n-id="smartwindow-group-tabs-just-created-heading"]'
+        ),
+        "The 'Just created' heading is gone"
+      );
+      Assert.ok(
+        !card.querySelector(".swgt-recent-row"),
+        "None of the groups made last time are listed"
+      );
+      Assert.ok(
+        !card.querySelector(".swgt-ungroup"),
+        "The 'Ungroup' row is gone with them"
+      );
       Assert.equal(
-        card
+        win.gBrowser.tabGroups.length,
+        2,
+        "The groups themselves are left alone"
+      );
+    });
+  });
+
+  describe("when there is nothing left to suggest", () => {
+    it("credits work done this time and forgets it the next", async () => {
+      win = await openGroupingWindowWithTabs();
+      let panel = await openPanelWithSuggestions(win);
+      const noteId = () =>
+        panel
           .querySelector(".swgt-note .swgt-message")
-          .getAttribute("data-l10n-id"),
+          ?.getAttribute("data-l10n-id");
+
+      panel.querySelector(".swgt-create-all").click();
+      await TestUtils.waitForCondition(
+        () => panel.querySelectorAll(".swgt-recent-row").length === 2,
+        "Both created groups are listed under 'Just created'"
+      );
+      Assert.equal(
+        noteId(),
         "smartwindow-group-tabs-all-sorted",
-        "With no ungrouped tabs left the panel says everything is sorted"
+        "Groups created this time earn the 'nice work' note"
+      );
+
+      await closePanel(win);
+      panel = await openPanel(win);
+      await TestUtils.waitForCondition(
+        () => noteId() === "smartwindow-group-tabs-empty",
+        "Reopened with nothing created, the panel just says it has no suggestions"
       );
     });
   });
