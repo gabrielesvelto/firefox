@@ -114,6 +114,17 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
     event.preventDefault();
   }
 
+  #onSuggestionFocus(event, suggestion) {
+    if (event.currentTarget.hasAttribute("refocused-by-panel")) {
+      return;
+    }
+    this.#emit("preview", {
+      id: suggestion.id,
+      anchor: event.currentTarget,
+      source: "focus",
+    });
+  }
+
   #onSuggestionKeyDown(event, suggestion) {
     if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
       event.preventDefault();
@@ -140,12 +151,7 @@ export class SmartwindowGroupTabsCard extends MozLitElement {
           anchor: e.currentTarget,
           source: "hover",
         })}
-      @focus=${e =>
-        this.#emit("preview", {
-          id: suggestion.id,
-          anchor: e.currentTarget,
-          source: "focus",
-        })}
+      @focus=${e => this.#onSuggestionFocus(e, suggestion)}
       @mouseleave=${() => this.#emit("preview-end")}
       @blur=${() => this.#emit("preview-end")}
       @keydown=${e => this.#onSuggestionKeyDown(e, suggestion)}

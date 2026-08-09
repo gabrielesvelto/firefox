@@ -303,6 +303,9 @@ export const AutoTabGrouping = {
       this._showFlyoutById(win, panel, e.detail.id, e.detail.anchor);
     });
     card.addEventListener("preview-end", () => this._scheduleHideFlyout(panel));
+    card.addEventListener("mouseover", e =>
+      this._dismissPreviewOnRow(panel, e)
+    );
     card.addEventListener("preview-enter", e => {
       panel._dismissedRow = null;
       this._showFlyoutById(win, panel, e.detail.id, e.detail.anchor);
@@ -529,6 +532,24 @@ export const AutoTabGrouping = {
     return !!active && !!panel._flyoutPanel?.contains(active);
   },
 
+  _dismissPreviewOnRow(panel, event) {
+    if (!panel._activeRow || this._flyoutHasFocus(panel)) {
+      return;
+    }
+    // .swgt-row is every row the card makes actionable ("Create Groups", the
+    // suggestions, "Ungroup Tabs", "Close Duplicate Tabs"); .swgt-recent-row is
+    // a "Just created" entry, which is only there to be read. Another
+    // suggestion is left out because it repositions the flyout instead.
+    const row = event.target.closest(".swgt-row, .swgt-recent-row");
+    if (
+      row &&
+      row !== panel._activeRow &&
+      !row.classList.contains("swgt-suggestion")
+    ) {
+      this._hideFlyout(panel);
+    }
+  },
+
   _scheduleHideFlyout(panel) {
     this._cancelHideFlyout(panel);
     if (this._flyoutHasFocus(panel)) {
@@ -536,7 +557,6 @@ export const AutoTabGrouping = {
     }
     panel._hideTimer = lazy.setTimeout(() => {
       panel._hideTimer = 0;
-      panel._dismissedRow = panel._activeRow;
       this._hideFlyout(panel);
     }, FLYOUT_HIDE_DELAY_MS);
   },

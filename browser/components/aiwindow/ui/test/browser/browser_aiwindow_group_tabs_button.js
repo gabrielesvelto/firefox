@@ -593,6 +593,13 @@ describe("Auto Tab Grouping toolbar button", () => {
         () => panel._flyoutPanel.state === "closed",
         "The flyout hides itself once the pointer has left"
       );
+
+      panel.querySelector(".swgt-create-all").focus();
+      row.focus();
+      await TestUtils.waitForCondition(
+        () => panel._activeRow === row && panel._flyoutPanel.state !== "closed",
+        "Focusing the row again reopens the flyout the pointer dismissed"
+      );
     });
 
     it("hides the flyout when another panel row is hovered", async () => {
@@ -604,16 +611,28 @@ describe("Auto Tab Grouping toolbar button", () => {
       row.dispatchEvent(new win.MouseEvent("mouseleave"));
       panel
         .querySelector(".swgt-create-all")
-        .dispatchEvent(new win.MouseEvent("mouseenter"));
+        .dispatchEvent(new win.MouseEvent("mouseover", { bubbles: true }));
 
-      await TestUtils.waitForCondition(
-        () => panel._flyoutPanel.state === "closed",
-        "Moving onto 'Create Groups' closes the suggestion's flyout"
+      Assert.ok(
+        !row.classList.contains("is-active"),
+        "The suggestion drops its highlight the moment the pointer moves on"
       );
       Assert.equal(
         panel._activeRow,
         null,
         "The suggestion row is no longer marked active"
+      );
+      Assert.equal(panel._hideTimer, 0, "No delayed hide is left pending");
+      await TestUtils.waitForCondition(
+        () => panel._flyoutPanel.state === "closed",
+        "Moving onto 'Create Groups' closes the suggestion's flyout"
+      );
+
+      panel.querySelector(".swgt-create-all").focus();
+      row.focus();
+      await TestUtils.waitForCondition(
+        () => panel._activeRow === row && panel._flyoutPanel.state !== "closed",
+        "Keyboard focus on that suggestion still opens its flyout afterwards"
       );
     });
 
