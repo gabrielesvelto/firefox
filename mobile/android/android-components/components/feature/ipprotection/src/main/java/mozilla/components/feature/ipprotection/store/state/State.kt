@@ -163,11 +163,6 @@ enum class AccountStatus {
     WarmingUp,
 
     /**
-     * The user is not signed in.
-     */
-    NoAccount,
-
-    /**
      * Account is in a bad state.
      */
     NeedsAuthentication,
