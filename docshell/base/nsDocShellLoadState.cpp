@@ -157,27 +157,6 @@ nsDocShellLoadState::nsDocShellLoadState(
         return;
       }
     }
-
-    if (!ValidatePrincipalCouldPotentiallyBeLoadedBy(
-            mTriggeringPrincipal, GetEffectiveTriggeringRemoteType(),
-            {ValidatePrincipalOptions::AllowExpanded,
-             ValidatePrincipalOptions::AllowSystem})) {
-      aActor->FatalError(
-          "nsDocShellLoadState with invalid triggering principal");
-      return;
-    }
-    EnumSet<ValidatePrincipalOptions> principalToInheritOptions = {
-        ValidatePrincipalOptions::AllowNullPtr};
-    if (xpc::IsInAutomation()) {
-      // Bug 2011307, chrome reftests run in content.
-      principalToInheritOptions += ValidatePrincipalOptions::AllowSystem;
-    }
-    if (!ValidatePrincipalCouldPotentiallyBeLoadedBy(
-            mPrincipalToInherit, GetEffectiveTriggeringRemoteType(),
-            principalToInheritOptions)) {
-      aActor->FatalError("nsDocShellLoadState with invalid principalToInherit");
-      return;
-    }
   }
 
   if (!mSrcdocData.IsVoid() && !mURI->SchemeIs("view-source") &&
