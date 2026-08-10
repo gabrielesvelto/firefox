@@ -164,6 +164,13 @@ export const FEATURES = {
     engineId: "smart-tab-topic-engine",
     fluentId: "mlmodel-smart-tab-topic-engine",
   },
+  // Smart Window auto tab grouping: a separate topic-model slot so its naming
+  // model can be updated independently of the shared smart-tab-topic model.
+  // see browser/components/aiwindow/ui/modules/AutoTabGroupingSuggestions.sys.mjs
+  "smart-window-tab-topic": {
+    engineId: "smart-window-tab-topic-engine",
+    fluentId: "mlmodel-smart-tab-topic-engine",
+  },
   // see toolkit/components/formautofill/shared/FormAutofillML.sys.mjs
   "formfill-classification": {
     engineId: "formfill-classification-engine",

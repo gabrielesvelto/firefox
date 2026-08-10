@@ -8,10 +8,17 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
+  SMART_TAB_GROUPING_CONFIG:
+    "moz-src:///browser/components/tabbrowser/SmartTabGrouping.sys.mjs",
   SmartTabGroupingManager:
     "moz-src:///browser/components/tabbrowser/SmartTabGrouping.sys.mjs",
 });
 
+// Dedicated topic-model slot so the SW naming model can be updated independently
+// of the shared Smart Tab Grouping model. The model + revision resolve from the
+// smart-window-tab-topic Remote Settings inference-options record.
+const SW_TOPIC_FEATURE_ID = "smart-window-tab-topic";
+const SW_TOPIC_ENGINE_ID = "smart-window-tab-topic-engine";
 ChromeUtils.defineLazyGetter(lazy, "console", () =>
   console.createInstance({
     prefix: "AutoTabGrouping",
@@ -88,7 +95,10 @@ export const AutoTabGroupingSuggestions = {
 
   get manager() {
     if (!this._manager) {
-      this._manager = new lazy.SmartTabGroupingManager();
+      const config = structuredClone(lazy.SMART_TAB_GROUPING_CONFIG);
+      config.topicGeneration.featureId = SW_TOPIC_FEATURE_ID;
+      config.topicGeneration.engineId = SW_TOPIC_ENGINE_ID;
+      this._manager = new lazy.SmartTabGroupingManager(config);
     }
     return this._manager;
   },

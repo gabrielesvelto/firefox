@@ -199,6 +199,29 @@ add_task(function test_selectClusters_handlesEmptyInput() {
   );
 });
 
+add_task(function test_manager_usesSmartWindowTopicModelSlot() {
+  const originalManager = AutoTabGroupingSuggestions._manager;
+  AutoTabGroupingSuggestions._manager = null;
+  try {
+    const { topicGeneration } = AutoTabGroupingSuggestions.manager.config;
+    // The SW naming model lives in its own featureId/engine slot so it can be
+    // updated independently of the shared Smart Tab Grouping model; the model
+    // itself resolves from the smart-window-tab-topic Remote Settings record.
+    Assert.equal(
+      topicGeneration.featureId,
+      "smart-window-tab-topic",
+      "manager uses the Smart Window topic featureId, not the shared one"
+    );
+    Assert.equal(
+      topicGeneration.engineId,
+      "smart-window-tab-topic-engine",
+      "manager uses the Smart Window topic engineId"
+    );
+  } finally {
+    AutoTabGroupingSuggestions._manager = originalManager;
+  }
+});
+
 add_task(async function test_buildProposals_dropsUntitledGroups() {
   const originalManager = AutoTabGroupingSuggestions._manager;
   AutoTabGroupingSuggestions._manager = {
