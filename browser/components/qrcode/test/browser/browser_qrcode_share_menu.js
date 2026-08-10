@@ -290,7 +290,7 @@ add_task(
 
       let contextMenu = gURLBar.querySelector("moz-input-box").menupopup;
       contextMenu.dispatchEvent(
-        new PointerEvent("contextmenu", { bubbles: true })
+        new MouseEvent("popupshowing", { bubbles: true })
       );
 
       let shareItem = contextMenu.querySelector(".share-tab-url-item");
