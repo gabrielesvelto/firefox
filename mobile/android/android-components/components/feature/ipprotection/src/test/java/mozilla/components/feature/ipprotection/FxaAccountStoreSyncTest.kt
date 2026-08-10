@@ -37,7 +37,7 @@ class FxaAccountStoreSyncTest {
     }
 
     @Test
-    fun `WHEN initialized THEN the initial Unknown account state is forwarded as WarmingUp`() = runTest {
+    fun `WHEN initialized THEN the initial Unknown account state is forwarded as Uninitialized`() = runTest {
         val (ipProtectionStore, captureMiddleware) = buildStore()
 
         FxaAccountStoreSync(syncStore, ipProtectionStore, lazyOf(accountManager), StandardTestDispatcher(testScheduler))
@@ -46,9 +46,9 @@ class FxaAccountStoreSyncTest {
         testScheduler.advanceUntilIdle()
 
         captureMiddleware.assertFirstAction(InternalAction.AccountManagerStateChanged::class) {
-            assertEquals(AccountStatus.WarmingUp, it.status)
+            assertEquals(AccountStatus.Uninitialized, it.status)
         }
-        assertEquals(AccountStatus.WarmingUp, ipProtectionStore.state.accountState.status)
+        assertEquals(AccountStatus.Uninitialized, ipProtectionStore.state.accountState.status)
     }
 
     @Test
@@ -56,8 +56,7 @@ class FxaAccountStoreSyncTest {
         // All these cases are the same mappings - and we do not want them to change.
         val cases = listOf(
             AccountState.AuthenticationProblem to AccountStatus.NeedsAuthentication,
-            AccountState.NotAuthenticated to AccountStatus.Uninitialized,
-            AccountState.Authenticating("https://accounts.firefox.com/oauth") to AccountStatus.WarmingUp,
+            AccountState.NotAuthenticated to AccountStatus.NoAccount,
         )
 
         cases.forEach { (accountState, expectedStatus) ->
