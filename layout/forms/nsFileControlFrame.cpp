@@ -140,9 +140,8 @@ nsresult nsFileControlFrame::CreateAnonymousContent(
   aElements.AppendElement(mTextContent);
 
   // We should be able to interact with the element by doing drag and drop.
-  mContent->AddSystemEventListener(u"drop"_ns, mMouseListener, false, false);
-  mContent->AddSystemEventListener(u"dragover"_ns, mMouseListener, false,
-                                   false);
+  mContent->AddSystemEventListener(u"drop"_ns, mMouseListener, false);
+  mContent->AddSystemEventListener(u"dragover"_ns, mMouseListener, false);
 
   SyncDisabledState();
 
