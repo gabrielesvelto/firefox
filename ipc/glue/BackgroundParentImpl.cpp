@@ -1546,6 +1546,10 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvPLockManagerConstructor(
     return IPC_FAIL_NO_REASON(this);
   }
 
+  if (!BackgroundParent::ValidatePrincipal(this, aPrincipalInfo, {})) {
+    return IPC_FAIL(this, "Invalid principal for PLockManager");
+  }
+
   return IPC_OK();
 }
 
