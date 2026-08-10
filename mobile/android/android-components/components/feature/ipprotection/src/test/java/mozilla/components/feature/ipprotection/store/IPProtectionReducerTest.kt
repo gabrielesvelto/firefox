@@ -289,7 +289,7 @@ class IPProtectionReducerTest {
     }
 
     @Test
-    fun `WHEN AccountManagerStateChanged to Uninitialized is dispatched THEN data and proxy flags are reset to defaults`() {
+    fun `WHEN AccountManagerStateChanged to NoAccount is dispatched THEN data and proxy flags are reset to defaults`() {
         val dirtyState = buildIPProtectionState(
             accountStatus = AccountStatus.EnrolledAndEntitled,
             serviceStatus = ServiceState.Ready,
@@ -305,7 +305,7 @@ class IPProtectionReducerTest {
 
         val resultState = iPProtectionReducer(
             dirtyState,
-            InternalAction.AccountManagerStateChanged(AccountStatus.Uninitialized),
+            InternalAction.AccountManagerStateChanged(AccountStatus.NoAccount),
         )
 
         assertEquals(
@@ -315,7 +315,7 @@ class IPProtectionReducerTest {
                 resetDate = null,
                 proxyActiveShown = false,
                 activate = false,
-                accountState = AccountState(AccountStatus.Uninitialized),
+                accountState = AccountState(AccountStatus.NoAccount),
             ),
             resultState,
         )
