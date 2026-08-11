@@ -171,4 +171,5 @@ preprocessed_intervention_files = [
     "bug2045731-resultadosegundavuelta.onpe.gob.pe.js",
     "bug2046741-mylabmastering.pearson.com-hide_unsupported_modal.css",
     "bug2051501-community.acer.com-fix_clipped_tables.css",
+    "bug2058162-the-image-editor.com-allow_body_scrollbar.css",
 ]
