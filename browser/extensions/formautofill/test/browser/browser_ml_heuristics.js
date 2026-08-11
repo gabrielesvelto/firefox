@@ -49,6 +49,7 @@ add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
     set: [
       ["extensions.formautofill.useml", true],
+      ["extensions.formautofill.useml.nativeOnnxAvailable", true],
       ["extensions.formautofill.useml.succeeded", false],
     ],
   });
