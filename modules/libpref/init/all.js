@@ -4022,6 +4022,9 @@ pref("extensions.formautofill.useml", true);
 #else
 pref("extensions.formautofill.useml", false);
 #endif
+// Set at runtime once we have asked the inference process whether the native
+// ONNX runtime is available. Until then we stay on the regex heuristics.
+pref("extensions.formautofill.useml.nativeOnnxAvailable", false);
 pref("extensions.formautofill.addresses.enabled", true);
 pref("extensions.formautofill.addresses.capture.enabled", true);
 #if defined(ANDROID)
