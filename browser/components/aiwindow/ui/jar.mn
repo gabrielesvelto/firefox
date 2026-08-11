@@ -32,6 +32,8 @@ browser.jar:
   content/browser/aiwindow/components/ai-website-confirmation.css   (components/ai-website-confirmation/ai-website-confirmation.css)
   content/browser/aiwindow/components/ai-window.mjs                 (components/ai-window/ai-window.mjs)
   content/browser/aiwindow/components/ai-window.css                 (components/ai-window/ai-window.css)
+  content/browser/aiwindow/components/chat-assistant-citations.mjs  (components/ai-chat-content/chat-assistant-citations/chat-assistant-citations.mjs)
+  content/browser/aiwindow/components/chat-assistant-citations.css  (components/ai-chat-content/chat-assistant-citations/chat-assistant-citations.css)
   content/browser/aiwindow/ai-window-content.css                    (content/ai-window-content.css)
   content/browser/aiwindow/ai-window-shared.css                     (content/ai-window-shared.css)
   content/browser/aiwindow/ai-window-overrides.css                  (content/ai-window-overrides.css)
