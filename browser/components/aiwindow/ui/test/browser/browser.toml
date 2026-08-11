@@ -16,6 +16,8 @@ support-files = [
   "test_applied_memories_page.html",
   "test_chat_assistant_error.html",
   "test_chat_assistant_error.mjs",
+  "test_chip_overflow_page.html",
+  "test_chip_overflow.mjs",
   "test_kit_mention_page.html",
   "test_memories_icon_button_page.html",
   "test_memories_icon_button.mjs",
@@ -194,6 +196,8 @@ skip-if = [
 ["browser_smartwindow_chat_browser_tabbable.js"]
 
 ["browser_smartwindow_chat_markdown_parser.js"]
+
+["browser_smartwindow_chip_overflow.js"]
 
 ["browser_smartwindow_classic_mode_switch.js"]
 

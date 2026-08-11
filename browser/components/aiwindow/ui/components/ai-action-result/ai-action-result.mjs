@@ -190,6 +190,7 @@ export class AIActionResult extends MozLitElement {
                             <website-chip-container
                               class="action-result-chips"
                               .websites=${row.items}
+                              .autoOverflow=${true}
                             ></website-chip-container>
                           `
                         : nothing}
