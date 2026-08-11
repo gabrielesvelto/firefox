@@ -54,6 +54,13 @@ XPCOMUtils.defineLazyPreferenceGetter(
   500
 );
 
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "attemptTimeout",
+  "browser.ipProtection.guardian.attemptTimeout",
+  Temporal.Duration.from({ seconds: 10 }).total("milliseconds")
+);
+
 export const ERRORS = Object.freeze({
   GENERIC: "generic-error",
   NETWORK: "network-error",
@@ -645,15 +652,29 @@ class IPPProxyManagerSingleton extends EventTarget {
     let delay = lazy.retryAfter;
     while (!abortSignal.aborted) {
       let result;
+      const attemptController = new AbortController();
+      const attemptTimer = lazy.setTimeout(
+        () => attemptController.abort(ERRORS.TIMEOUT),
+        lazy.attemptTimeout
+      );
+      const attemptSignal = AbortSignal.any([
+        abortSignal,
+        attemptController.signal,
+      ]);
       try {
-        result = await this.#getPassAndUsage(abortSignal);
+        result = await this.#getPassAndUsage(attemptSignal);
       } catch (e) {
         if (abortSignal.aborted) {
           return null;
         }
-        if (!lazy.IPPNetworkUtils.isOffline) {
+        // A per-attempt timeout (attemptSignal aborted) or an offline error is
+        // transient: back off and retry within the overall budget instead of
+        // failing the whole rotation.
+        if (!attemptSignal.aborted && !lazy.IPPNetworkUtils.isOffline) {
           throw e;
         }
+      } finally {
+        lazy.clearTimeout(attemptTimer);
       }
       if (result && !(result.status >= 500 && result.status <= 599)) {
         return result;
