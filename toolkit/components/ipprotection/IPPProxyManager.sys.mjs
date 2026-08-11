@@ -9,6 +9,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   IPPChannelFilter:
     "moz-src:///toolkit/components/ipprotection/IPPChannelFilter.sys.mjs",
+  IPPLifecycleHelper:
+    "moz-src:///toolkit/components/ipprotection/IPPLifecycleHelper.sys.mjs",
   IPPNetworkUtils:
     "moz-src:///toolkit/components/ipprotection/IPPNetworkUtils.sys.mjs",
   IPPNetworkErrorObserver:
@@ -691,6 +693,10 @@ class IPPProxyManagerSingleton extends EventTarget {
     this.#rotationTimer = lazy.setTimeout(async () => {
       this.#rotationTimer = 0;
       if (!this.#connection?.active) {
+        return;
+      }
+      if (lazy.IPPLifecycleHelper.isSuspended) {
+        // Asleep/backgrounded: the wake handler will rotate once network is back.
         return;
       }
       lazy.logConsole.debug(`Starting scheduled ProxyPass rotation`);
