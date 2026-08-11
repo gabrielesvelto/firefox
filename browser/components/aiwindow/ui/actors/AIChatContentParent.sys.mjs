@@ -285,16 +285,18 @@ export class AIChatContentParent extends JSWindowActorParent {
   }
 
   /**
-   * For a set of history results, resolve the page assets — the thumbnail
-   * (`moz-page-thumb://` URI, or null) and whether Places has a real favicon for
-   * the page — then send them back to the requesting message.
+   * For a set of history results or citations, resolve the page assets — the
+   * thumbnail (`moz-page-thumb://` URI, or null) and whether Places has a real
+   * favicon for the page — then send them back to the requesting message.
    *
    * @param {object} data
    * @param {string} data.conversationId - Identifies the conversation the
    * message belongs to
-   * @param {string} data.messageId - Identifies the message whose grid requested
-   *   the assets, echoed back so the content side can route the results.
-   * @param {Array<{url: string, thumbnail?: string}>} data.items
+   * @param {string} data.messageId - Identifies the message whose grid or
+   *   citations requested the assets, echoed back so the content side can route
+   *   the results.
+   * @param {Array<{url: string, thumbnail?: string}>} data.items - The URLs to
+   *   resolve assets for. Citations pass no `thumbnail`.
    */
   async #handleRequestAssets({ conversationId, messageId, items = [] }) {
     try {
@@ -302,6 +304,7 @@ export class AIChatContentParent extends JSWindowActorParent {
         items.map(async ({ url, thumbnail }) => ({
           url,
           image: await lazy.captureThumbnail(thumbnail),
+          requestedThumbnail: !!thumbnail,
           hasFavicon: await this.#pageHasFavicon(url),
         }))
       );

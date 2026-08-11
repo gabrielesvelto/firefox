@@ -45,6 +45,15 @@ import { consumeStreamChunk } from "moz-src:///browser/components/aiwindow/model
  * @typedef {Omit<HistoryRow, "relevanceScore"> & { timestamp?: string, image?: (string|null), hasFavicon?: boolean }} PooledHistoryResult
  */
 
+/**
+ * A web-search source rendered as a citation chip.
+ *
+ * @typedef {object} Citation
+ * @property {string} url - The source URL
+ * @property {string} [title] - The page title
+ * @property {boolean} [hasFavicon] - Whether Places has a stored favicon
+ */
+
 const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   convertTimestamp: "chrome://browser/content/firefoxview/helpers.mjs",
@@ -185,6 +194,21 @@ export class ChatConversation extends Conversation {
   #historyResultsPool = new Map();
 
   /**
+   * Conversation-level pool of web-search citations keyed by URL, accumulated
+   * across every `search_the_web` invocation in this conversation.
+   *
+   * @type {Map<string, Citation>}
+   */
+  #citationsPool = new Map();
+
+  /**
+   * URLs read by `search_the_web` during the current turn.
+   *
+   * @type {Set<string>}
+   */
+  #pendingCitationUrls = new Set();
+
+  /**
    * @param {object} params
    * @param {string} [params.id]
    * @param {string} params.title
@@ -229,6 +253,7 @@ export class ChatConversation extends Conversation {
     this.pageUrl = pageUrl;
     this.pageMeta = pageMeta;
     this.rehydrateHistoryResultsPool();
+    this.rehydrateCitationsPool();
     this.memoriesToggled = memoriesToggled;
 
     // transient: tracks the URL the current starter prompts were generated
@@ -386,6 +411,12 @@ export class ChatConversation extends Conversation {
       currentMessage.historyResults = this.getHistoryResultsSnapshot();
     }
 
+    // Snapshot the web-search citations onto the message so the reply can show
+    // its source chips underneath.
+    if (this.#pendingCitationUrls.size) {
+      currentMessage.citations = this.getCitationsSnapshot();
+    }
+
     const result = await super.receiveResponse(stream, currentMessage);
 
     if (result.currentMessage?.content?.body) {
@@ -500,6 +531,7 @@ export class ChatConversation extends Conversation {
     const newTurnIndex =
       this.messages.length === 1 ? currentTurn : currentTurn + 1;
 
+    this.#pendingCitationUrls.clear();
     this.#dismissPendingUndos();
 
     return this.addMessage(MESSAGE_ROLE.USER, content, newTurnIndex, {
@@ -760,6 +792,7 @@ export class ChatConversation extends Conversation {
       err.clientReason = "retryInvalidMessage";
       throw err;
     }
+    this.#pendingCitationUrls.clear();
     // splice() bypasses our setter; refresh branch-tip manually.
     this.#updateActiveBranchTipMessageId();
     return removed;
@@ -1170,14 +1203,21 @@ export class ChatConversation extends Conversation {
    * onto the pooled history records by URL, so snapshots dispatched afterward
    * already include them.
    *
-   * @param {Array<{url: string, image: ?string, hasFavicon: boolean}>} assets
+   * @param {Array<{url: string, image: ?string, requestedThumbnail?: boolean, hasFavicon: boolean}>} assets
    */
   applyHistoryAssets(assets) {
-    for (const { url, image, hasFavicon } of assets) {
+    for (const { url, image, requestedThumbnail, hasFavicon } of assets) {
       const record = this.#historyResultsPool.get(url);
       if (record) {
-        record.image = image;
+        // A citation-only request has no thumbnail
+        if (requestedThumbnail !== false) {
+          record.image = image;
+        }
         record.hasFavicon = hasFavicon;
+      }
+      const citation = this.#citationsPool.get(url);
+      if (citation) {
+        citation.hasFavicon = hasFavicon;
       }
     }
   }
@@ -1191,6 +1231,42 @@ export class ChatConversation extends Conversation {
     for (const message of this.messages) {
       for (const record of message.historyResults) {
         this.#historyResultsPool.set(record.url, record);
+      }
+    }
+  }
+
+  /**
+   * Merge web-search citation records into the conversation-level citations.
+   *
+   * @param {Iterable<{url: string, title?: string}>} records
+   */
+  addCitations(records) {
+    for (const record of records) {
+      // Keep any favicon availability already resolved for this URL.
+      const existing = this.#citationsPool.get(record.url);
+      this.#citationsPool.set(record.url, { ...existing, ...record });
+      this.#pendingCitationUrls.add(record.url);
+    }
+  }
+
+  /**
+   * A snapshot of the current turn’s citations.
+   *
+   * @returns {Citation[]}
+   */
+  getCitationsSnapshot() {
+    return [...this.#pendingCitationUrls]
+      .map(url => this.#citationsPool.get(url))
+      .filter(Boolean);
+  }
+
+  /**
+   * Rehydrate the citations pool from the message snapshots.
+   */
+  rehydrateCitationsPool() {
+    for (const message of this.messages) {
+      for (const record of message.citations) {
+        this.#citationsPool.set(record.url, record);
       }
     }
   }

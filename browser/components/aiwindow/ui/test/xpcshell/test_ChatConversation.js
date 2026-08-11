@@ -879,6 +879,143 @@ add_task(
   }
 );
 
+add_task(function test_ChatConversation_rehydratesCitationsPool() {
+  const records = [
+    { url: "https://example.com/1", title: "Source 1" },
+    { url: "https://example.com/2", title: "Source 2" },
+  ];
+  const message = new ChatMessage({
+    ordinal: 1,
+    role: MESSAGE_ROLE.ASSISTANT,
+    turnIndex: 0,
+    content: { type: "text", body: "Here is what I found" },
+    citations: records,
+  });
+
+  const conversation = new ChatConversation({ messages: [message] });
+
+  // The snapshot only covers URLs read in the current turn.
+  Assert.deepEqual(
+    conversation.getCitationsSnapshot(),
+    [],
+    "a restored conversation starts with no pending citations"
+  );
+
+  conversation.addCitations([{ url: "https://example.com/2" }]);
+  Assert.deepEqual(
+    conversation.getCitationsSnapshot(),
+    [{ url: "https://example.com/2", title: "Source 2" }],
+    "constructor rehydrates the citations pool from message snapshots"
+  );
+});
+
+add_task(async function test_receiveResponse_snapshotsCitationsOnMessage() {
+  const conversation = new ChatConversation({});
+  conversation.addAssistantMessage("text", "");
+  const assistantMsg = conversation.messages.at(-1);
+
+  const records = [{ url: "https://example.com/1", title: "Source 1" }];
+  conversation.addCitations(records);
+
+  async function* emptyStream() {}
+  await conversation.receiveResponse(emptyStream());
+
+  Assert.deepEqual(
+    assistantMsg.citations,
+    records,
+    "receiveResponse snapshots this turn's citations onto the completed message"
+  );
+});
+
+add_task(function test_applyHistoryAssets_keepsThumbnailForCitedUrl() {
+  const url = "https://example.com/1";
+  const conversation = new ChatConversation({});
+  conversation.addHistoryResults([{ url, title: "Page 1" }]);
+  conversation.applyHistoryAssets([
+    {
+      url,
+      image: "moz-page-thumb://thumb",
+      requestedThumbnail: true,
+      hasFavicon: false,
+    },
+  ]);
+  conversation.addCitations([{ url, title: "Source 1" }]);
+  // A citation request sends no thumbnail
+  conversation.applyHistoryAssets([
+    { url, image: null, requestedThumbnail: false, hasFavicon: true },
+  ]);
+
+  Assert.equal(
+    conversation.getHistoryResultsSnapshot()[0].image,
+    "moz-page-thumb://thumb",
+    "citation-only asset resolution keeps the history record’s thumbnail"
+  );
+  Assert.ok(
+    conversation.getHistoryResultsSnapshot()[0].hasFavicon,
+    "history record picks up the resolved favicon availability"
+  );
+  Assert.ok(
+    conversation.getCitationsSnapshot()[0].hasFavicon,
+    "citation picks up the resolved favicon availability"
+  );
+
+  conversation.applyHistoryAssets([
+    { url, image: null, requestedThumbnail: true, hasFavicon: true },
+  ]);
+  Assert.equal(
+    conversation.getHistoryResultsSnapshot()[0].image,
+    null,
+    "an evicted thumbnail still clears when a thumbnail was requested"
+  );
+});
+
+add_task(async function test_addUserMessage_clearsPendingCitations() {
+  const conversation = new ChatConversation({});
+  conversation.addCitations([{ url: "https://example.com/1", title: "S1" }]);
+
+  conversation.addUserMessage("A follow-up question", "https://example.com/");
+  conversation.addAssistantMessage("text", "");
+  const assistantMsg = conversation.messages.at(-1);
+
+  async function* emptyStream() {}
+  await conversation.receiveResponse(emptyStream());
+
+  Assert.deepEqual(
+    assistantMsg.citations,
+    [],
+    "addUserMessage clears pending citations so chips belong to their own reply"
+  );
+});
+
+add_task(async function test_retryMessage_clearsPendingCitations() {
+  const conversation = new ChatConversation({});
+  const userMsg = conversation.addUserMessage(
+    "Search the web",
+    "https://example.com/"
+  );
+  conversation.addAssistantMessage("text", "Here is what I found");
+  conversation.addCitations([{ url: "https://example.com/1", title: "S1" }]);
+
+  await conversation.retryMessage(userMsg);
+
+  Assert.deepEqual(
+    conversation.getCitationsSnapshot(),
+    [],
+    "retryMessage clears the pending citations from the previous turn"
+  );
+
+  conversation.addAssistantMessage("text", "");
+  const assistantMsg = conversation.messages.at(-1);
+  async function* emptyStream() {}
+  await conversation.receiveResponse(emptyStream());
+
+  Assert.deepEqual(
+    assistantMsg.citations,
+    [],
+    "the regenerated reply does not inherit citations from the previous turn"
+  );
+});
+
 add_task(async function test_addUserMessage_sets_memories_fields() {
   const conversation = new ChatConversation({});
 
