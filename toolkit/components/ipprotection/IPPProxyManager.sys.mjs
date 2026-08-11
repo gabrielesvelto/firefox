@@ -61,6 +61,16 @@ XPCOMUtils.defineLazyPreferenceGetter(
   Temporal.Duration.from({ seconds: 10 }).total("milliseconds")
 );
 
+// Floor for scheduled rotations. A freshly fetched pass that is already due for
+// rotation would otherwise schedule with a zero delay, and since a successful
+// rotation reschedules the next one, that spins into a tight rotation loop.
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
+  "minRotationInterval",
+  "browser.ipProtection.guardian.minRotationInterval",
+  Temporal.Duration.from({ seconds: 1 }).total("milliseconds")
+);
+
 export const ERRORS = Object.freeze({
   GENERIC: "generic-error",
   NETWORK: "network-error",
@@ -703,10 +713,12 @@ class IPPProxyManagerSingleton extends EventTarget {
 
     const now = Temporal.Now.instant();
     const rotationTimePoint = pass.rotationTimePoint;
-    let msUntilRotation = now.until(rotationTimePoint).total("milliseconds");
-    if (msUntilRotation <= 0) {
-      msUntilRotation = 0;
-    }
+    // Floor the delay: an already-due pass would otherwise schedule immediately
+    // and, since a successful rotation reschedules, spin into a tight loop.
+    let msUntilRotation = Math.max(
+      now.until(rotationTimePoint).total("milliseconds"),
+      lazy.minRotationInterval
+    );
 
     lazy.logConsole.debug(
       `ProxyPass will rotate in ${now.until(rotationTimePoint).total("minutes")} minutes`
@@ -721,10 +733,7 @@ class IPPProxyManagerSingleton extends EventTarget {
         return;
       }
       lazy.logConsole.debug(`Starting scheduled ProxyPass rotation`);
-      let newPass = await this.rotateProxyPass();
-      if (newPass) {
-        this.#schedulePassRotation(newPass);
-      }
+      await this.rotateProxyPass();
     }, msUntilRotation);
   }
 
@@ -794,6 +803,9 @@ class IPPProxyManagerSingleton extends EventTarget {
     }
     lazy.logConsole.debug("Successfully rotated token!");
     this.#pass = pass;
+    // The freshly rotated token supersedes any pending scheduled rotation;
+    // cancel it and schedule the next one for this pass.
+    this.#schedulePassRotation(pass);
     resolve(pass);
     return promise;
   }
