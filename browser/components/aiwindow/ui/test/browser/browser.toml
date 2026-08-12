@@ -14,8 +14,6 @@ support-files = [
   "test_ai_action_result.mjs",
   "test_assistant_message_footer_page.html",
   "test_applied_memories_page.html",
-  "test_chat_assistant_citations_page.html",
-  "test_chat_assistant_citations.mjs",
   "test_chat_assistant_error.html",
   "test_chat_assistant_error.mjs",
   "test_chip_overflow_page.html",
@@ -170,8 +168,6 @@ skip-if = [
 ["browser_aiwindow_website_select.js"]
 
 ["browser_aiwindowui.js"]
-
-["browser_chat_assistant_citations.js"]
 
 ["browser_memories_icon_button.js"]
 
