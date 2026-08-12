@@ -22,7 +22,7 @@ export const CONVERSATION_STATUS = Object.freeze({
 export { MESSAGE_ROLE } from "moz-src:///browser/components/aiwindow/models/Conversation.sys.mjs";
 
 /**
- * @typedef {0 | 1 | 2} ToolResultType
+ * @typedef {0 | 1} ToolResultType
  */
 
 /**
@@ -33,7 +33,6 @@ export { MESSAGE_ROLE } from "moz-src:///browser/components/aiwindow/models/Conv
 export const TOOL_RESULT_TYPE = Object.freeze({
   TOOL_UI: 0,
   HISTORY_RESULTS: 1,
-  CITATIONS: 2,
 });
 
 /**

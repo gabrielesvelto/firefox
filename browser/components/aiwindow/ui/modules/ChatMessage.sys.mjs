@@ -6,7 +6,6 @@
 import { Message } from "moz-src:///browser/components/aiwindow/models/Message.sys.mjs";
 
 /** @typedef {import("./ChatConversation.sys.mjs").PooledHistoryResult} PooledHistoryResult */
-/** @typedef {import("./ChatConversation.sys.mjs").Citation} Citation */
 
 const TOKEN_LABELS = {
   EXISTING_MEMORY: "existing_memory",
@@ -67,7 +66,6 @@ export class ChatMessage extends Message {
   tokens;
   toolUIData;
   historyResults;
-  citations;
   kit;
 
   /**
@@ -123,7 +121,6 @@ export class ChatMessage extends Message {
    * @param {PooledHistoryResult[]} [param.historyResults = []] - Snapshot of the
    * conversation history results pool as of this message's completion, used to
    * restore the history thumbnail grid.
-   * @param {Citation[]} [param.citations = []] - The web-search sources
    */
   constructor({
     ordinal,
@@ -150,7 +147,6 @@ export class ChatMessage extends Message {
     toolCallId = null,
     toolName = null,
     historyResults = [],
-    citations = [],
   } = {}) {
     super({
       id,
@@ -178,7 +174,6 @@ export class ChatMessage extends Message {
     this.pageHistoryDeleted = pageHistoryDeleted;
     this.toolUIData = toolUIData;
     this.historyResults = historyResults;
-    this.citations = citations;
     this.tokens = {
       search: [],
       existing_memory: [],

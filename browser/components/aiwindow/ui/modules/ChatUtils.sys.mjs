@@ -14,7 +14,6 @@ import { ChatConversation } from "./ChatConversation.sys.mjs";
 import { ChatMessage, ChatHistoryResult } from "./ChatMessage.sys.mjs";
 
 /** @typedef {import("./ChatConversation.sys.mjs").PooledHistoryResult} PooledHistoryResult */
-/** @typedef {import("./ChatConversation.sys.mjs").Citation} Citation */
 
 /**
  *  Gets the URL of the currently selected tab of a window.
@@ -107,7 +106,6 @@ export function parseMessageRows(rows) {
       pageHistoryDeleted: !!row.getResultByName("page_history_deleted"),
       toolUIData: toolResults[TOOL_RESULT_TYPE.TOOL_UI]?.[0],
       historyResults: toolResults[TOOL_RESULT_TYPE.HISTORY_RESULTS],
-      citations: toolResults[TOOL_RESULT_TYPE.CITATIONS],
     });
   });
 }
@@ -164,15 +162,15 @@ export function toJSONOrNull(value) {
 }
 
 /**
- * Strip resolved page assets from a pooled record before persisting.
+ * Strip resolved page assets from a history result record before persisting.
  * `image` (a moz-page-thumb:// URI) and `hasFavicon` are re-resolved lazily on
  * load, since the underlying thumbnail/favicon cache can be evicted.
  *
- * @param {PooledHistoryResult|Citation} record - A pooled record.
- * @returns {Omit<PooledHistoryResult|Citation, "image" | "hasFavicon">} A copy
- *   removing the resolved asset fields `image` and `hasFavicon`.
+ * @param {PooledHistoryResult} record - A history result record.
+ * @returns {Omit<PooledHistoryResult, "image" | "hasFavicon">} A copy removing
+ *   the resolved asset fields `image` and `hasFavicon`.
  */
-export function stripResolvedAssets(record) {
+export function stripHistoryResultAssets(record) {
   const persisted = { ...record };
   delete persisted.image;
   delete persisted.hasFavicon;

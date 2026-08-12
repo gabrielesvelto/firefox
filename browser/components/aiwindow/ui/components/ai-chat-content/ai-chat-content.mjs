@@ -487,54 +487,22 @@ export class AIChatContent extends MozLitElement {
       msg => msg?.messageId === messageId
     );
 
-    if (!entry) {
+    if (!entry?.historyResultsMap) {
       return;
     }
 
     let changed = false;
-
-    if (entry.historyResultsMap) {
-      for (const { url, image, hasFavicon } of images) {
-        const record = entry.historyResultsMap.get(url);
-        if (!record) {
-          continue;
-        }
-        if (record.image !== image) {
-          record.image = image;
-          changed = true;
-        }
-        if (record.hasFavicon !== hasFavicon) {
-          record.hasFavicon = hasFavicon;
-          changed = true;
-        }
+    for (const { url, image, hasFavicon } of images) {
+      const record = entry.historyResultsMap.get(url);
+      if (!record) {
+        continue;
       }
-      if (changed) {
-        // New Map reference so Lit sees a changed prop and ai-chat-message
-        // re-renders, in-place mutations above alone won't trigger a change
-        entry.historyResultsMap = new Map(entry.historyResultsMap);
+      if (record.image !== image) {
+        record.image = image;
+        changed = true;
       }
-    }
-
-    if (entry.citations?.length) {
-      const faviconByUrl = new Map(
-        images.map(({ url, hasFavicon }) => [url, hasFavicon])
-      );
-      let citationsChanged = false;
-      const citations = entry.citations.map(citation => {
-        if (!faviconByUrl.has(citation.url)) {
-          return citation;
-        }
-        const hasFavicon = faviconByUrl.get(citation.url);
-        // TODO (Bug 2060835): Citations get a default favicon when Places don’t
-        // already have one stored for the URL.
-        if (citation.hasFavicon === hasFavicon) {
-          return citation;
-        }
-        citationsChanged = true;
-        return { ...citation, hasFavicon };
-      });
-      if (citationsChanged) {
-        entry.citations = citations;
+      if (record.hasFavicon !== hasFavicon) {
+        record.hasFavicon = hasFavicon;
         changed = true;
       }
     }
@@ -543,35 +511,10 @@ export class AIChatContent extends MozLitElement {
       return;
     }
 
+    // New Map reference so Lit sees a changed prop and ai-chat-message re-renders,
+    // in-place mutations above alone won't trigger a change
+    entry.historyResultsMap = new Map(entry.historyResultsMap);
     this.requestUpdate();
-  }
-
-  /**
-   * Ask the parent to resolve favicon availability for citation URLs.
-   *
-   * @param {string} messageId
-   * @param {Array<{url: string}>} citations
-   */
-  #requestCitationFavicons(messageId, citations) {
-    const items = citations
-      .filter(citation => citation?.url && citation.hasFavicon === undefined)
-      .map(citation => ({ url: citation.url }));
-
-    if (!items.length) {
-      return;
-    }
-
-    this.dispatchEvent(
-      new CustomEvent("AIChatContent:RequestAssets", {
-        bubbles: true,
-        composed: true,
-        detail: {
-          conversationId: this.conversationId,
-          messageId,
-          items,
-        },
-      })
-    );
   }
 
   async #restoreChatScrollPosition(convId) {
@@ -648,10 +591,6 @@ export class AIChatContent extends MozLitElement {
         assistantLastMessage.historyResultsMap = new Map(
           records.map(record => [record.url, record])
         );
-      }
-      if (message.citations?.length) {
-        assistantLastMessage.citations = message.citations;
-        this.#requestCitationFavicons(messageId, message.citations);
       }
     }
 
@@ -846,7 +785,6 @@ export class AIChatContent extends MozLitElement {
       kit,
       isRestored,
       historyResults = [],
-      citations = [],
     } = event.detail;
 
     if (!this.#isAIResponseValid(content, toolUIData)) {
@@ -877,13 +815,8 @@ export class AIChatContent extends MozLitElement {
       isLastChunk,
       toolUIData,
       historyResultsMap,
-      citations,
       isRestored,
     };
-
-    if (citations.length) {
-      this.#requestCitationFavicons(messageId, citations);
-    }
 
     if (kit && !isPreviousMessage) {
       this.#kitMention?.trigger({ value: kit, convId });
@@ -1394,11 +1327,6 @@ export class AIChatContent extends MozLitElement {
         ></ai-chat-message>
         ${msg.role === "assistant" && msg.toolUIData && !isRetryComponent
           ? this.#renderToolUI(msg)
-          : nothing}
-        ${msg.role === "assistant" && msg.isLastChunk && msg.citations?.length
-          ? html`<chat-assistant-citations
-              .citations=${msg.citations}
-            ></chat-assistant-citations>`
           : nothing}
         ${msg.role === "assistant" && msg.isLastChunk
           ? html`
