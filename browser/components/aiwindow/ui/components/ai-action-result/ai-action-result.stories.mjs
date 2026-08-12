@@ -12,7 +12,6 @@ export default {
     fluent: `
 smartwindow-nl-undo-button =
     .label = Undo
-smartwindow-assistant-citations-more-label = +{ $count } more
   `,
   },
   argTypes: {
@@ -23,12 +22,6 @@ smartwindow-assistant-citations-more-label = +{ $count } more
     rows: { control: "object" },
   },
 };
-
-const makeWebsites = count =>
-  Array.from({ length: count }, (_, index) => ({
-    url: `https://example.com/${index + 1}`,
-    label: `Example Site ${index + 1}`,
-  }));
 
 const Template = ({ label, summary, canUndo, isExpanded, rows }) => html`
   <ai-action-result
@@ -43,13 +36,13 @@ const Template = ({ label, summary, canUndo, isExpanded, rows }) => html`
 export const Collapsed = Template.bind({});
 Collapsed.args = {
   label: "Closed tab",
-  summary: "Closed open tabs.",
+  summary: "I closed any open tabs about NYC hotels.",
   canUndo: true,
   isExpanded: false,
   rows: [
     {
       label: "Closed tab",
-      items: makeWebsites(1),
+      items: [{ url: "https://nychotels.com", label: "NYC Hotels - Queens" }],
     },
   ],
 };
@@ -57,13 +50,13 @@ Collapsed.args = {
 export const Expanded = Template.bind({});
 Expanded.args = {
   label: "Closed tab",
-  summary: "Closed open tabs.",
+  summary: "I closed any open tabs about NYC hotels.",
   canUndo: true,
   isExpanded: true,
   rows: [
     {
       label: "Closed tab",
-      items: makeWebsites(1),
+      items: [{ url: "https://nychotels.com", label: "NYC Hotels - Queens" }],
     },
   ],
 };
@@ -71,13 +64,17 @@ Expanded.args = {
 export const ExpandedBulk = Template.bind({});
 ExpandedBulk.args = {
   label: "Closed 3 tabs",
-  summary: "Closed open tabs.",
+  summary: "I closed any open tabs about NYC hotels.",
   canUndo: true,
   isExpanded: true,
   rows: [
     {
       label: "Closed tabs",
-      items: makeWebsites(3),
+      items: [
+        { url: "https://nychotels.com", label: "NYC Hotels - Queens" },
+        { url: "https://besthotels.com", label: "Best Hotels in New York" },
+        { url: "https://brooklyn-stay.com", label: "Brooklyn New York Stay" },
+      ],
     },
   ],
 };
@@ -85,13 +82,13 @@ ExpandedBulk.args = {
 export const ExpandedAfterUndo = Template.bind({});
 ExpandedAfterUndo.args = {
   label: "Closed tab",
-  summary: "Closed open tabs.",
+  summary: "I closed any open tabs about NYC hotels.",
   canUndo: false,
   isExpanded: true,
   rows: [
     {
       label: "Closed tab",
-      items: makeWebsites(1),
+      items: [{ url: "https://nychotels.com", label: "NYC Hotels - Queens" }],
     },
     {
       label: "Undo – reopened tab",
@@ -100,50 +97,20 @@ ExpandedAfterUndo.args = {
   ],
 };
 
-const ResizableTemplate = ({
-  label,
-  summary,
-  canUndo,
-  isExpanded,
-  rows,
-}) => html`
-  <div
-    style="resize: horizontal; overflow: auto; inline-size: 560px; min-inline-size: 200px; max-inline-size: 100%; border: 1px dashed #ccc; padding: 8px;"
-  >
-    <ai-action-result
-      label=${label}
-      summary=${summary}
-      ?can-undo=${canUndo}
-      ?is-expanded=${isExpanded}
-      .rows=${rows}
-    ></ai-action-result>
-  </div>
-`;
-
-export const ExpandedWithOverflowingChips = ResizableTemplate.bind({});
-ExpandedWithOverflowingChips.args = {
-  label: "Closed 6 tabs",
-  summary: "Closed open tabs.",
-  canUndo: true,
-  isExpanded: true,
-  rows: [
-    {
-      label: "Closed tabs",
-      items: makeWebsites(6),
-    },
-  ],
-};
-
 export const ExpandedBulkAfterUndo = Template.bind({});
 ExpandedBulkAfterUndo.args = {
   label: "Closed 3 tabs",
-  summary: "Closed open tabs.",
+  summary: "I closed any open tabs about NYC hotels.",
   canUndo: false,
   isExpanded: true,
   rows: [
     {
       label: "Closed tabs",
-      items: makeWebsites(3),
+      items: [
+        { url: "https://nychotels.com", label: "NYC Hotels - Queens" },
+        { url: "https://besthotels.com", label: "Best Hotels in New York" },
+        { url: "https://brooklyn-stay.com", label: "Brooklyn New York Stay" },
+      ],
     },
     {
       label: "Restored tabs",
