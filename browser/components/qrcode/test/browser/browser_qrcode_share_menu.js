@@ -292,7 +292,7 @@ add_task(
       // This is a trusted event, so it really opens the context menu.
       let popupShown = BrowserTestUtils.waitForPopupEvent(contextMenu, "shown");
       contextMenu.dispatchEvent(
-        new PointerEvent("contextmenu", { bubbles: true })
+        new MouseEvent("popupshowing", { bubbles: true })
       );
       await popupShown;
 
