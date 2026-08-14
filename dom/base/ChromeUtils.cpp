@@ -42,6 +42,7 @@
 #include "mozilla/SpinEventLoopUntil.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/WheelHandlingHelper.h"
+#include "mozilla/dom/BlobURLProtocolHandler.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/IdleDeadline.h"
 #include "mozilla/dom/InProcessParent.h"
@@ -3044,6 +3045,12 @@ void ChromeUtils::PredictRemoteTypeForURI(
   }
 
   PredictRemoteTypeForURI(aGlobal, preferredURI, newOptions, aRemoteType, aRv);
+}
+
+bool ChromeUtils::IsBlobURLValid(GlobalObject& aGlobal,
+                                 nsIPrincipal* aPrincipal,
+                                 const nsACString& aURIString) {
+  return BlobURLProtocolHandler::IsBlobURLValid(aPrincipal, aURIString);
 }
 
 }  // namespace mozilla::dom

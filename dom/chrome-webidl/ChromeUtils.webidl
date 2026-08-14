@@ -982,6 +982,8 @@ partial namespace ChromeUtils {
   [Throws]
   UTF8String? predictRemoteTypeForURI(UTF8String uriString,
                                       optional PredictRemoteTypeOptions options = {});
+
+  boolean isBlobURLValid(Principal principal, UTF8String uriString);
 };
 
 /*
