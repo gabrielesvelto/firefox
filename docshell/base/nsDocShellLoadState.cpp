@@ -103,8 +103,8 @@ static bool ContentTriggeredURILoadIsAllowed(
     }
   }
 
-  return ValidatePrincipalCouldPotentiallyBeLoadedBy(
-      principal, aEffectiveRemoteType);
+  return ValidatePrincipalCouldPotentiallyBeLoadedBy(principal,
+                                                     aEffectiveRemoteType, {});
 }
 
 nsDocShellLoadState::nsDocShellLoadState(nsIURI* aURI)
