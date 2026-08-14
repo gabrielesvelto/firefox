@@ -8,7 +8,12 @@ Services.scriptloader.loadSubScript(
   this
 );
 
-const IMAGE_PROTOCOLS_IDS = ["moz-icon", "page-icon"];
+const IMAGE_PROTOCOLS_IDS = [
+  "cached-favicon",
+  "moz-icon",
+  "moz-page-thumb",
+  "page-icon",
+];
 
 add_task(async function test_blocked() {
   for (const protocol of IMAGE_PROTOCOLS_IDS) {

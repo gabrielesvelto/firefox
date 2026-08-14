@@ -710,6 +710,13 @@ mozilla::ipc::IPCResult NeckoParent::RecvGetPageThumbStream(
     return IPC_FAIL(this, "Wrong process type");
   }
 
+  nsCOMPtr<nsILoadInfo> loadInfo;
+  nsresult rv = mozilla::ipc::LoadInfoArgsToLoadInfo(
+      aLoadInfoArgs, PRIVILEGEDABOUT_REMOTE_TYPE, getter_AddRefs(loadInfo));
+  if (NS_FAILED(rv)) {
+    return IPC_FAIL(this, "moz-page-thumb request must include loadInfo");
+  }
+
   RefPtr<PageThumbProtocolHandler> ph(PageThumbProtocolHandler::GetSingleton());
   MOZ_ASSERT(ph);
 
@@ -721,7 +728,7 @@ mozilla::ipc::IPCResult NeckoParent::RecvGetPageThumbStream(
   // validating the request.
   nsCOMPtr<nsIInputStream> inputStream;
   bool terminateSender = true;
-  auto inputStreamPromise = ph->NewStream(aURI, &terminateSender);
+  auto inputStreamPromise = ph->NewStream(aURI, loadInfo, &terminateSender);
 
   if (terminateSender) {
     return IPC_FAIL(this, "Malformed moz-page-thumb request");
