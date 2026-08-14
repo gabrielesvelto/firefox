@@ -1504,6 +1504,13 @@ class nsContentUtils {
   static bool IsPreloadType(nsContentPolicyType aType);
 
   /**
+   * Returns true if the content policy type is any of:
+   *   * ExtContentPolicy::TYPE_IMAGE
+   *   * ExtContentPolicy::TYPE_IMAGESET
+   */
+  static bool IsImageType(ExtContentPolicy aType);
+
+  /**
    * Quick helper to determine whether mutation events are enabled and there are
    * any mutation listeners of a given type that apply to this content or any of
    * its ancestors.
