@@ -524,6 +524,12 @@ class XPCShellTestThread(Thread):
         # relinquish the lock to allow run_test() to finish.
         self.lock.release()
 
+        # A killed process can leave a child holding its stdout pipe open, in
+        # which case run_test never returns from communicate() and run() never
+        # gets to set this. Set it here, after the test_end above so a retry
+        # can't interleave its test_start with our output.
+        self.done = True
+
     def reportTimeoutResult(self):
         """Log the structured failure for a timed-out test: a FAIL test_status
         pointing at the uploaded profile (when one was written), followed by a
