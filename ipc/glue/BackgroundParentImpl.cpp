@@ -255,6 +255,10 @@ BackgroundParentImpl::AllocPBackgroundSDBConnectionParent(
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
 
+  if (!BackgroundParent::ValidatePrincipalInfo(this, aPrincipalInfo, {})) {
+    return nullptr;
+  }
+
   return mozilla::dom::AllocPBackgroundSDBConnectionParent(aPersistenceType,
                                                            aPrincipalInfo);
 }
@@ -391,6 +395,12 @@ BackgroundParentImpl::RecvPBackgroundLocalStorageCacheConstructor(
   AssertIsOnBackgroundThread();
   MOZ_ASSERT(aActor);
 
+  if (!BackgroundParent::ValidatePrincipalInfo(this, aPrincipalInfo, {})) {
+    return IPC_FAIL(
+        this,
+        "Invalid aPrincipalInfo in PBackgroundLocalStorageCacheConstructor");
+  }
+
   return mozilla::dom::RecvPBackgroundLocalStorageCacheConstructor(
       this, aActor, aPrincipalInfo, aOriginKey, aPrivateBrowsingId);
 }
@@ -457,6 +467,17 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvCreateFileSystemManagerParent(
     CreateFileSystemManagerParentResolver&& aResolver) {
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
+
+  // The inference process uses ChromeWorkers which have a system principal,
+  // so system principals must be allowed there.
+  EnumSet<dom::ValidatePrincipalOptions> options;
+  if (BackgroundParent::GetRemoteType(this) == INFERENCE_REMOTE_TYPE) {
+    options += dom::ValidatePrincipalOptions::AllowSystem;
+  }
+  if (!BackgroundParent::ValidatePrincipalInfo(this, aPrincipalInfo, options)) {
+    aResolver(NS_ERROR_FAILURE);
+    return IPC_OK();
+  }
 
   return mozilla::dom::CreateFileSystemManagerParent(
       this, aPrincipalInfo, std::move(aParentEndpoint), std::move(aResolver));
@@ -543,6 +564,12 @@ IPCResult BackgroundParentImpl::RecvPSharedWorkerConstructor(
   if (MOZ_UNLIKELY(aData.serviceWorkerData().type() !=
                    OptionalServiceWorkerData::Tvoid_t)) {
     return IPC_FAIL(this, "Invalid worker type for PSharedWorkerParent");
+  }
+
+  if (!BackgroundParent::ValidatePrincipalInfo(
+          this, aData.loadingPrincipalInfo(), {})) {
+    return IPC_FAIL(this,
+                    "Invalid loadingPrincipalInfo for PSharedWorkerParent");
   }
 
   mozilla::dom::SharedWorkerParent* actor =
@@ -793,6 +820,10 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvPBroadcastChannelConstructor(
   AssertIsInMainProcess();
   AssertIsOnBackgroundThread();
 
+  if (!BackgroundParent::ValidatePrincipalInfo(this, aPrincipalInfo, {})) {
+    return IPC_FAIL(this, "Invalid principal for BroadcastChannel");
+  }
+
   RefPtr<ThreadsafeContentParentHandle> parent =
       BackgroundParent::GetContentParentHandle(this);
 
@@ -885,7 +916,12 @@ BackgroundParentImpl::RecvShutdownServiceWorkerRegistrar() {
 already_AddRefed<PCacheStorageParent>
 BackgroundParentImpl::AllocPCacheStorageParent(
     const Namespace& aNamespace, const PrincipalInfo& aPrincipalInfo) {
-  return dom::cache::AllocPCacheStorageParent(this, aNamespace, aPrincipalInfo);
+  if (!BackgroundParent::ValidatePrincipalInfo(this, aPrincipalInfo, {})) {
+    return nullptr;
+  }
+
+  return dom::cache::AllocPCacheStorageParent(this, aNamespace,
+                                              aPrincipalInfo);
 }
 
 PMessagePortParent* BackgroundParentImpl::AllocPMessagePortParent(
@@ -1253,6 +1289,10 @@ mozilla::ipc::IPCResult BackgroundParentImpl::RecvPClientManagerConstructor(
 
 IPCResult BackgroundParentImpl::RecvStorageActivity(
     const PrincipalInfo& aPrincipalInfo) {
+  if (!BackgroundParent::ValidatePrincipalInfo(this, aPrincipalInfo, {})) {
+    return IPC_FAIL(this, "Invalid principalInfo for StorageActivity");
+  }
+
   dom::StorageActivityService::SendActivity(aPrincipalInfo);
   return IPC_OK();
 }
