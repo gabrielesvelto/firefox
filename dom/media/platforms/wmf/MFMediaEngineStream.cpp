@@ -166,7 +166,7 @@ MFMediaEngineStream::~MFMediaEngineStream() {
 HRESULT MFMediaEngineStream::RuntimeClassInitialize(
     uint64_t aStreamId, const TrackInfo& aInfo, bool aIsEncryptedCustomInit,
     MFMediaSource* aParentSource) {
-  mParentSource = aParentSource;
+  SetParentSource(aParentSource);
   mTaskQueue = aParentSource->GetTaskQueue();
   MOZ_ASSERT(mTaskQueue);
   mStreamId = aStreamId;
@@ -286,7 +286,7 @@ void MFMediaEngineStream::Shutdown() {
   MOZ_ASSERT(mTaskQueue);
   (void)mTaskQueue->Dispatch(
       NS_NewRunnableFunction("MFMediaEngineStream::Shutdown", [self]() {
-        self->mParentSource = nullptr;
+        self->SetParentSource(nullptr);
         self->mRawDataQueueForFeedingEngine.Reset();
         self->mRawDataQueueForGeneratingOutput.Reset();
         self->ShutdownCleanUpOnTaskQueue();
@@ -300,8 +300,23 @@ MFMediaEngineStream::GetMediaSource(IMFMediaSource** aMediaSource) {
   if (IsShutdown()) {
     return MF_E_SHUTDOWN;
   }
+  MutexAutoLock lock(mParentSourceMutex);
+  if (!mParentSource) {
+    return MF_E_SHUTDOWN;
+  }
   RETURN_IF_FAILED(mParentSource.CopyTo(aMediaSource));
   return S_OK;
+}
+
+ComPtr<MFMediaSource> MFMediaEngineStream::GetParentSource() const {
+  MutexAutoLock lock(mParentSourceMutex);
+  return mParentSource;
+}
+
+void MFMediaEngineStream::SetParentSource(MFMediaSource* aParentSource) {
+  MutexAutoLock lock(mParentSourceMutex);
+  mParentSource = aParentSource;
+  SLOG("Parent source {}", aParentSource ? "set" : "cleared");
 }
 
 IFACEMETHODIMP MFMediaEngineStream::GetStreamDescriptor(
@@ -334,7 +349,7 @@ IFACEMETHODIMP MFMediaEngineStream::RequestSample(IUnknown* aToken) {
         mSampleRequestTokens.push(token);
         SLOGV("RequestSample, token amount={}", mSampleRequestTokens.size());
         ReplySampleRequestIfPossible();
-        if (!HasEnoughRawData() && mParentSource && !IsEnded()) {
+        if (!HasEnoughRawData() && GetParentSource() && !IsEnded()) {
           SendRequestSampleEvent(false /* isEnough */);
         }
       }));
@@ -389,8 +404,9 @@ void MFMediaEngineStream::NotifyEndEvent() {
 
 bool MFMediaEngineStream::ShouldServeSamples() const {
   AssertOnTaskQueue();
-  return mParentSource &&
-         mParentSource->GetState() == MFMediaSource::State::Started &&
+  ComPtr<MFMediaSource> parentSource = GetParentSource();
+  return parentSource &&
+         parentSource->GetState() == MFMediaSource::State::Started &&
          mIsSelected;
 }
 
@@ -597,7 +613,7 @@ void MFMediaEngineStream::SendRequestSampleEvent(bool aIsEnough) {
   AssertOnTaskQueue();
   SLOGV("data is {}, queue duration={}", aIsEnough ? "enough" : "not enough",
         mRawDataQueueForFeedingEngine.PreciseDuration());
-  mParentSource->mRequestSampleEvent.Notify(
+  GetParentSource()->mRequestSampleEvent.Notify(
       SampleRequest{TrackType(), aIsEnough});
 }
 
