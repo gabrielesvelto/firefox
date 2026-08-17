@@ -42,6 +42,13 @@ void APZCTreeManagerParent::ActorDestroy(ActorDestroyReason aWhy) {
 
 mozilla::ipc::IPCResult APZCTreeManagerParent::RecvSetKeyboardMap(
     const KeyboardMap& aKeyboardMap) {
+  // See RecvStartAutoscroll() for why this check is necessary.
+  if (!IsForRootLayer()) {
+    return IPC_FAIL(
+        this,
+        "SetKeyboardMap from non-root APZCTreeManagerParent is not expected.");
+  }
+
   mUpdater->RunOnUpdaterThread(
       mLayersId, NewRunnableMethod<KeyboardMap>(
                      "layers::IAPZCTreeManager::SetKeyboardMap", mTreeManager,
@@ -102,6 +109,12 @@ mozilla::ipc::IPCResult APZCTreeManagerParent::RecvUpdateZoomConstraints(
 
 mozilla::ipc::IPCResult APZCTreeManagerParent::RecvSetDPI(
     const float& aDpiValue) {
+  // See RecvStartAutoscroll() for why this check is necessary.
+  if (!IsForRootLayer()) {
+    return IPC_FAIL(
+        this, "SetDPI from non-root APZCTreeManagerParent is not expected.");
+  }
+
   mUpdater->RunOnUpdaterThread(
       mLayersId,
       NewRunnableMethod<float>("layers::IAPZCTreeManager::SetDPI", mTreeManager,
@@ -124,6 +137,13 @@ mozilla::ipc::IPCResult APZCTreeManagerParent::RecvSetAllowedTouchBehavior(
 
 mozilla::ipc::IPCResult APZCTreeManagerParent::RecvSetBrowserGestureResponse(
     const uint64_t& aInputBlockId, const BrowserGestureResponse& aResponse) {
+  // See RecvStartAutoscroll() for why this check is necessary.
+  if (!IsForRootLayer()) {
+    return IPC_FAIL(this,
+                    "SetBrowserGestureResponse from non-root "
+                    "APZCTreeManagerParent is not expected.");
+  }
+
   mUpdater->RunOnUpdaterThread(
       mLayersId, NewRunnableMethod<uint64_t, BrowserGestureResponse>(
                      "layers::IAPZCTreeManager::SetBrowserGestureResponse",
@@ -187,6 +207,13 @@ mozilla::ipc::IPCResult APZCTreeManagerParent::RecvStopAutoscroll(
 
 mozilla::ipc::IPCResult APZCTreeManagerParent::RecvSetLongTapEnabled(
     const bool& aLongTapEnabled) {
+  // See RecvStartAutoscroll() for why this check is necessary.
+  if (!IsForRootLayer()) {
+    return IPC_FAIL(this,
+                    "SetLongTapEnabled from non-root APZCTreeManagerParent is "
+                    "not expected.");
+  }
+
   mUpdater->RunOnUpdaterThread(
       mLayersId,
       NewRunnableMethod<bool>(
