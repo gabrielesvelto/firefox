@@ -145,7 +145,9 @@ class MFMediaEngineStream
 
   // IMFMediaEventQueue is thread-safe.
   Microsoft::WRL::ComPtr<IMFMediaEventQueue> mMediaEventQueue;
-  Microsoft::WRL::ComPtr<IMFStreamDescriptor> mStreamDescriptor;
+  Mutex mDescriptorMutex{"MFMediaEngineStream::mDescriptorMutex"};
+  Microsoft::WRL::ComPtr<IMFStreamDescriptor> mStreamDescriptor
+      MOZ_GUARDED_BY(mDescriptorMutex);
   Microsoft::WRL::ComPtr<MFMediaSource> mParentSource;
 
   // This an unique ID retrieved from the IMFStreamDescriptor.
