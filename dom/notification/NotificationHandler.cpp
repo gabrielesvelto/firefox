@@ -44,6 +44,14 @@ nsresult OpenWindowFor(nsIPrincipal* aPrincipal) {
   nsAutoCString origin;
   MOZ_TRY(aPrincipal->GetOriginNoSuffix(origin));
 
+  if (!StringBeginsWith(origin, "https://"_ns)) {
+    // We expect only secure context origins for web notifications.
+    // (Simple https check is sufficient for this case, as we do not expect
+    // chrome script nor webextensions to hit this path as they are expected to
+    // use different APIs that do not involve service workers.)
+    return NS_ERROR_INVALID_ARG;
+  }
+
   // XXX: We should be able to just pass nsIPrincipal directly
   mozilla::ipc::PrincipalInfo info{};
   MOZ_TRY(PrincipalToPrincipalInfo(aPrincipal, &info));
@@ -83,13 +91,6 @@ NS_IMETHODIMP NotificationHandler::RespondOnClick(
 
   nsAutoCString origin;
   MOZ_TRY(aPrincipal->GetOrigin(origin));
-  if (!StringBeginsWith(origin, "https://"_ns)) {
-    // We expect only secure context origins for web notifications.
-    // (Simple https check is sufficient for this case, as we do not expect
-    // chrome script nor webextensions to hit this path as they are expected to
-    // use different APIs that do not involve service workers.)
-    return NS_ERROR_INVALID_ARG;
-  }
 
   bool isPrivate = aPrincipal->GetIsInPrivateBrowsing();
   nsCOMPtr<nsINotificationStorage> storage = GetNotificationStorage(isPrivate);
