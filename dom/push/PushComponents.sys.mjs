@@ -245,9 +245,7 @@ Object.assign(PushServiceParent.prototype, {
       if (!target.processParent.validatePrincipal(data.principal)) {
         throw new Error("Invalid principal");
       }
-      if (!data.principal.isSameOrigin(Services.io.newURI(data.scope))) {
-        throw new Error("Invalid scope");
-      }
+      ChromeUtils.validateServiceWorkerScope(data.principal, Services.io.newURI(data.scope));
       const result = await this._handleRequest(name, data.principal, data);
       target.sendAsyncMessage(this._getResponseName(name, "OK"), {
         requestID: data.requestID,
