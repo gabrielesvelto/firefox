@@ -324,6 +324,7 @@ BrowserParent::BrowserParent(ContentParent* aManager, const TabId& aTabId,
       mIsReadyToHandleInputEvents(false),
       mIsMouseEnterIntoWidgetEventSuppressed(false),
       mLockedNativePointer(false),
+      mWaitingForNativeMouseMoveAfterUnlock(false),
       mShowingTooltip(false) {
   MOZ_ASSERT(aManager);
 
@@ -1979,8 +1980,14 @@ mozilla::ipc::IPCResult BrowserParent::RecvSynthesizeNativeMouseEvent(
 
 mozilla::ipc::IPCResult BrowserParent::RecvSynthesizeNativeMouseMove(
     const LayoutDeviceIntPoint& aPoint, const Maybe<uint64_t>& aCallbackId) {
-  // This is used by pointer lock API.  So, even if it's not in the automation
-  // mode, we need to accept the request.
+  NS_ENSURE_TRUE(
+      xpc::IsInAutomation()
+          // This is used by pointer lock API.  So, even if it's not
+          // in the automation mode, we need to accept the request.
+          || (mLockedNativePointer || mWaitingForNativeMouseMoveAfterUnlock),
+      IPC_FAIL(this, "Unexpected event"));
+
+  mWaitingForNativeMouseMoveAfterUnlock = false;
   nsCOMPtr<nsISynthesizedEventCallback> callback =
       SynthesizedEventCallback::MaybeCreate(this, aCallbackId);
   if (nsCOMPtr<nsIWidget> widget = GetWidget()) {
@@ -2107,6 +2114,7 @@ void BrowserParent::UnlockNativePointer() {
   if (nsCOMPtr<nsIWidget> widget = GetWidget()) {
     widget->UnlockNativePointer();
     mLockedNativePointer = false;
+    mWaitingForNativeMouseMoveAfterUnlock = true;
   }
 }
 
