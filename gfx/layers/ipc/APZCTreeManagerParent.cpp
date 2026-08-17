@@ -150,12 +150,14 @@ mozilla::ipc::IPCResult APZCTreeManagerParent::RecvStartScrollbarDrag(
 
 mozilla::ipc::IPCResult APZCTreeManagerParent::RecvStartAutoscroll(
     const ScrollableLayerGuid& aGuid, const ScreenPoint& aAnchorLocation) {
-  // Unlike RecvStartScrollbarDrag(), this message comes from the parent
-  // process (via nsIWidget::mAPZC) rather than from the child process
-  // (via BrowserChild::mApzcTreeManager), so there is no need to check the
-  // layers id against mLayersId (and in any case, it wouldn't match, because
-  // mLayersId stores the parent process's layers id, while nsIWidget is
-  // sending the child process's layers id).
+  // Autoscroll is legitimately started only through the APZCTreeManagerParent
+  // that corresponds to the root of the layer tree. We check if this
+  // instance corresponds to the root of the layer tree.
+  if (!IsForRootLayer()) {
+    return IPC_FAIL(
+        this,
+        "StartAutoscroll from non-root APZCTreeManagerParent is not expected.");
+  }
 
   mUpdater->RunOnControllerThread(
       mLayersId,
@@ -168,7 +170,12 @@ mozilla::ipc::IPCResult APZCTreeManagerParent::RecvStartAutoscroll(
 
 mozilla::ipc::IPCResult APZCTreeManagerParent::RecvStopAutoscroll(
     const ScrollableLayerGuid& aGuid) {
-  // See RecvStartAutoscroll() for why we don't check the layers id.
+  // See RecvStartAutoscroll().
+  if (!IsForRootLayer()) {
+    return IPC_FAIL(
+        this,
+        "StopAutoscroll from non-root APZCTreeManagerParent is not expected.");
+  }
 
   mUpdater->RunOnControllerThread(
       mLayersId, NewRunnableMethod<ScrollableLayerGuid>(
@@ -204,6 +211,10 @@ bool APZCTreeManagerParent::IsGuidValid(const ScrollableLayerGuid& aGuid) {
     return false;
   }
   return true;
+}
+
+bool APZCTreeManagerParent::IsForRootLayer() const {
+  return mLayersId == mTreeManager->GetRootLayersId();
 }
 
 }  // namespace layers
