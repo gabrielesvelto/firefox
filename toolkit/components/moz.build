@@ -125,7 +125,7 @@ DIRS += ["autocomplete", "printingui", "satchel", "captivedetect"]
 if CONFIG["OS_TARGET"] != "Android":
     DIRS += ["terminator"]
 
-if CONFIG["MOZ_BACKGROUNDTASKS"] and CONFIG["OS_TARGET"] in ("WINNT", "Darwin"):
+if CONFIG["MOZ_UPDATE_AGENT"]:
     DIRS += ["taskscheduler"]
 
 DIRS += ["build"]

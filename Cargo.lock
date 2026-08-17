@@ -488,19 +488,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "backgroundtaskregistrar"
-version = "0.1.0"
-dependencies = [
- "log",
- "mozilla-central-workspace-hack",
- "nserror",
- "nsstring",
- "windows",
- "windows-collections",
- "xpcom",
-]
-
-[[package]]
 name = "backtrace"
 version = "0.3.999"
 
@@ -2938,7 +2925,6 @@ dependencies = [
  "audioipc2-client",
  "audioipc2-server",
  "authrs_bridge",
- "backgroundtaskregistrar",
  "binary_http",
  "bitsdownload",
  "bookmark_sync",
@@ -5369,16 +5355,6 @@ dependencies = [
  "log",
  "mp4parse",
  "num-traits",
-]
-
-[[package]]
-name = "msixcomserver_s"
-version = "0.1.0"
-dependencies = [
- "mozbuild",
- "mozilla-central-workspace-hack",
- "windows",
- "windows-core",
 ]
 
 [[package]]
