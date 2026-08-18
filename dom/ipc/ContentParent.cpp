@@ -1382,6 +1382,12 @@ bool ContentParent::ValidatePrincipal(
                                                      aOptions);
 }
 
+NS_IMETHODIMP ContentParent::ValidatePrincipalXPCOM(nsIPrincipal* aPrincipal,
+                                                    bool* aRetVal) {
+  *aRetVal = ValidatePrincipal(aPrincipal);
+  return NS_OK;
+}
+
 /*static*/
 already_AddRefed<RemoteBrowser> ContentParent::CreateBrowser(
     const TabContext& aContext, Element* aFrameElement,
