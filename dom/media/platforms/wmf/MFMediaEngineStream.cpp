@@ -287,7 +287,7 @@ ComPtr<MFMediaSource> MFMediaEngineStream::GetParentSource() const {
 void MFMediaEngineStream::SetParentSource(MFMediaSource* aParentSource) {
   MutexAutoLock lock(mParentSourceMutex);
   mParentSource = aParentSource;
-  SLOG("Parent source {}", aParentSource ? "set" : "cleared");
+  SLOG("Parent source %s", aParentSource ? "set" : "cleared");
 }
 
 IFACEMETHODIMP MFMediaEngineStream::GetStreamDescriptor(
