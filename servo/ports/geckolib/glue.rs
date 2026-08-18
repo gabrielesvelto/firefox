@@ -1144,6 +1144,7 @@ pub extern "C" fn Servo_StyleSet_GetBaseComputedValuesForElement(
         unsafe { &*snapshots },
     );
     let mut tlc = ThreadLocalStyleContext::new();
+    tlc.current_dom_depth = element.as_node().depth();
     let context = StyleContext {
         shared: &shared,
         thread_local: &mut tlc,
