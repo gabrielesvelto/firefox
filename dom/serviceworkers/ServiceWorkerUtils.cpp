@@ -66,7 +66,7 @@ bool ServiceWorkersEnabled(JSContext* aCx, JSObject* aGlobal) {
     // a moz-extension url only if 'extensions.service_worker_register.allowed'
     // is true.
     if (!StaticPrefs::extensions_serviceWorkerRegister_allowed()) {
-      if (principal->GetIsAddonOrExpandedAddonPrincipal()) {
+      if (principal->GetIsAddonPrincipal()) {
         return false;
       }
     }
@@ -228,7 +228,9 @@ static bool hasValidURISchemes(nsIURI* aURI, bool isExtension) {
 
 void ServiceWorkerScopeIsValid(nsIPrincipal* aPrincipal, nsIURI* aScopeURI,
                                ErrorResult& aRv) {
-  auto isExtension = aPrincipal->GetIsAddonOrExpandedAddonPrincipal();
+  bool isExtension =
+      aPrincipal->GetIsAddonPrincipal() &&
+      StaticPrefs::extensions_backgroundServiceWorker_enabled_AtStartup();
 
   // https://w3c.github.io/ServiceWorker/#start-register-algorithm
   // Step 8: If scopeURL’s scheme is not one of "http" and "https", reject
@@ -285,7 +287,9 @@ void ServiceWorkerScopeAndScriptAreValid(const ClientInfo& aClientInfo,
 
   nsCOMPtr<nsIPrincipal> principal = principalOrErr.unwrap();
 
-  auto isExtension = principal->GetIsAddonOrExpandedAddonPrincipal();
+  bool isExtension =
+      principal->GetIsAddonPrincipal() &&
+      StaticPrefs::extensions_backgroundServiceWorker_enabled_AtStartup();
 
   // https://w3c.github.io/ServiceWorker/#start-register-algorithm
   // Step 3: If scriptURL’s scheme is not one of "http" and "https", reject
