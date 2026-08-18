@@ -1264,7 +1264,11 @@ where
                 start_combining = self.push_decomposed_starter(c);
             }
         }
-        // XXX: What mechanism makes the assertion correct?
+        // `init()` is responsible for collecting non-starters up to a
+        // starter or iterator exhausting into `upcoming`, so if we
+        // didn't take the early return in the `i == last_index` branch
+        // above, we are in the iterator exhausted case.
+
         // Make the assertion conditional to make CI happy.
         #[cfg(debug_assertions)]
         debug_assert!(self.iter_exhausted);
@@ -2509,6 +2513,7 @@ where
                             // non-starters in order to maintain the invariant of
                             // `upcoming` on the next call to `next()`.
                             drain_from_upcoming = 0;
+                            looked_ahead = 0;
                             self.collect_combining(&mut combining_characters);
                             continue 'combining_outer;
                         }
