@@ -54,6 +54,7 @@
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/Record.h"
 #include "mozilla/dom/ReportingHeader.h"
+#include "mozilla/dom/ServiceWorkerUtils.h"
 #include "mozilla/dom/SharedScriptCache.h"
 #include "mozilla/dom/UnionTypes.h"
 #include "mozilla/dom/WindowBinding.h"  // For IdleRequestCallback/Options
@@ -3051,6 +3052,13 @@ bool ChromeUtils::IsBlobURLValid(GlobalObject& aGlobal,
                                  nsIPrincipal* aPrincipal,
                                  const nsACString& aURIString) {
   return BlobURLProtocolHandler::IsBlobURLValid(aPrincipal, aURIString);
+}
+
+void ChromeUtils::ValidateServiceWorkerScope(GlobalObject&,
+                                             nsIPrincipal* aPrincipal,
+                                             nsIURI* aScopeURI,
+                                             ErrorResult& aRv) {
+  ServiceWorkerScopeIsValid(aPrincipal, aScopeURI, aRv);
 }
 
 }  // namespace mozilla::dom

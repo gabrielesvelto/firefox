@@ -53,15 +53,24 @@ promise_test(async () => {
   assert_equals(await errorMessage, "Invalid principal", "Should report invalid principal");
 }, "With mismatching content principal");
 
+const scopeTests = {
+  [`view-source:${location.origin}`]: "Scope URL's scheme is not 'http' or 'https'",
+  [`${location.origin}/%2f/foo`]: "contains %2f or %5c",
+  [`${location.origin}/%5c/foo`]: "contains %2f or %5c",
+  "https://example.com": "Non-same-origin scope URL",
+  [`${location.origin}/#foo`]: "Non-empty fragment on scope URL",
+}
+
+for (const [scope, expect] of Object.entries(scopeTests))
 promise_test(async () => {
   let errorMessage = chromeWaitForError("PushService:Register:KO");
-  await SpecialPowers.spawn(iframe, [location.origin], async (origin) => {
+  await SpecialPowers.spawn(iframe, [scope, location.origin], async (scope, origin) => {
     await Services.cpmm.sendAsyncMessage("Push:Register", {
-      scope: "https://example.com",
+      scope,
       appServerKey: [],
       requestID: "foo",
       principal: Services.scriptSecurityManager.createContentPrincipalFromOrigin(origin),
     });
   });
-  assert_equals(await errorMessage, "Invalid scope", "Should report invalid scope");
-}, "With mismatching scope");
+  assert_true((await errorMessage).includes(expect), "Should report invalid scope");
+}, `With ${scope}`);
