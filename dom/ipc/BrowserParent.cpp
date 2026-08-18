@@ -3904,6 +3904,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
     return IPC_OK();
   }
 
+  // XXX: Can we remove AllowNullPtr here?
   if (!Manager()->ValidatePrincipal(aPrincipal,
                                     {ValidatePrincipalOptions::AllowNullPtr})) {
     return ContentParent::PrincipalValidationIpcFail(aPrincipal, this,
