@@ -211,24 +211,18 @@ bool WeakMap<K, V, AP>::markEntry(GCMarker* marker, gc::CellColor mapColor,
   gc::Cell* keyCell = gc::ToMarkable(key);
   MOZ_ASSERT(keyCell);
 
+  bool keyIsSymbol = gc::detail::IsSymbol(key.get());
+  MOZ_ASSERT(keyIsSymbol == (keyCell->getTraceKind() == JS::TraceKind::Symbol));
+  if (keyIsSymbol) {
+    // For symbols, also check whether it it is referenced by an uncollected
+    // zone, and if so mark it now.
+    gc::GCRuntime* gc = &marker->runtime()->gc;
+    gc->maybeMarkWeaklyHeldAtom(keyCell->as<JS::Symbol>());
+  }
+
   bool marked = false;
   CellColor markColor = AsCellColor(marker->markColor());
   CellColor keyColor = gc::detail::GetEffectiveColor(marker, key.get());
-
-  bool keyIsSymbol = gc::detail::IsSymbol(key.get());
-  MOZ_ASSERT(keyIsSymbol == (keyCell->getTraceKind() == JS::TraceKind::Symbol));
-  if (keyIsSymbol && keyColor < markColor) {
-    // For symbols, also check whether it it is referenced by an uncollected
-    // zone, and if so mark it now.
-    auto* sym = static_cast<JS::Symbol*>(keyCell);
-    gc::GCRuntime* gc = &marker->runtime()->gc;
-    if (gc->isSymbolReferencedByUncollectedZone(sym, marker->markColor())) {
-      TraceEdge(trc, &key, "WeakMap symbol key");
-      MOZ_ASSERT(gc::detail::GetEffectiveColor(marker, key.get()) == markColor);
-      keyColor = markColor;
-      marked = true;
-    }
-  }
 
   JSObject* delegate = gc::detail::GetDelegate(key.get());
   if (delegate) {
