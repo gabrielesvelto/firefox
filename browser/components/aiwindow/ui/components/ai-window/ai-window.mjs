@@ -1431,7 +1431,10 @@ export class AIWindow extends MozLitElement {
     }
 
     if (this.showStarters && recordTelemetry) {
-      this.onQuickPromptDisplayed(this.#starters.length);
+      const resumePrompts = this.#starters.filter(
+        starter => starter.type === "resume"
+      ).length;
+      this.onQuickPromptDisplayed(this.#starters.length, resumePrompts);
     }
     this.requestUpdate();
   }
@@ -1969,12 +1972,7 @@ export class AIWindow extends MozLitElement {
       return;
     }
 
-    Glean.smartWindow.quickPromptClicked.record({
-      location: this.mode,
-      chat_id: this.conversationId,
-      message_seq: this.#conversation?.messageCount ?? 0,
-      starter: true,
-    });
+    this.#recordQuickPromptClicked("resume");
 
     this.#generateResumeActivityConversation(resumePrompt).catch(e =>
       lazy.log.error("[Prompts] Resume-activity generation failed:", e)
@@ -2085,15 +2083,34 @@ export class AIWindow extends MozLitElement {
    * Called for both conversation starters and follow-up suggestions.
    *
    * @param {number} prompts - Number of prompts shown
+   * @param {number} [resumePrompts] - Number of those prompts that were
+   *   resume pills
    */
-  onQuickPromptDisplayed = prompts => {
+  onQuickPromptDisplayed = (prompts, resumePrompts = 0) => {
     Glean.smartWindow.quickPromptDisplayed.record({
       location: this.mode,
       chat_id: this.conversationId,
       message_seq: this.#conversation?.messageCount ?? 0,
       prompts,
+      resume_prompts: resumePrompts,
     });
   };
+
+  /**
+   * Records a quick_prompt_clicked Glean event.
+   *
+   * @param {"default"|"resume"|"followup"} starterType - The type of prompt
+   *   that was clicked.
+   */
+  #recordQuickPromptClicked(starterType) {
+    Glean.smartWindow.quickPromptClicked.record({
+      location: this.mode,
+      chat_id: this.conversationId,
+      message_seq: this.#conversation?.messageCount ?? 0,
+      starter: starterType !== "followup",
+      starter_type: starterType,
+    });
+  }
 
   /**
    * Records a quick_prompt_clicked Glean event and submits the prompt.
@@ -2105,12 +2122,7 @@ export class AIWindow extends MozLitElement {
    * supplied by the prompt
    */
   onQuickPromptClicked(text, starter, contextMentionsOverride) {
-    Glean.smartWindow.quickPromptClicked.record({
-      location: this.mode,
-      chat_id: this.conversationId,
-      message_seq: this.#conversation?.messageCount ?? 0,
-      starter,
-    });
+    this.#recordQuickPromptClicked(starter ? "default" : "followup");
 
     const { pageUrl: contextPageUrl, contextWebsites } =
       this.#smartbar.getCurrentContextData();
