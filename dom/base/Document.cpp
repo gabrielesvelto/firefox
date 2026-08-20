@@ -15244,6 +15244,12 @@ void Document::ExitFullscreenInDocTree(Document* aMaybeNotARootDoc) {
     // we would actually do nothing below except crashing ourselves via
     // dispatching the "MozDOMFullscreen:Exited" event to an nonexistent
     // document.
+    //
+    // We still reset this document, otherwise it could keep a stale element
+    // in its top layer with the fullscreen flag set.
+    if (aMaybeNotARootDoc->GetUnretargetedFullscreenElement()) {
+      aMaybeNotARootDoc->CleanupFullscreenState();
+    }
     return;
   }
 
@@ -15729,6 +15735,7 @@ nsTArray<Element*> Document::GetTopLayer() const {
   nsTArray<Element*> elements;
   for (const nsWeakPtr& ptr : mTopLayer) {
     if (nsCOMPtr<Element> elem = do_QueryReferent(ptr)) {
+      MOZ_DIAGNOSTIC_ASSERT(elem->GetComposedDoc() == this);
       elements.AppendElement(elem);
     }
   }
@@ -16348,6 +16355,10 @@ bool Document::ApplyFullscreen(UniquePtr<FullscreenRequest> aRequest) {
 
   RefPtr<Document> doc = aRequest->Document();
   doc->HideAllPopoversUntil(*hideUntil, false, true);
+
+  if (!FullscreenElementReadyCheck(*aRequest)) {
+    return false;
+  }
 
   // Stash a reference to any existing fullscreen doc, we'll use this later
   // to detect if the origin which is fullscreen has changed.
