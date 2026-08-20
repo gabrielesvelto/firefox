@@ -42,6 +42,20 @@ nsIMIMEService* nsJARProtocolHandler::MimeService() {
   return mMimeService.get();
 }
 
+already_AddRefed<nsIZipReaderCache> nsJARProtocolHandler::GetJarCache() {
+  if (!gJarHandler) {
+    return nullptr;
+  }
+  return do_AddRef(gJarHandler->JarCache());
+}
+
+already_AddRefed<nsIMIMEService> nsJARProtocolHandler::GetMimeService() {
+  if (!gJarHandler) {
+    return nullptr;
+  }
+  return do_AddRef(gJarHandler->MimeService());
+}
+
 NS_IMPL_ISUPPORTS(nsJARProtocolHandler, nsIProtocolHandler,
                   nsISupportsWeakReference)
 
