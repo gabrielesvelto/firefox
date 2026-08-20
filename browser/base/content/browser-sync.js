@@ -3788,7 +3788,7 @@ var gSync = {
   },
 
   openShareFirefoxLink() {
-    Referrals.openReferralsTab(window);
+    Referrals.openReferralsTab(window, "accounts_menu");
     PanelUI.hide();
   },
 
