@@ -2475,6 +2475,8 @@ void HTMLMediaElement::AbortExistingLoads() {
 
   RemoveMediaElementFromURITable();
   mLoadingSrcTriggeringPrincipal = nullptr;
+  // The CORS mode is scoped to the current load.
+  mCORSMode = CORS_NONE;
   DDLOG(DDLogCategory::Property, "loading_src", "");
   DDUNLINKCHILD(mMediaSource.get());
   mMediaSource = nullptr;
