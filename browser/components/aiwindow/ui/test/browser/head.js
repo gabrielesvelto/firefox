@@ -68,6 +68,7 @@ let gIntentEngineStub;
 const MOCK_RS_RECORDS = [
   ["chat", 11],
   ["title-generation", 1],
+  ["tab-group-naming", 1],
   ["conversation-starters-sidebar-system", 1],
   ["conversation-suggestions-sidebar-starter", 3],
   ["conversation-suggestions-followup", 1],
@@ -242,6 +243,38 @@ const MOCK_RS_RECORDS = [
       purpose: "chat",
       parameters: {},
       version: "v11.0",
+    },
+    // tab-group-naming resolves through the v2 modular path: a params manifest
+    // plus one module record per prompt module (system-instructions, user-data).
+    {
+      kind: "params",
+      feature: "tab-group-naming",
+      model: "test-model",
+      service_type: "ai",
+      purpose: "auto-tab-grouping",
+      parameters: {},
+      modules: [
+        { name: "system-instructions", version: "v1.0" },
+        { name: "user-data", version: "v1.0" },
+      ],
+      version: "v1.0",
+      is_default: true,
+    },
+    {
+      kind: "module",
+      feature: "tab-group-naming",
+      module: "system-instructions",
+      model: "test-model",
+      prompts: "Name this group of tabs.",
+      version: "v1.0",
+    },
+    {
+      kind: "module",
+      feature: "tab-group-naming",
+      module: "user-data",
+      model: "test-model",
+      prompts: "Tabs:\n{titles}",
+      version: "v1.0",
     },
   ]);
 

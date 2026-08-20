@@ -127,8 +127,16 @@ add_setup(async function setup() {
   });
 
   const originalManager = AutoTabGroupingSuggestions._manager;
+  const originalLlmLabel = AutoTabGroupingSuggestions._llmLabelForGroup;
+  // The cloud LLM namer is unavailable in tests; force the on-device path so
+  // buildProposals uses the stubbed manager's getPredictedLabelForGroup instead
+  // of doing real FxA-token/network work per group.
+  AutoTabGroupingSuggestions._llmLabelForGroup = async () => {
+    throw new Error("force on-device");
+  };
   registerCleanupFunction(() => {
     AutoTabGroupingSuggestions._manager = originalManager;
+    AutoTabGroupingSuggestions._llmLabelForGroup = originalLlmLabel;
   });
 });
 
