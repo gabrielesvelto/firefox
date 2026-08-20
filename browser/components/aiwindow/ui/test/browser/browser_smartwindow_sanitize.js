@@ -57,7 +57,6 @@ describe("Sanitize chat conversations", () => {
       .testOnlyReset();
   });
 
-
   afterEach(async () => {
     disableConsent();
     await ChatStore.destroyDatabase();
