@@ -458,6 +458,8 @@ INSTANTIATE_INTERNAL_TRACE_FUNCTIONS(TaggedProto)
 // a trace hook or traceChildren() method on a GC thing. The source zone is
 // required in all builds so that MarkingTracerT::onEdge can keep the per-zone
 // atom-marking bitmap in sync for Symbol edges traced via the generic tracer.
+//
+// Set also AutoSetMarkingZone.
 class MOZ_RAII AutoSetTracingSource {
   GCMarker* marker = nullptr;
 

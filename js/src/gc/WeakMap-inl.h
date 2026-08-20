@@ -201,6 +201,7 @@ bool WeakMap<K, V, AP>::markEntry(GCMarker* marker, gc::CellColor mapColor,
   if (marker->isParallelMarkingMultipleThreads()) {
     marker->runtime()->gc.assertCurrentThreadHasLockedGC();
   }
+  MOZ_ASSERT(marker->tracingZone == zone());
 #endif
 
   BarrieredKey& key = iter.get().mutableKey();
@@ -397,6 +398,8 @@ bool WeakMap<K, V, AP>::markEntries(GCMarker* marker) {
   // Read the atomic color into a local variable so the compiler doesn't load it
   // every time.
   gc::CellColor mapColor = this->mapColor();
+
+  AutoSetMarkingZone setMarkingZone(marker, zone());
 
   for (auto iter = modIter(); !iter.done(); iter.next()) {
     if (markEntry(marker, mapColor, iter, populateWeakKeysTable)) {
