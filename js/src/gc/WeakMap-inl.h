@@ -780,7 +780,7 @@ void WeakMap<K, V, AP>::assertEntriesNotAboutToBeFinalized() {
 #ifdef JS_GC_ZEAL
 template <class K, class V, class AP>
 bool WeakMap<K, V, AP>::checkMarking() const {
-  bool ok = true;
+  bool ok = gc::CheckWeakMapMapMarking(this);
   for (auto iter = this->iter(); !iter.done(); iter.next()) {
     gc::Cell* key = gc::ToMarkable(iter.get().key());
     MOZ_RELEASE_ASSERT(key);
