@@ -35,8 +35,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesHistorySource.sys.mjs",
   resolveUrlsForMemories:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesHistorySource.sys.mjs",
-  DEFAULT_DISTANCE_THRESHOLD:
-    "moz-src:///browser/components/aiwindow/models/memories/MemoriesHistorySource.sys.mjs",
   getConversationSourceIdsFromMemory:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesChatSource.sys.mjs",
   getConversationsById:
@@ -748,10 +746,7 @@ async function generateUncachedResumeActivityConversationStarters() {
 
     const urlsByHash = await lazy.resolveUrlsForMemories(
       memoriesWithPlaceHashes,
-      {
-        filterBySummary: true,
-        distanceThreshold: lazy.DEFAULT_DISTANCE_THRESHOLD,
-      }
+      { filterBySummary: true }
     );
     const memoriesWithUrlsAndTitles = memoriesWithPlaceHashes
       .map(memory =>

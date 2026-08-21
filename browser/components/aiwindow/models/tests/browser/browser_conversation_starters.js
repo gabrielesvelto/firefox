@@ -45,7 +45,7 @@ const { PURPOSES, MODEL_FEATURES } = ChromeUtils.importESModule(
 const { MESSAGE_LENGTH_THRESHOLD } = ChromeUtils.importESModule(
   "moz-src:///browser/components/aiwindow/models/memories/MemoriesChatSource.sys.mjs"
 );
-const { resolveUrlsForMemories, DEFAULT_DISTANCE_THRESHOLD } =
+const { resolveUrlsForMemories, getDistanceThreshold } =
   ChromeUtils.importESModule(
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesHistorySource.sys.mjs"
   );
@@ -129,6 +129,10 @@ add_setup(async function setupResumeActivityConversationStarterTests() {
     set: [
       ["places.history.enabled", true],
       ["browser.privatebrowsing.autostart", false],
+      [
+        "browser.smartwindow.memories.resumeActivityUrlDistanceThreshold",
+        "0.9",
+      ],
     ],
   });
 
@@ -1416,7 +1420,7 @@ add_task(async function test_filter_keeps_urls_close_to_own_summary() {
   );
   Assert.greater(entry.lastVisitDate, 0, "Resolved entry carries a visit date");
   Assert.ok(
-    entry.distance >= 0 && entry.distance <= DEFAULT_DISTANCE_THRESHOLD,
+    entry.distance >= 0 && entry.distance <= getDistanceThreshold(),
     `Resolved entry carries a distance within the threshold, got ${entry.distance}`
   );
 });

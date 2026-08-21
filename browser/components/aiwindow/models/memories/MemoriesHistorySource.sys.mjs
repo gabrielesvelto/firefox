@@ -35,8 +35,21 @@ const DEFAULT_GAP_SEC = 900;
 const DEFAULT_MAX_SESSION_SEC = 7200;
 
 // Max cosine distance (0 = identical, 1 = unrelated, 2 = opposite) between a memory's
-// embedding text and a URL's embedding for that URL to stay attached to it.
-export const DEFAULT_DISTANCE_THRESHOLD = 0.9;
+// embedding text (summary plus reasoning) and a URL's embedding for that URL to stay attached to it.
+export const DEFAULT_DISTANCE_THRESHOLD = 0.6;
+const DISTANCE_THRESHOLD_PREF =
+  "browser.smartwindow.memories.resumeActivityUrlDistanceThreshold";
+
+/**
+ * @returns {number} The configured max cosine distance, or
+ *          DEFAULT_DISTANCE_THRESHOLD when the pref is unset.
+ */
+export function getDistanceThreshold() {
+  const parsed = Number.parseFloat(
+    Services.prefs.getStringPref(DISTANCE_THRESHOLD_PREF, "")
+  );
+  return Number.isFinite(parsed) ? parsed : DEFAULT_DISTANCE_THRESHOLD;
+}
 
 // Recency defaults
 const DEFAULT_HALFLIFE_DAYS = 14;
@@ -943,14 +956,16 @@ export function getHistorySourceIdsFromMemory(memory) {
  * @param {object} [opts]
  * @param {boolean} [opts.filterBySummary=false]
  *        Keep only the URLs semantically close to their memory's summary.
- * @param {number} [opts.distanceThreshold=DEFAULT_DISTANCE_THRESHOLD]
- *        Maximum cosine distance to keep. Ignored without `filterBySummary`.
+ * @param {number} [opts.distanceThreshold]
+ *        Maximum cosine distance to keep. Defaults to the
+ *        {@link DISTANCE_THRESHOLD_PREF} pref value.
+ *        Ignored without `filterBySummary`.
  * @returns {Promise<Map<number, object>>} Places data keyed by URL hash
  */
 export async function resolveUrlsForMemories(memories, opts = {}) {
   const {
     filterBySummary = false,
-    distanceThreshold = DEFAULT_DISTANCE_THRESHOLD,
+    distanceThreshold = getDistanceThreshold(),
   } = opts;
   const historyEnabled = Services.prefs.getBoolPref("places.history.enabled");
   const privateBrowsing = Services.prefs.getBoolPref(
@@ -968,7 +983,6 @@ export async function resolveUrlsForMemories(memories, opts = {}) {
   if (!urlHashes.length) {
     return new Map();
   }
-
   if (filterBySummary) {
     const filtered = await resolveUrlsBySummarySimilarity(
       memories,
@@ -1065,7 +1079,6 @@ function getMemoryEmbeddingText(memory) {
  */
 async function resolveUrlsBySummarySimilarity(memories, distanceThreshold) {
   const resolved = new Map();
-
   try {
     const semanticManager = lazy.getPlacesSemanticHistoryManager();
     const canUseSemantic =
@@ -1107,13 +1120,10 @@ async function resolveUrlsBySummarySimilarity(memories, distanceThreshold) {
         scored AS (
           SELECT
             m.url_hash AS url_hash,
-            (
-              SELECT vec_distance_cosine(embedding, :vector)
-              FROM vec_history
-              WHERE rowid = m.rowid
-            ) AS distance
+            vec_distance_cosine(v.embedding, :vector) AS distance
           FROM vec_history_mapping m
           JOIN unique_hashes USING (url_hash)
+          JOIN vec_history v ON v.rowid = m.rowid
         )
         SELECT url_hash, url, title, last_visit_date, distance
         FROM moz_places
@@ -1143,7 +1153,6 @@ async function resolveUrlsBySummarySimilarity(memories, distanceThreshold) {
         });
       }
     }
-
     return new Map(
       [...resolved].sort(([, a], [, b]) => a.distance - b.distance)
     );
