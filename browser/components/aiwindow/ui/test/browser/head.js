@@ -564,7 +564,10 @@ async function testResumeActivityClick(sb, run) {
     win = await openAIWindow();
     const browser = win.gBrowser.selectedBrowser;
     const aiWindow = browser.contentDocument.querySelector("ai-window");
-    const buttons = await getPromptButtons(browser);
+    const buttons = await TestUtils.waitForCondition(async () => {
+      const found = await getPromptButtons(browser);
+      return found.length ? found : false;
+    }, "Wait for prompt buttons to replace loading skeletons");
     await run({ win, browser, aiWindow, buttons });
   } finally {
     if (win) {
