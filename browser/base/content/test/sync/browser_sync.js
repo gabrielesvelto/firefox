@@ -262,8 +262,9 @@ add_task(async function test_ui_state_signedin() {
 
   await checkProfilesButtons(manageAccountSeparator, true);
 
-  // The sign-out separator and button sit at the bottom of the secure sync
-  // section, directly below the connected devices list.
+  // In the account (toolbar) menu the sign-out separator and button sit at the
+  // bottom of the secure sync section, directly below the connected devices
+  // list.
   is(
     document.getElementById("PanelUI-sign-out-separator")
       .previousElementSibling,
@@ -311,6 +312,21 @@ add_task(async function test_ui_state_signedin() {
   ok(
     !BrowserTestUtils.isVisible(profileButtonsContainer),
     "expected profile buttons container to not be visible"
+  );
+
+  // In the app menu the sign-out button sits directly below the sync status
+  // section and above the connected devices list, with a separator either side.
+  is(
+    document.getElementById("PanelUI-fxa-menu-account-signout-button")
+      .previousElementSibling,
+    document.getElementById("PanelUI-sign-out-separator"),
+    "The sign-out button sits directly below the sign-out separator in the app menu"
+  );
+  is(
+    document.getElementById("PanelUI-fxa-menu-devices-list")
+      .previousElementSibling,
+    document.getElementById("PanelUI-fxa-menu-account-signout-button"),
+    "The connected devices list sits directly below the sign-out button in the app menu"
   );
 
   await closeTabAndMainPanel();
