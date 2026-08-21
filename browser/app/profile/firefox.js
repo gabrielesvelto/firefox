@@ -2373,7 +2373,7 @@ pref("browser.smartwindow.smartformfill.enabled", false);
 pref("browser.smartwindow.smartformfill.disallowedRegions", "FR");
 
 // Smart Window Agent
-pref("browser.smartwindow.agent.enabled", false);
+pref("browser.smartwindow.agent.enabled", true);
 pref("browser.smartwindow.agent.supportedRegions", "US,CA");
 
 
