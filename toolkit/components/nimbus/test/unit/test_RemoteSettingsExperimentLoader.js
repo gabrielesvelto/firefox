@@ -35,6 +35,20 @@ add_task(async function test_lazy_pref_getters() {
   await cleanup();
 });
 
+add_task(async function test_init() {
+  const { sandbox, loader, initExperimentAPI, cleanup } =
+    await NimbusTestUtils.setupTest({ init: false });
+  sandbox.spy(loader, "setTimer");
+  sandbox.spy(loader, "updateRecipes");
+
+  await initExperimentAPI();
+
+  Assert.ok(loader.setTimer.calledOnce, "should call .setTimer");
+  Assert.ok(loader.updateRecipes.calledOnce, "should call .updateRecipes");
+
+  await cleanup();
+});
+
 add_task(async function test_init_with_opt_in() {
   const { sandbox, loader, initExperimentAPI, cleanup } =
     await NimbusTestUtils.setupTest({ init: false });

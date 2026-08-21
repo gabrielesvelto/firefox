@@ -44,8 +44,6 @@ run-sequentially = "very high failure rate in parallel"
 
 ["test_RemoteSettingsExperimentLoader.js"]
 
-["test_RemoteSettingsExperimentLoader_timer.js"]
-
 ["test_RemoteSettingsExperimentLoader_updateRecipes.js"]
 
 ["test_TargetingContextRecorder.js"]

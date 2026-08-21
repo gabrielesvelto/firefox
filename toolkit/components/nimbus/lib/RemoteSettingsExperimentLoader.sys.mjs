@@ -244,12 +244,9 @@ export class RemoteSettingsExperimentLoader {
       return;
     }
 
-    this._enabled = true;
-
-    // The timer must be set *after* we are enabled, otherwise it is a no-op.
     this.setTimer();
-
     lazy.CleanupManager.addCleanupHandler(() => this.disable());
+    this._enabled = true;
 
     await this.updateRecipes("enabled", { forceSync });
   }
