@@ -33,3 +33,7 @@ Modified build files in third_party/libwebrtc - Bug 1839512 - remove unused even
 Merge day clobber 2026-08-13
 Modified build files in third_party/libwebrtc - Bug 1839451 - Vendor libwebrtc from 65a6ecab33
 Modified build files in third_party/libwebrtc - Bug 1843113 - Vendor libwebrtc from 8b5bf6dd05
+Modified build files in third_party/libwebrtc - Bug 1847074 - Vendor libwebrtc from 090fe08995
+Modified build files in third_party/libwebrtc - Bug 1847074 - Vendor libwebrtc from b4015689b8
+Modified build files in third_party/libwebrtc - Bug 1847074 (MOZ) - add flexfec_header_reader_writer2.cc to non-unified sources build.
+Modified build files in third_party/libwebrtc - Bug 1847074 - Vendor libwebrtc from b7a688c68e
