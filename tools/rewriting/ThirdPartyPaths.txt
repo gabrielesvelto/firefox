@@ -205,6 +205,7 @@ toolkit/crashreporter/breakpad-client/
 toolkit/crashreporter/google-breakpad/
 toolkit/modules/third_party/
 tools/fuzzing/libfuzzer/
+tools/lint/eslint/eslint-plugin-sdl-vendored/vendor/
 tools/profiler/core/vtune/
 xpcom/build/mach_override.c
 xpcom/build/mach_override.h
