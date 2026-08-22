@@ -3213,9 +3213,11 @@ bool SharedContextWebgl::DrawRectAccel(
         }
         texSize = underlyingSurface->GetSize();
         format = underlyingSurface->GetFormat();
-        if (!surfacePattern.mSamplingRect.IsEmpty()) {
-          texSize = surfacePattern.mSamplingRect.Size();
-          offset = surfacePattern.mSamplingRect.TopLeft();
+        IntRect samplingRect = surfacePattern.mSamplingRect.SafeIntersect(
+            IntRect(IntPoint(0, 0), texSize));
+        if (!samplingRect.IsEmpty()) {
+          texSize = samplingRect.Size();
+          offset = samplingRect.TopLeft();
         }
       }
 
@@ -3254,7 +3256,7 @@ bool SharedContextWebgl::DrawRectAccel(
           mUsedTextureMemory -= handle->UsedBytes();
           handle->UpdateSize(texSize);
           mUsedTextureMemory += handle->UsedBytes();
-          handle->SetSamplingOffset(surfacePattern.mSamplingRect.TopLeft());
+          handle->SetSamplingOffset(offset);
         } else {
           // Count reusing a snapshot texture (no readback) as a cache hit.
           mCurrentTarget->mProfile.OnCacheHit();
@@ -3288,7 +3290,7 @@ bool SharedContextWebgl::DrawRectAccel(
         }
         UploadSurfaceToHandle(data, offset, handle);
         // Link the handle to the surface's user data.
-        handle->SetSamplingOffset(surfacePattern.mSamplingRect.TopLeft());
+        handle->SetSamplingOffset(offset);
         if (aHandle) {
           *aHandle = handle;
         } else {
