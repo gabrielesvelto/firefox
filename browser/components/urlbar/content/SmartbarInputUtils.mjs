@@ -578,8 +578,13 @@ function setupCommandsPlugin(editorElement, panelList) {
     executeCommand(e.detail.id, "button");
   };
 
-  const handlePanelKeyDown = e =>
+  const handlePanelKeyDown = e => {
+    if (e.detail?.originalEvent?.key === "Escape") {
+      onExitPalette();
+      return;
+    }
     refocusEditorOnUnhandledPanelKey(editorElement, e);
+  };
 
   const handleEditorKeyDown = e => {
     if (
@@ -723,8 +728,8 @@ export function createEditor(inputElement) {
 
   const mentionsPlugin = setupMentionsPlugin(editorElement, panelList);
   const plugins = [mentionsPlugin];
-  // Keep the "/" command out of the address bar
-  if (isSidebarMode) {
+  // Enable the "/" command palette in every Smart Window smartbar
+  if (smartbarInput.sapName === "smartbar") {
     plugins.push(setupCommandsPlugin(editorElement, panelList));
   }
   editorElement.plugins = plugins;

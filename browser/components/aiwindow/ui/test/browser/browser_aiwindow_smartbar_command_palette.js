@@ -7,19 +7,21 @@ const { Region } = ChromeUtils.importESModule(
   "resource://gre/modules/Region.sys.mjs"
 );
 
+const SUPPORTED_REGIONS_PREF = "browser.smartwindow.agent.supportedRegions";
+const TEST_REGION = "US";
+
 add_setup(async function () {
   const originalRegion = Region.home;
-  Region._setHomeRegion("US", false);
+  Region._setHomeRegion(TEST_REGION, false);
   registerCleanupFunction(() => {
     Region._setHomeRegion(originalRegion, false);
   });
-
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.search.suggest.enabled", false],
       ["browser.smartwindow.endpoint", "http://localhost:0/v1"],
       ["browser.smartwindow.agent.enabled", true],
-      ["browser.smartwindow.agent.supportedRegions", "US"],
+      [SUPPORTED_REGIONS_PREF, TEST_REGION],
     ],
   });
 });
@@ -139,6 +141,61 @@ add_task(async function test_slash_opens_command_palette() {
   await BrowserTestUtils.closeWindow(win);
 });
 
+add_task(async function test_command_palette_opens_in_full_page() {
+  const win = await openAIWindow();
+  const browser = win.gBrowser.selectedBrowser;
+
+  await typeInSmartbar(browser, "/");
+  await waitForPanelOpen(browser);
+
+  const groups = await getCommandGroups(browser);
+  Assert.ok(
+    groups[0]?.items.some(item => item.id === "watch"),
+    "The command palette opens in the full-page smartbar"
+  );
+
+  await SpecialPowers.spawn(browser, [], async () => {
+    const aiWindow = content.document.querySelector("ai-window");
+    const smartbar = aiWindow.shadowRoot.querySelector("#ai-window-smartbar");
+    await ContentTaskUtils.waitForCondition(
+      () => !smartbar.view?.isOpen,
+      "The urlbar results view stays closed while the command palette is open"
+    );
+  });
+
+  await BrowserTestUtils.closeWindow(win);
+});
+
+add_task(async function test_command_activates_chat_view_in_full_page() {
+  const win = await openAIWindow();
+  const browser = win.gBrowser.selectedBrowser;
+
+  await SpecialPowers.spawn(browser, [], async () => {
+    const aiWindow = content.document.querySelector("ai-window");
+    Assert.ok(
+      !aiWindow.classList.contains("chat-active"),
+      "Full page starts on the new-tab starter view"
+    );
+  });
+
+  await typeInSmartbar(browser, "/watch");
+  await waitForPanelOpen(browser);
+
+  await SpecialPowers.spawn(browser, [], async () => {
+    const aiWindow = content.document.querySelector("ai-window");
+    const smartbar = aiWindow.shadowRoot.querySelector("#ai-window-smartbar");
+    smartbar.inputField.view.focus();
+    EventUtils.synthesizeKey("KEY_Enter", {}, content);
+
+    await ContentTaskUtils.waitForCondition(
+      () => aiWindow.classList.contains("chat-active"),
+      "Running a command switches the new tab into the chat view"
+    );
+  });
+
+  await BrowserTestUtils.closeWindow(win);
+});
+
 add_task(async function test_command_palette_filters_by_query() {
   const { win, sidebarBrowser } = await openAIWindowWithSidebar();
 
@@ -240,6 +297,9 @@ add_task(async function test_shift_enter_does_not_complete_command() {
 
 add_task(async function test_modifier_keys_do_not_complete_command() {
   const { win, sidebarBrowser } = await openAIWindowWithSidebar();
+
+  await stubLoadURL(sidebarBrowser, { captureURL: true });
+  await stubOpenSERP(sidebarBrowser);
 
   await typeInSmartbar(sidebarBrowser, "/wa");
   await waitForPanelOpen(sidebarBrowser);

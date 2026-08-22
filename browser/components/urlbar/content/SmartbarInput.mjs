@@ -1990,13 +1990,13 @@ ${
 
   /**
    * Whether the current input is a known Agent command such as
-   * "/watch ...". Such input is submitted to chat so the
-   * agent router can handle it. Sidebar only for now.
+   * "/watch ...". The input is submitted to chat so the
+   * agent router can handle it
    *
    * @returns {boolean}
    */
   get #isAgentCommand() {
-    return this.#isSidebarMode && isAgentCommand(this.untrimmedValue);
+    return this.#isSmartbarMode && isAgentCommand(this.untrimmedValue);
   }
 
   /**
@@ -3139,7 +3139,11 @@ ${
     // close the suggestions view. The mentions/command plugin will handle querying
     // providers directly.
     const isHandlingMentions = this.inputField.isHandlingMentions;
-    if ((isHandlingMentions || this.#isAgentCommand) && event) {
+    const isHandlingCommands = this.inputField.isHandlingCommands;
+    if (
+      (isHandlingMentions || isHandlingCommands || this.#isAgentCommand) &&
+      event
+    ) {
       this.view.close();
       // no query runs so refresh the CTA state directly
       this.#updateSmartbarCTAButton();
@@ -3153,6 +3157,7 @@ ${
         this.getAttribute("pageproxystate") == "valid" ? "" : this.value;
     } else if (
       !isHandlingMentions &&
+      !isHandlingCommands &&
       !this.#isAgentCommand &&
       !this.value.startsWith(searchString)
     ) {
