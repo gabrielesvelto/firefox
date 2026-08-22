@@ -61,9 +61,14 @@ static void UnregisterMedieEngine(MFMediaEngineParent* aMediaEngine) {
 }
 
 /* static */
-MFMediaEngineParent* MFMediaEngineParent::GetMediaEngineById(uint64_t aId) {
+already_AddRefed<MFMediaEngineParent> MFMediaEngineParent::GetMediaEngineById(
+    uint64_t aId) {
   StaticMutexAutoLock lock(sMediaEnginesLock);
-  return sMediaEngines->Get(aId);
+  if (!sMediaEngines) {
+    return nullptr;
+  }
+  RefPtr<MFMediaEngineParent> engine = sMediaEngines->Get(aId);
+  return engine.forget();
 }
 
 MFMediaEngineParent::MFMediaEngineParent(RemoteDecoderManagerParent* aManager,
@@ -85,14 +90,23 @@ MFMediaEngineParent::MFMediaEngineParent(RemoteDecoderManagerParent* aManager,
 
 MFMediaEngineParent::~MFMediaEngineParent() {
   LOG("Destoryed MFMediaEngineParent");
-  DestroyEngineIfExists();
   UnregisterMedieEngine(this);
+  DestroyEngineIfExists();
+}
+
+void MFMediaEngineParent::ActorDestroy(ActorDestroyReason aWhy) {
+  AssertOnManagerThread();
+  LOG("ActorDestroy");
+  UnregisterMedieEngine(this);
+  DestroyEngineIfExists();
 }
 
 void MFMediaEngineParent::DestroyEngineIfExists(
     const Maybe<MediaResult>& aError) {
   LOG("DestroyEngineIfExists, hasError=%d", aError.isSome());
   ENGINE_MARKER("MFMediaEngineParent::DestroyEngineIfExists");
+  mMediaEngineEventListener.DisconnectIfExists();
+  mRequestSampleListener.DisconnectIfExists();
   mMediaEngineNotify = nullptr;
   mMediaEngineExtension = nullptr;
   if (mMediaSource) {
@@ -109,8 +123,6 @@ void MFMediaEngineParent::DestroyEngineIfExists(
     LOG_IF_FAILED(mMediaEngine->Shutdown());
     mMediaEngine = nullptr;
   }
-  mMediaEngineEventListener.DisconnectIfExists();
-  mRequestSampleListener.DisconnectIfExists();
   if (mDXGIDeviceManager) {
     mDXGIDeviceManager = nullptr;
   }

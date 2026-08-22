@@ -42,7 +42,7 @@ class MFMediaEngineParent final : public PMFMediaEngineParent {
 
   using TrackType = TrackInfo::TrackType;
 
-  static MFMediaEngineParent* GetMediaEngineById(uint64_t aId);
+  static already_AddRefed<MFMediaEngineParent> GetMediaEngineById(uint64_t aId);
 
   MFMediaEngineStreamWrapper* GetMediaEngineStream(
       TrackType aType, const CreateDecoderParams& aParam);
@@ -61,6 +61,8 @@ class MFMediaEngineParent final : public PMFMediaEngineParent {
   mozilla::ipc::IPCResult RecvSetLooping(bool aLooping);
   mozilla::ipc::IPCResult RecvNotifyEndOfStream(TrackInfo::TrackType aType);
   mozilla::ipc::IPCResult RecvShutdown();
+
+  void ActorDestroy(ActorDestroyReason aWhy) override;
 
   void Destroy();
 
