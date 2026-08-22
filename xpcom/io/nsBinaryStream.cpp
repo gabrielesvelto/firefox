@@ -317,7 +317,7 @@ nsBinaryOutputStream::WriteCompoundObject(nsISupports* aObject,
   nsCID cid;
   nsresult rv = classInfo->GetClassIDNoAlloc(&cid);
   if (NS_FAILED(rv)) {
-    std::unique_ptr<nsCID> cidptr;
+    mozilla::UniquePtr<nsCID> cidptr;
     rv = classInfo->GetClassID(mozilla::getter_Transfers(cidptr));
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
