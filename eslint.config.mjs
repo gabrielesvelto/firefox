@@ -126,7 +126,7 @@ let config = [
       // rule is able to be automatically fixed, then ESLint will remove the
       // inline comment and apply the fix. We don't want this because we have
       // some rules that intentionally need to be turned off in specific cases,
-      // e.g. @microsoft/sdl/no-insecure-url.
+      // e.g. sdl/no-insecure-url.
       reportUnusedDisableDirectives: "off",
     },
     plugins: { lit },
