@@ -1569,7 +1569,7 @@ ${
   /**
    * Dispatches a smartbar-commit custom event.
    *
-   * @param {Event} event - The event that triggered the action.
+   * @param {Event} event - The event that triggered the actibrowser_aiwindow_smartbar_command_palette.json.
    * @param {string} value - The value to commit.
    * @param {SmartbarAction} [action] - The action to commit. Defaults to the
    *   current smartbar action.

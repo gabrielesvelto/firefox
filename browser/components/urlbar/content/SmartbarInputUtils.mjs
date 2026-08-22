@@ -52,13 +52,11 @@ ChromeUtils.defineLazyGetter(lazy, "log", function () {
 // Debounce delay for the mention suggestions query.
 const MENTION_QUERY_DEBOUNCE_MS = 150;
 
-// Only "watch" exists today. will add more here as they land
-// TODO: Bug 2054529 - localize label/description strings and the "Tasks" group header.
 const AGENT_COMMAND_ITEMS = [
   {
     id: "watch",
-    label: "Create a task",
-    description: "Watch a page for changes",
+    l10nId: "smartbar-command-watch-label",
+    descriptionL10nId: "smartbar-command-watch-description",
     icon: "chrome://browser/content/aiwindow/assets/agent-watch.svg",
   },
 ];
@@ -97,7 +95,7 @@ export function isAgentCommand(value) {
  * Command suggestions whose id starts with the typed query
  *
  * @param {string} query - Text typed after the "/" trigger
- * @returns {Array<{header: string, items: Array}>} Panel groups, empty when nothing matches
+ * @returns {Array<{headerL10nId: string, items: Array}>} Panel groups, empty when nothing matches
  */
 function getCommandSuggestions(query) {
   if (!isAgentCommandAvailable()) {
@@ -107,7 +105,9 @@ function getCommandSuggestions(query) {
   const items = AGENT_COMMAND_ITEMS.filter(command =>
     command.id.startsWith(normalized)
   );
-  return items.length ? [{ header: "TASKS", items }] : [];
+  return items.length
+    ? [{ headerL10nId: "smartbar-command-tasks-header", items }]
+    : [];
 }
 
 const PLACEHOLDER_HINT_L10N_IDS = [
@@ -243,6 +243,7 @@ function setupContextMentionsButton(smartbarInput, panelList) {
   const contextButton = smartbarInput.querySelector("context-icon-button");
 
   panelList.addEventListener("shown", () => {
+    // TODO: Bug 2064550 - use dataset instead
     if (panelList.getAttribute("data-triggered-by") === "context-mention") {
       contextButton.setAttribute("active", "");
     }
@@ -263,6 +264,7 @@ function setupContextMentionsButton(smartbarInput, panelList) {
       ""
     );
     panelList.groups = groups;
+    // TODO: Bug 2064550 - use dataset instead
     panelList.setAttribute("data-triggered-by", "context-mention");
     panelList.toggle();
 
@@ -346,6 +348,7 @@ function setupMentionsPlugin(editorElement, panelList) {
       panelList.anchor = getAnchorPos(mentionData.range, mentionData.view);
       const { groups, totalCount } = getMentionSuggestions(mentionSearch, "");
       panelList.groups = groups;
+      // TODO: Bug 2064550 - use dataset instead
       panelList.setAttribute("data-triggered-by", "inline-mention");
       panelList.show();
       editorElement.setAttribute("data-mention-placeholder", "");
@@ -402,12 +405,14 @@ function setupMentionsPlugin(editorElement, panelList) {
   };
 
   const handleItemSelected = e => {
+    // TODO: Bug 2064550 - use dataset instead
     // "/" command selections are handled by the commands plugin
     if (panelList.getAttribute("data-triggered-by") === COMMAND_TRIGGER) {
       return;
     }
     const { id, label, icon } = e.detail;
 
+    // TODO: Bug 2064550 - use dataset instead
     const isContextButtonTrigger =
       panelList.getAttribute("data-triggered-by") === "context-mention";
 
@@ -456,6 +461,7 @@ function setupMentionsPlugin(editorElement, panelList) {
         latestMentionData?.range.to ?? 1
       );
     }
+    // TODO: Bug 2064550 - use dataset instead
     panelList.removeAttribute("data-triggered-by");
   };
 
@@ -531,35 +537,85 @@ function setupCommandsPlugin(editorElement, panelList) {
   const updatePanel = query => {
     const groups = getCommandSuggestions(query);
     panelList.groups = groups;
-    if (groups.length) {
-      panelList.show();
-      return true;
+    if (!groups.length) {
+      panelList.hide();
+      return false;
     }
-    panelList.hide();
-    return false;
+    panelList.anchor = smartbarInput;
+    // TODO: Bug 2064550 - use dataset instead
+    panelList.setAttribute("data-triggered-by", COMMAND_TRIGGER);
+    panelList.show();
+    return true;
+  };
+
+  const onExitPalette = () => {
+    isHandlingCommands = false;
+    latestCommandData = null;
+    // TODO: Bug 2064550 - use dataset instead
+    if (panelList.getAttribute("data-triggered-by") === COMMAND_TRIGGER) {
+      panelList.hide();
+      panelList.removeAttribute("data-triggered-by");
+    }
+  };
+
+  const completeCommand = id => {
+    if (!latestCommandData) {
+      return;
+    }
+    const commandText = `/${id} `;
+    const { view, range } = latestCommandData;
+    view.dispatch(view.state.tr.insertText(commandText, range.from, range.to));
+    view.focus();
+
+    onExitPalette();
   };
 
   const handleItemSelected = e => {
+    // TODO: Bug 2064550 - use dataset instead
     if (
       panelList.getAttribute("data-triggered-by") !== COMMAND_TRIGGER ||
       !latestCommandData
     ) {
       return;
     }
-
-    const commandText = `/${e.detail.id} `;
-    const { view, range } = latestCommandData;
-    view.dispatch(view.state.tr.insertText(commandText, range.from, range.to));
-    view.focus();
-
-    panelList.hide();
-    panelList.removeAttribute("data-triggered-by");
+    completeCommand(e.detail.id);
   };
 
   const handlePanelKeyDown = e =>
     refocusEditorOnUnhandledPanelKey(editorElement, e);
-  const handleEditorKeyDown = e =>
-    suppressEnterWhilePanelOpen(() => isHandlingCommands, e);
+
+  const handleEditorKeyDown = e => {
+    if (
+      !isHandlingCommands ||
+      e.shiftKey ||
+      e.altKey ||
+      e.ctrlKey ||
+      e.metaKey
+    ) {
+      return;
+    }
+
+    const keyHandlers = {
+      ArrowDown: () => panelList.moveSelection(1),
+      ArrowUp: () => panelList.moveSelection(-1),
+      Enter: () => {
+        const selected = panelList.getSelectedItem();
+        if (selected) {
+          completeCommand(selected.id);
+        }
+      },
+      Escape: () => onExitPalette(),
+    };
+
+    const handler = keyHandlers[e.key];
+    if (!handler) {
+      return;
+    }
+
+    handler();
+    e.preventDefault();
+    e.stopPropagation();
+  };
 
   panelList.addEventListener("item-selected", handleItemSelected);
   panelList.addEventListener("panel-keydown", handlePanelKeyDown);
@@ -590,8 +646,6 @@ function setupCommandsPlugin(editorElement, panelList) {
       }
       // TODO: Bug 2060584 - record command telemetry
       latestCommandData = data;
-      panelList.anchor = smartbarInput;
-      panelList.setAttribute("data-triggered-by", COMMAND_TRIGGER);
       isHandlingCommands = updatePanel(data.text.substring(1));
     },
     onChange: data => {
@@ -602,12 +656,7 @@ function setupCommandsPlugin(editorElement, panelList) {
       isHandlingCommands = updatePanel(data.text.substring(1));
     },
     onExit: () => {
-      isHandlingCommands = false;
-      latestCommandData = null;
-      if (panelList.getAttribute("data-triggered-by") === COMMAND_TRIGGER) {
-        panelList.hide();
-        panelList.removeAttribute("data-triggered-by");
-      }
+      onExitPalette();
     },
   });
 }
