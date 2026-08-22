@@ -99,7 +99,7 @@ FlexfecSender::FlexfecSender(
           RegisterSupportedExtensions(rtp_header_extensions)),
       header_extensions_size_(
           RtpHeaderExtensionSize(extension_sizes, rtp_header_extension_map_)),
-      fec_bitrate_(/*max_window_size=*/TimeDelta::Seconds(1)) {
+      fec_bitrate_(/*max_window_size_ms=*/1000, RateStatistics::kBpsScale) {
   // This object should not have been instantiated if FlexFEC is disabled.
   RTC_DCHECK_GE(payload_type, 0);
   RTC_DCHECK_LE(payload_type, 127);
@@ -179,7 +179,7 @@ std::vector<std::unique_ptr<RtpPacketToSend>> FlexfecSender::GetFecPackets() {
   }
 
   MutexLock lock(&mutex_);
-  fec_bitrate_.Update(total_fec_data_bytes, now);
+  fec_bitrate_.Update(total_fec_data_bytes, now.ms());
 
   return fec_packets_to_send;
 }
@@ -191,7 +191,8 @@ size_t FlexfecSender::MaxPacketOverhead() const {
 
 DataRate FlexfecSender::CurrentFecRate() const {
   MutexLock lock(&mutex_);
-  return fec_bitrate_.Rate(clock_->CurrentTime()).value_or(DataRate::Zero());
+  return DataRate::BitsPerSec(
+      fec_bitrate_.Rate(clock_->TimeInMilliseconds()).value_or(0));
 }
 
 absl::optional<RtpState> FlexfecSender::GetRtpState() {

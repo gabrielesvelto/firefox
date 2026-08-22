@@ -18,7 +18,6 @@
 #include <memory>
 #include <set>
 
-#include "api/units/timestamp.h"
 #include "call/video_send_stream.h"
 #include "modules/include/module_common_types_public.h"
 #include "rtc_base/synchronization/mutex.h"
@@ -44,13 +43,13 @@ class SendDelayStats : public SendPacketObserver {
   void AddSsrcs(const VideoSendStream::Config& config);
 
   // Called when a packet is sent (leaving socket).
-  bool OnSentPacket(int packet_id, Timestamp time);
+  bool OnSentPacket(int packet_id, int64_t time_ms);
 
  protected:
   // From SendPacketObserver.
   // Called when a packet is sent to the transport.
   void OnSendPacket(uint16_t packet_id,
-                    Timestamp capture_time,
+                    int64_t capture_time_ms,
                     uint32_t ssrc) override;
 
  private:
@@ -61,16 +60,18 @@ class SendDelayStats : public SendPacketObserver {
     }
   };
   struct Packet {
-    Packet(uint32_t ssrc, Timestamp capture_time, Timestamp send_time)
-        : ssrc(ssrc), capture_time(capture_time), send_time(send_time) {}
+    Packet(uint32_t ssrc, int64_t capture_time_ms, int64_t send_time_ms)
+        : ssrc(ssrc),
+          capture_time_ms(capture_time_ms),
+          send_time_ms(send_time_ms) {}
     uint32_t ssrc;
-    Timestamp capture_time;
-    Timestamp send_time;
+    int64_t capture_time_ms;
+    int64_t send_time_ms;
   };
   typedef std::map<uint16_t, Packet, SequenceNumberOlderThan> PacketMap;
 
   void UpdateHistograms();
-  void RemoveOld(Timestamp now, PacketMap* packets)
+  void RemoveOld(int64_t now, PacketMap* packets)
       RTC_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   AvgCounter* GetSendDelayCounter(uint32_t ssrc)
       RTC_EXCLUSIVE_LOCKS_REQUIRED(mutex_);

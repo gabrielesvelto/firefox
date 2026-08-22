@@ -13,13 +13,15 @@
 #ifndef MODULES_REMOTE_BITRATE_ESTIMATOR_INCLUDE_REMOTE_BITRATE_ESTIMATOR_H_
 #define MODULES_REMOTE_BITRATE_ESTIMATOR_INCLUDE_REMOTE_BITRATE_ESTIMATOR_H_
 
-#include <cstdint>
+#include <map>
+#include <memory>
 #include <vector>
 
 #include "api/units/data_rate.h"
 #include "api/units/time_delta.h"
 #include "modules/include/module_common_types.h"
-#include "modules/rtp_rtcp/source/rtp_packet_received.h"
+#include "modules/rtp_rtcp/include/rtp_rtcp_defines.h"
+#include "modules/rtp_rtcp/source/rtcp_packet.h"
 
 namespace webrtc {
 
@@ -43,8 +45,12 @@ class RemoteBitrateEstimator : public CallStatsObserver {
 
   // Called for each incoming packet. Updates the incoming payload bitrate
   // estimate and the over-use detector. If an over-use is detected the
-  // remote bitrate estimate will be updated.
-  virtual void IncomingPacket(const RtpPacketReceived& rtp_packet) = 0;
+  // remote bitrate estimate will be updated. Note that `payload_size` is the
+  // packet size excluding headers.
+  // Note that `arrival_time_ms` can be of an arbitrary time base.
+  virtual void IncomingPacket(int64_t arrival_time_ms,
+                              size_t payload_size,
+                              const RTPHeader& header) = 0;
 
   // Removes all data for `ssrc`.
   virtual void RemoveStream(uint32_t ssrc) = 0;

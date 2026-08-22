@@ -43,6 +43,7 @@
 #include "call/video_receive_stream.h"
 #include "common_video/include/quality_limitation_reason.h"
 #include "media/base/codec.h"
+#include "media/base/delayable.h"
 #include "media/base/media_constants.h"
 #include "media/base/stream_params.h"
 #include "modules/audio_processing/include/audio_processing_statistics.h"
@@ -70,6 +71,7 @@ class VideoFrame;
 namespace cricket {
 
 class AudioSource;
+class MediaChannel;  // TODO(bugs.webrtc.org/13931): Delete when irrelevant
 class VideoCapturer;
 struct RtpHeader;
 struct VideoFormat;
@@ -187,9 +189,6 @@ class MediaSendChannelInterface {
   virtual VoiceMediaSendChannelInterface* AsVoiceSendChannel() = 0;
   virtual cricket::MediaType media_type() const = 0;
 
-  // Gets the currently set codecs/payload types to be used for outgoing media.
-  virtual absl::optional<Codec> GetSendCodec() const = 0;
-
   // Creates a new outgoing media stream with SSRCs and CNAME as described
   // by sp.
   virtual bool AddSendStream(const StreamParams& sp) = 0;
@@ -254,7 +253,7 @@ class MediaSendChannelInterface {
       absl::AnyInvocable<void()> callback) = 0;
 };
 
-class MediaReceiveChannelInterface {
+class MediaReceiveChannelInterface : public Delayable {
  public:
   virtual ~MediaReceiveChannelInterface() = default;
 
@@ -306,16 +305,6 @@ class MediaReceiveChannelInterface {
       uint32_t ssrc,
       rtc::scoped_refptr<webrtc::FrameTransformerInterface>
           frame_transformer) = 0;
-
-  // Set base minimum delay of the receive stream with specified ssrc.
-  // Base minimum delay sets lower bound on minimum delay value which
-  // determines minimum delay until audio playout.
-  // Returns false if there is no stream with given ssrc.
-  virtual bool SetBaseMinimumPlayoutDelayMs(uint32_t ssrc, int delay_ms) = 0;
-
-  // Returns current value of base minimum delay in milliseconds.
-  virtual absl::optional<int> GetBaseMinimumPlayoutDelayMs(
-      uint32_t ssrc) const = 0;
 };
 
 // The stats information is structured as follows:
@@ -466,12 +455,6 @@ struct MediaReceiverInfo {
   absl::optional<int> codec_payload_type;
   std::vector<SsrcReceiverInfo> local_stats;
   std::vector<SsrcSenderInfo> remote_stats;
-  // https://w3c.github.io/webrtc-stats/#dom-rtcinboundrtpstreamstats-fecpacketsreceived
-  absl::optional<uint64_t> fec_packets_received;
-  // https://w3c.github.io/webrtc-stats/#dom-rtcinboundrtpstreamstats-fecpacketsdiscarded
-  absl::optional<uint64_t> fec_packets_discarded;
-  // https://w3c.github.io/webrtc-stats/#dom-rtcinboundrtpstreamstats-fecbytesreceived
-  absl::optional<uint64_t> fec_bytes_received;
 };
 
 struct VoiceSenderInfo : public MediaSenderInfo {
@@ -506,6 +489,8 @@ struct VoiceReceiverInfo : public MediaReceiverInfo {
   uint64_t concealment_events = 0;
   uint64_t inserted_samples_for_deceleration = 0;
   uint64_t removed_samples_for_acceleration = 0;
+  uint64_t fec_packets_received = 0;
+  uint64_t fec_packets_discarded = 0;
   // Stats below correspond to similarly-named fields in the WebRTC stats spec.
   // https://w3c.github.io/webrtc-stats/#dom-rtcreceivedrtpstreamstats
   uint64_t packets_discarded = 0;
@@ -563,7 +548,7 @@ struct VideoSenderInfo : public MediaSenderInfo {
   VideoSenderInfo();
   ~VideoSenderInfo();
   std::vector<SsrcGroup> ssrc_groups;
-  absl::optional<std::string> encoder_implementation_name;
+  std::string encoder_implementation_name;
   int firs_received = 0;
   int plis_received = 0;
   int send_frame_width = 0;
@@ -607,7 +592,7 @@ struct VideoReceiverInfo : public MediaReceiverInfo {
   VideoReceiverInfo();
   ~VideoReceiverInfo();
   std::vector<SsrcGroup> ssrc_groups;
-  absl::optional<std::string> decoder_implementation_name;
+  std::string decoder_implementation_name;
   absl::optional<bool> power_efficient_decoder;
   int packets_concealed = 0;
   int firs_sent = 0;
@@ -788,7 +773,7 @@ struct VideoMediaInfo {
     send_codecs.clear();
     receive_codecs.clear();
   }
-  // Each sender info represents one "outbound-rtp" stream. In non-simulcast,
+  // Each sender info represents one "outbound-rtp" stream.In non - simulcast,
   // this means one info per RtpSender but if simulcast is used this means
   // one info per simulcast layer.
   std::vector<VideoSenderInfo> senders;
@@ -807,8 +792,9 @@ struct RtcpParameters {
   bool remote_estimate = false;
 };
 
-struct MediaChannelParameters {
-  virtual ~MediaChannelParameters() = default;
+template <class Codec>
+struct RtpParameters {
+  virtual ~RtpParameters() = default;
 
   std::vector<Codec> codecs;
   std::vector<webrtc::RtpExtension> extensions;
@@ -838,7 +824,10 @@ struct MediaChannelParameters {
   }
 };
 
-struct SenderParameters : MediaChannelParameters {
+// TODO(deadbeef): Rename to RtpSenderParameters, since they're intended to
+// encapsulate all the parameters needed for an RtpSender.
+template <class Codec>
+struct RtpSendParameters : RtpParameters<Codec> {
   int max_bandwidth_bps = -1;
   // This is the value to be sent in the MID RTP header extension (if the header
   // extension in included in the list of extensions).
@@ -847,7 +836,7 @@ struct SenderParameters : MediaChannelParameters {
 
  protected:
   std::map<std::string, std::string> ToStringMap() const override {
-    auto params = MediaChannelParameters::ToStringMap();
+    auto params = RtpParameters<Codec>::ToStringMap();
     params["max_bandwidth_bps"] = rtc::ToString(max_bandwidth_bps);
     params["mid"] = (mid.empty() ? "<not set>" : mid);
     params["extmap-allow-mixed"] = extmap_allow_mixed ? "true" : "false";
@@ -855,20 +844,20 @@ struct SenderParameters : MediaChannelParameters {
   }
 };
 
-struct AudioSenderParameter : SenderParameters {
-  AudioSenderParameter();
-  ~AudioSenderParameter() override;
+struct AudioSendParameters : RtpSendParameters<AudioCodec> {
+  AudioSendParameters();
+  ~AudioSendParameters() override;
   AudioOptions options;
 
  protected:
   std::map<std::string, std::string> ToStringMap() const override;
 };
 
-struct AudioReceiverParameters : MediaChannelParameters {};
+struct AudioRecvParameters : RtpParameters<AudioCodec> {};
 
 class VoiceMediaSendChannelInterface : public MediaSendChannelInterface {
  public:
-  virtual bool SetSendParameters(const AudioSenderParameter& params) = 0;
+  virtual bool SetSendParameters(const AudioSendParameters& params) = 0;
   // Starts or stops sending (and potentially capture) of local audio.
   virtual void SetSend(bool send) = 0;
   // Configure stream for sending.
@@ -890,7 +879,7 @@ class VoiceMediaSendChannelInterface : public MediaSendChannelInterface {
 
 class VoiceMediaReceiveChannelInterface : public MediaReceiveChannelInterface {
  public:
-  virtual bool SetRecvParameters(const AudioReceiverParameters& params) = 0;
+  virtual bool SetRecvParameters(const AudioRecvParameters& params) = 0;
   // Get the receive parameters for the incoming stream identified by `ssrc`.
   virtual webrtc::RtpParameters GetRtpReceiveParameters(
       uint32_t ssrc) const = 0;
@@ -914,9 +903,11 @@ class VoiceMediaReceiveChannelInterface : public MediaReceiveChannelInterface {
   virtual void SetReceiveNonSenderRttEnabled(bool enabled) = 0;
 };
 
-struct VideoSenderParameters : SenderParameters {
-  VideoSenderParameters();
-  ~VideoSenderParameters() override;
+// TODO(deadbeef): Rename to VideoSenderParameters, since they're intended to
+// encapsulate all the parameters needed for a video RtpSender.
+struct VideoSendParameters : RtpSendParameters<VideoCodec> {
+  VideoSendParameters();
+  ~VideoSendParameters() override;
   // Use conference mode? This flag comes from the remote
   // description's SDP line 'a=x-google-flag:conference', copied over
   // by VideoChannel::SetRemoteContent_w, and ultimately used by
@@ -929,11 +920,15 @@ struct VideoSenderParameters : SenderParameters {
   std::map<std::string, std::string> ToStringMap() const override;
 };
 
-struct VideoReceiverParameters : MediaChannelParameters {};
+// TODO(deadbeef): Rename to VideoReceiverParameters, since they're intended to
+// encapsulate all the parameters needed for a video RtpReceiver.
+struct VideoRecvParameters : RtpParameters<VideoCodec> {};
 
 class VideoMediaSendChannelInterface : public MediaSendChannelInterface {
  public:
-  virtual bool SetSendParameters(const VideoSenderParameters& params) = 0;
+  virtual bool SetSendParameters(const VideoSendParameters& params) = 0;
+  // Gets the currently set codecs/payload types to be used for outgoing media.
+  virtual absl::optional<VideoCodec> GetSendCodec() = 0;
   // Starts or stops transmission (and potentially capture) of local video.
   virtual bool SetSend(bool send) = 0;
   // Configure stream for sending and register a source.
@@ -948,14 +943,6 @@ class VideoMediaSendChannelInterface : public MediaSendChannelInterface {
   // Enable network condition based codec switching.
   virtual void SetVideoCodecSwitchingEnabled(bool enabled) = 0;
   virtual bool GetStats(VideoMediaSendInfo* stats) = 0;
-  // This fills the "bitrate parts" (rtx, video bitrate) of the
-  // BandwidthEstimationInfo, since that part that isn't possible to get
-  // through webrtc::Call::GetStats, as they are statistics of the send
-  // streams.
-  // TODO(holmer): We should change this so that either BWE graphs doesn't
-  // need access to bitrates of the streams, or change the (RTC)StatsCollector
-  // so that it's getting the send stream stats separately by calling
-  // GetStats(), and merges with BandwidthEstimationInfo by itself.
   virtual void FillBitrateInfo(BandwidthEstimationInfo* bwe_info) = 0;
   // Information queries to support SetReceiverFeedbackParameters
   virtual webrtc::RtcpMode SendCodecRtcpMode() const = 0;
@@ -965,7 +952,7 @@ class VideoMediaSendChannelInterface : public MediaSendChannelInterface {
 
 class VideoMediaReceiveChannelInterface : public MediaReceiveChannelInterface {
  public:
-  virtual bool SetRecvParameters(const VideoReceiverParameters& params) = 0;
+  virtual bool SetRecvParameters(const VideoRecvParameters& params) = 0;
   // Get the receive parameters for the incoming stream identified by `ssrc`.
   virtual webrtc::RtpParameters GetRtpReceiveParameters(
       uint32_t ssrc) const = 0;

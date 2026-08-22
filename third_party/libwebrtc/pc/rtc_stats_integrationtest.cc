@@ -608,16 +608,10 @@ class RTCStatsReportVerifier {
           inbound_stream.fec_packets_received);
       verifier.TestMemberIsNonNegative<uint64_t>(
           inbound_stream.fec_packets_discarded);
-      verifier.TestMemberIsUndefined(inbound_stream.fec_bytes_received);
     } else {
       verifier.TestMemberIsUndefined(inbound_stream.packets_discarded);
-      // FEC stats are only present when FlexFEC was negotiated which is guarded
-      // by the WebRTC-FlexFEC-03-Advertised/Enabled/ field trial and off by
-      // default.
-      verifier.TestMemberIsUndefined(inbound_stream.fec_bytes_received);
       verifier.TestMemberIsUndefined(inbound_stream.fec_packets_received);
       verifier.TestMemberIsUndefined(inbound_stream.fec_packets_discarded);
-      verifier.TestMemberIsUndefined(inbound_stream.fec_ssrc);
     }
     verifier.TestMemberIsNonNegative<uint64_t>(inbound_stream.bytes_received);
     verifier.TestMemberIsNonNegative<uint64_t>(
@@ -694,14 +688,11 @@ class RTCStatsReportVerifier {
           inbound_stream.retransmitted_packets_received);
       verifier.TestMemberIsNonNegative<uint64_t>(
           inbound_stream.retransmitted_bytes_received);
-      verifier.TestMemberIsNonNegative<uint32_t>(inbound_stream.rtx_ssrc);
     } else {
       verifier.TestMemberIsUndefined(
           inbound_stream.retransmitted_packets_received);
       verifier.TestMemberIsUndefined(
           inbound_stream.retransmitted_bytes_received);
-      verifier.TestMemberIsUndefined(inbound_stream.rtx_ssrc);
-      verifier.TestMemberIsUndefined(inbound_stream.fec_ssrc);
     }
 
     // Test runtime too short to get an estimate (at least two RTCP sender
@@ -853,7 +844,6 @@ class RTCStatsReportVerifier {
           outbound_stream.huge_frames_sent);
       verifier.MarkMemberTested(outbound_stream.rid, true);
       verifier.TestMemberIsDefined(outbound_stream.scalability_mode);
-      verifier.TestMemberIsNonNegative<uint32_t>(outbound_stream.rtx_ssrc);
     } else {
       verifier.TestMemberIsUndefined(outbound_stream.frames_encoded);
       verifier.TestMemberIsUndefined(outbound_stream.key_frames_encoded);
@@ -876,7 +866,6 @@ class RTCStatsReportVerifier {
       verifier.TestMemberIsUndefined(outbound_stream.frames_sent);
       verifier.TestMemberIsUndefined(outbound_stream.huge_frames_sent);
       verifier.TestMemberIsUndefined(outbound_stream.scalability_mode);
-      verifier.TestMemberIsUndefined(outbound_stream.rtx_ssrc);
     }
     return verifier.ExpectAllMembersSuccessfullyTested();
   }

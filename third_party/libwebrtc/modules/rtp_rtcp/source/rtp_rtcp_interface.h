@@ -20,7 +20,6 @@
 #include "api/field_trials_view.h"
 #include "api/frame_transformer_interface.h"
 #include "api/scoped_refptr.h"
-#include "api/units/time_delta.h"
 #include "api/video/video_bitrate_allocation.h"
 #include "modules/rtp_rtcp/include/receive_statistics.h"
 #include "modules/rtp_rtcp/include/report_block_data.h"
@@ -379,7 +378,7 @@ class RtpRtcpInterface : public RtcpFeedbackSenderInterface {
   virtual absl::optional<TimeDelta> LastRtt() const = 0;
 
   // Returns the estimated RTT, with fallback to a default value.
-  virtual TimeDelta ExpectedRetransmissionTime() const = 0;
+  virtual int64_t ExpectedRetransmissionTimeMs() const = 0;
 
   // Forces a send of a RTCP packet. Periodic SR and RR are triggered via the
   // process function.

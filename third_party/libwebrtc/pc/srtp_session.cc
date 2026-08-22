@@ -133,32 +133,32 @@ SrtpSession::~SrtpSession() {
   }
 }
 
-bool SrtpSession::SetSend(int crypto_suite,
+bool SrtpSession::SetSend(int cs,
                           const uint8_t* key,
                           size_t len,
                           const std::vector<int>& extension_ids) {
-  return SetKey(ssrc_any_outbound, crypto_suite, key, len, extension_ids);
+  return SetKey(ssrc_any_outbound, cs, key, len, extension_ids);
 }
 
-bool SrtpSession::UpdateSend(int crypto_suite,
+bool SrtpSession::UpdateSend(int cs,
                              const uint8_t* key,
                              size_t len,
                              const std::vector<int>& extension_ids) {
-  return UpdateKey(ssrc_any_outbound, crypto_suite, key, len, extension_ids);
+  return UpdateKey(ssrc_any_outbound, cs, key, len, extension_ids);
 }
 
-bool SrtpSession::SetRecv(int crypto_suite,
+bool SrtpSession::SetRecv(int cs,
                           const uint8_t* key,
                           size_t len,
                           const std::vector<int>& extension_ids) {
-  return SetKey(ssrc_any_inbound, crypto_suite, key, len, extension_ids);
+  return SetKey(ssrc_any_inbound, cs, key, len, extension_ids);
 }
 
-bool SrtpSession::UpdateRecv(int crypto_suite,
+bool SrtpSession::UpdateRecv(int cs,
                              const uint8_t* key,
                              size_t len,
                              const std::vector<int>& extension_ids) {
-  return UpdateKey(ssrc_any_inbound, crypto_suite, key, len, extension_ids);
+  return UpdateKey(ssrc_any_inbound, cs, key, len, extension_ids);
 }
 
 bool SrtpSession::ProtectRtp(void* p, int in_len, int max_len, int* out_len) {
@@ -349,7 +349,7 @@ bool SrtpSession::GetSendStreamPacketIndex(void* p,
 }
 
 bool SrtpSession::DoSetKey(int type,
-                           int crypto_suite,
+                           int cs,
                            const uint8_t* key,
                            size_t len,
                            const std::vector<int>& extension_ids) {
@@ -358,13 +358,11 @@ bool SrtpSession::DoSetKey(int type,
   srtp_policy_t policy;
   memset(&policy, 0, sizeof(policy));
   if (!(srtp_crypto_policy_set_from_profile_for_rtp(
-            &policy.rtp, (srtp_profile_t)crypto_suite) == srtp_err_status_ok &&
+            &policy.rtp, (srtp_profile_t)cs) == srtp_err_status_ok &&
         srtp_crypto_policy_set_from_profile_for_rtcp(
-            &policy.rtcp, (srtp_profile_t)crypto_suite) ==
-            srtp_err_status_ok)) {
+            &policy.rtcp, (srtp_profile_t)cs) == srtp_err_status_ok)) {
     RTC_LOG(LS_ERROR) << "Failed to " << (session_ ? "update" : "create")
-                      << " SRTP session: unsupported cipher_suite "
-                      << crypto_suite;
+                      << " SRTP session: unsupported cipher_suite " << cs;
     return false;
   }
 
@@ -387,7 +385,7 @@ bool SrtpSession::DoSetKey(int type,
   // Enable external HMAC authentication only for outgoing streams and only
   // for cipher suites that support it (i.e. only non-GCM cipher suites).
   if (type == ssrc_any_outbound && IsExternalAuthEnabled() &&
-      !rtc::IsGcmCryptoSuite(crypto_suite)) {
+      !rtc::IsGcmCryptoSuite(cs)) {
     policy.rtp.auth_type = EXTERNAL_HMAC_SHA1;
   }
   if (!extension_ids.empty()) {
@@ -419,7 +417,7 @@ bool SrtpSession::DoSetKey(int type,
 }
 
 bool SrtpSession::SetKey(int type,
-                         int crypto_suite,
+                         int cs,
                          const uint8_t* key,
                          size_t len,
                          const std::vector<int>& extension_ids) {
@@ -439,11 +437,11 @@ bool SrtpSession::SetKey(int type,
     return false;
   }
 
-  return DoSetKey(type, crypto_suite, key, len, extension_ids);
+  return DoSetKey(type, cs, key, len, extension_ids);
 }
 
 bool SrtpSession::UpdateKey(int type,
-                            int crypto_suite,
+                            int cs,
                             const uint8_t* key,
                             size_t len,
                             const std::vector<int>& extension_ids) {
@@ -453,7 +451,7 @@ bool SrtpSession::UpdateKey(int type,
     return false;
   }
 
-  return DoSetKey(type, crypto_suite, key, len, extension_ids);
+  return DoSetKey(type, cs, key, len, extension_ids);
 }
 
 void ProhibitLibsrtpInitialization() {

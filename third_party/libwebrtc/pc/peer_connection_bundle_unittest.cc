@@ -730,48 +730,16 @@ TEST_P(PeerConnectionBundleTest, BundleOnFirstMidInAnswer) {
 }
 
 // This tests that applying description with conflicted RTP demuxing criteria
-// will fail when using BUNDLE.
-TEST_P(PeerConnectionBundleTest, ApplyDescriptionWithSameSsrcsBundledFails) {
-  auto caller = CreatePeerConnectionWithAudioVideo();
-  auto callee = CreatePeerConnectionWithAudioVideo();
-
-  RTCOfferAnswerOptions options;
-  options.use_rtp_mux = true;
-  auto offer = caller->CreateOffer(options);
-  EXPECT_TRUE(
-      caller->SetLocalDescription(CloneSessionDescription(offer.get())));
-  // Modify the remote SDP to make two m= sections have the same SSRC.
-  ASSERT_GE(offer->description()->contents().size(), 2U);
-  offer->description()
-      ->contents()[0]
-      .media_description()
-      ->mutable_streams()[0]
-      .ssrcs[0] = 1111222;
-  offer->description()
-      ->contents()[1]
-      .media_description()
-      ->mutable_streams()[0]
-      .ssrcs[0] = 1111222;
-  EXPECT_TRUE(callee->SetRemoteDescription(std::move(offer)));
-
-  // When BUNDLE is enabled, applying the description is expected to fail
-  // because the demuxing criteria can not be satisfied.
-  auto answer = callee->CreateAnswer(options);
-  EXPECT_FALSE(callee->SetLocalDescription(std::move(answer)));
-}
-
-// A variant of the above, without BUNDLE duplicate SSRCs are allowed.
+// will fail.
 TEST_P(PeerConnectionBundleTest,
-       ApplyDescriptionWithSameSsrcsUnbundledSucceeds) {
+       ApplyDescriptionWithConflictedDemuxCriteriaFail) {
   auto caller = CreatePeerConnectionWithAudioVideo();
   auto callee = CreatePeerConnectionWithAudioVideo();
 
   RTCOfferAnswerOptions options;
   options.use_rtp_mux = false;
   auto offer = caller->CreateOffer(options);
-  EXPECT_TRUE(
-      caller->SetLocalDescription(CloneSessionDescription(offer.get())));
-  // Modify the remote SDP to make two m= sections have the same SSRC.
+  // Modified the SDP to make two m= sections have the same SSRC.
   ASSERT_GE(offer->description()->contents().size(), 2U);
   offer->description()
       ->contents()[0]
@@ -783,11 +751,20 @@ TEST_P(PeerConnectionBundleTest,
       .media_description()
       ->mutable_streams()[0]
       .ssrcs[0] = 1111222;
+  EXPECT_TRUE(
+      caller->SetLocalDescription(CloneSessionDescription(offer.get())));
   EXPECT_TRUE(callee->SetRemoteDescription(std::move(offer)));
+  EXPECT_TRUE(callee->CreateAnswerAndSetAsLocal(options));
 
-  // Without BUNDLE, demuxing is done per-transport.
+  // Enable BUNDLE in subsequent offer/answer exchange and two m= sections are
+  // expectd to use one RtpTransport underneath.
+  options.use_rtp_mux = true;
+  EXPECT_TRUE(
+      callee->SetRemoteDescription(caller->CreateOfferAndSetAsLocal(options)));
   auto answer = callee->CreateAnswer(options);
-  EXPECT_TRUE(callee->SetLocalDescription(std::move(answer)));
+  // When BUNDLE is enabled, applying the description is expected to fail
+  // because the demuxing criteria is conflicted.
+  EXPECT_FALSE(callee->SetLocalDescription(std::move(answer)));
 }
 
 // This tests that changing the pre-negotiated BUNDLE tag is not supported.

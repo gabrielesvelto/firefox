@@ -22,19 +22,20 @@ TransportAdapter::TransportAdapter(Transport* transport)
 
 TransportAdapter::~TransportAdapter() = default;
 
-bool TransportAdapter::SendRtp(rtc::ArrayView<const uint8_t> packet,
+bool TransportAdapter::SendRtp(const uint8_t* packet,
+                               size_t length,
                                const PacketOptions& options) {
   if (!enabled_.load())
     return false;
 
-  return transport_->SendRtp(packet, options);
+  return transport_->SendRtp(packet, length, options);
 }
 
-bool TransportAdapter::SendRtcp(rtc::ArrayView<const uint8_t> packet) {
+bool TransportAdapter::SendRtcp(const uint8_t* packet, size_t length) {
   if (!enabled_.load())
     return false;
 
-  return transport_->SendRtcp(packet);
+  return transport_->SendRtcp(packet, length);
 }
 
 void TransportAdapter::Enable() {

@@ -25,7 +25,6 @@
 #include "modules/video_coding/include/video_error_codes.h"
 #include "rtc_base/checks.h"
 #include "rtc_base/logging.h"
-#include "rtc_base/string_encode.h"
 #include "rtc_base/trace_event.h"
 #include "system_wrappers/include/clock.h"
 
@@ -303,14 +302,8 @@ int32_t VCMGenericDecoder::Decode(const VCMEncodedFrame& frame, Timestamp now) {
     _callback->OnDecoderInfoChanged(std::move(decoder_info));
   }
   if (ret < WEBRTC_VIDEO_CODEC_OK) {
-    const absl::optional<uint32_t> ssrc =
-        !frame_info.packet_infos.empty()
-            ? absl::make_optional(frame_info.packet_infos[0].ssrc())
-            : absl::nullopt;
     RTC_LOG(LS_WARNING) << "Failed to decode frame with timestamp "
-                        << frame.Timestamp() << ", ssrc "
-                        << (ssrc ? rtc::ToString(*ssrc) : "<not set>")
-                        << ", error code: " << ret;
+                        << frame.Timestamp() << ", error code: " << ret;
     _callback->ClearTimestampMap();
   } else if (ret == WEBRTC_VIDEO_CODEC_NO_OUTPUT) {
     // No output.

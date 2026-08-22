@@ -37,7 +37,7 @@ void DefaultVideoQualityAnalyzerCpuMeasurer::StopExcludingCpuThreadTime() {
   cpu_time_ -= rtc::GetThreadCpuTimeNanos();
 }
 
-double DefaultVideoQualityAnalyzerCpuMeasurer::GetCpuUsagePercent() const {
+double DefaultVideoQualityAnalyzerCpuMeasurer::GetCpuUsagePercent() {
   MutexLock lock(&mutex_);
   return static_cast<double>(cpu_time_) / wallclock_time_ * 100.0;
 }

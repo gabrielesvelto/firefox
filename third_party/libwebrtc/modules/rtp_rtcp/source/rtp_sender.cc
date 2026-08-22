@@ -514,8 +514,15 @@ size_t RTPSender::ExpectedPerPacketOverhead() const {
 
 std::unique_ptr<RtpPacketToSend> RTPSender::AllocatePacket() const {
   MutexLock lock(&send_mutex_);
-  auto packet = std::make_unique<RtpPacketToSend>(&rtp_header_extension_map_,
-                                                  max_packet_size_);
+  // TODO(danilchap): Find better motivator and value for extra capacity.
+  // RtpPacketizer might slightly miscalulate needed size,
+  // SRTP may benefit from extra space in the buffer and do encryption in place
+  // saving reallocation.
+  // While sending slightly oversized packet increase chance of dropped packet,
+  // it is better than crash on drop packet without trying to send it.
+  static constexpr int kExtraCapacity = 16;
+  auto packet = std::make_unique<RtpPacketToSend>(
+      &rtp_header_extension_map_, max_packet_size_ + kExtraCapacity);
   packet->SetSsrc(ssrc_);
   packet->SetCsrcs(csrcs_);
 
@@ -722,7 +729,8 @@ std::unique_ptr<RtpPacketToSend> RTPSender::BuildRtxPacket(
 
   uint8_t* rtx_payload =
       rtx_packet->AllocatePayload(packet.payload_size() + kRtxHeaderSize);
-  RTC_CHECK(rtx_payload);
+  if (rtx_payload == nullptr)
+    return nullptr;
 
   // Add OSN (original sequence number).
   ByteWriter<uint16_t>::WriteBigEndian(rtx_payload, packet.SequenceNumber());

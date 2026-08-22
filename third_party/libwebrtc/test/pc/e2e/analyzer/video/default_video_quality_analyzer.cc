@@ -1335,7 +1335,7 @@ std::string DefaultVideoQualityAnalyzer::GetStreamLabelInternal(
   RTC_CHECK(false) << "Unknown frame_id=" << frame_id;
 }
 
-double DefaultVideoQualityAnalyzer::GetCpuUsagePercent() const {
+double DefaultVideoQualityAnalyzer::GetCpuUsagePercent() {
   return cpu_measurer_.GetCpuUsagePercent();
 }
 

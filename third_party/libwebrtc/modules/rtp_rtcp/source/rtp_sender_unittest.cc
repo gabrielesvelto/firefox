@@ -66,8 +66,8 @@ const uint32_t kRtxSsrc = 12345;
 const uint32_t kFlexFecSsrc = 45678;
 const uint64_t kStartTime = 123456789;
 const uint8_t kPayloadData[] = {47, 11, 32, 93, 89};
-constexpr TimeDelta kDefaultExpectedRetransmissionTime = TimeDelta::Millis(125);
-constexpr uint32_t kTimestampTicksPerMs = 90;  // 90kHz clock.
+const int64_t kDefaultExpectedRetransmissionTimeMs = 125;
+const uint32_t kTimestampTicksPerMs = 90;  // 90kHz clock.
 constexpr absl::string_view kMid = "mid";
 constexpr absl::string_view kRid = "f";
 constexpr bool kMarkerBit = true;
@@ -1340,12 +1340,12 @@ TEST_F(RtpSenderTest, MarksPacketsWithKeyframeStatus) {
         .Times(AtLeast(1));
     RTPVideoHeader video_header;
     video_header.frame_type = VideoFrameType::kVideoFrameKey;
-    Timestamp capture_time = clock_->CurrentTime();
+    int64_t capture_time_ms = clock_->TimeInMilliseconds();
     EXPECT_TRUE(rtp_sender_video.SendVideo(
         kPayloadType, kCodecType,
-        capture_time.ms() * kCaptureTimeMsToRtpTimestamp, capture_time,
+        capture_time_ms * kCaptureTimeMsToRtpTimestamp, capture_time_ms,
         kPayloadData, sizeof(kPayloadData), video_header,
-        kDefaultExpectedRetransmissionTime, {}));
+        kDefaultExpectedRetransmissionTimeMs, {}));
 
     time_controller_.AdvanceTime(TimeDelta::Millis(33));
   }
@@ -1357,12 +1357,12 @@ TEST_F(RtpSenderTest, MarksPacketsWithKeyframeStatus) {
         .Times(AtLeast(1));
     RTPVideoHeader video_header;
     video_header.frame_type = VideoFrameType::kVideoFrameDelta;
-    Timestamp capture_time = clock_->CurrentTime();
+    int64_t capture_time_ms = clock_->TimeInMilliseconds();
     EXPECT_TRUE(rtp_sender_video.SendVideo(
         kPayloadType, kCodecType,
-        capture_time.ms() * kCaptureTimeMsToRtpTimestamp, capture_time,
+        capture_time_ms * kCaptureTimeMsToRtpTimestamp, capture_time_ms,
         kPayloadData, sizeof(kPayloadData), video_header,
-        kDefaultExpectedRetransmissionTime, {}));
+        kDefaultExpectedRetransmissionTimeMs, {}));
 
     time_controller_.AdvanceTime(TimeDelta::Millis(33));
   }

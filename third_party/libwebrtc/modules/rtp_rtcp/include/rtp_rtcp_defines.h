@@ -429,9 +429,9 @@ class SendSideDelayObserver {
 // Remove SendSideDelayObserver once possible.
 class SendPacketObserver {
  public:
-  virtual ~SendPacketObserver() = default;
+  virtual ~SendPacketObserver() {}
   virtual void OnSendPacket(uint16_t packet_id,
-                            Timestamp capture_time,
+                            int64_t capture_time_ms,
                             uint32_t ssrc) = 0;
 };
 

@@ -356,12 +356,10 @@ void FakeNetworkPipe::DeliverNetworkPacket(NetworkPacket* packet) {
       return;
     }
     if (packet->is_rtcp()) {
-      transport->SendRtcp(
-          rtc::MakeArrayView(packet->data(), packet->data_length()));
+      transport->SendRtcp(packet->data(), packet->data_length());
     } else {
-      transport->SendRtp(
-          rtc::MakeArrayView(packet->data(), packet->data_length()),
-          packet->packet_options());
+      transport->SendRtp(packet->data(), packet->data_length(),
+                         packet->packet_options());
     }
   } else if (receiver_) {
     int64_t packet_time_us = packet->packet_time_us().value_or(-1);

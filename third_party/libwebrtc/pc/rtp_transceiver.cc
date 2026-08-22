@@ -25,7 +25,6 @@
 #include "api/rtp_parameters.h"
 #include "api/sequence_checker.h"
 #include "media/base/codec.h"
-#include "media/base/media_channel.h"
 #include "media/base/media_channel_impl.h"
 #include "media/base/media_constants.h"
 #include "media/base/media_engine.h"
@@ -38,11 +37,10 @@
 
 namespace webrtc {
 namespace {
-
-RTCError VerifyCodecPreferences(
-    const std::vector<RtpCodecCapability>& codecs,
-    const std::vector<cricket::Codec>& send_codecs,
-    const std::vector<cricket::Codec>& recv_codecs) {
+template <class T>
+RTCError VerifyCodecPreferences(const std::vector<RtpCodecCapability>& codecs,
+                                const std::vector<T>& send_codecs,
+                                const std::vector<T>& recv_codecs) {
   // If the intersection between codecs and
   // RTCRtpSender.getCapabilities(kind).codecs or the intersection between
   // codecs and RTCRtpReceiver.getCapabilities(kind).codecs only contains RTX,
@@ -54,28 +52,26 @@ RTCError VerifyCodecPreferences(
         return codec.name != cricket::kRtxCodecName &&
                codec.name != cricket::kRedCodecName &&
                codec.name != cricket::kFlexfecCodecName &&
-               absl::c_any_of(recv_codecs,
-                              [&codec](const cricket::Codec& recv_codec) {
-                                return recv_codec.MatchesCapability(codec);
-                              });
+               absl::c_any_of(recv_codecs, [&codec](const T& recv_codec) {
+                 return recv_codec.MatchesCapability(codec);
+               });
       })) {
-    LOG_AND_RETURN_ERROR(RTCErrorType::INVALID_MODIFICATION,
-                         "Invalid codec preferences: Missing codec from recv "
-                         "codec capabilities.");
+    return RTCError(RTCErrorType::INVALID_MODIFICATION,
+                    "Invalid codec preferences: Missing codec from recv "
+                    "codec capabilities.");
   }
 
   if (!absl::c_any_of(codecs, [&send_codecs](const RtpCodecCapability& codec) {
         return codec.name != cricket::kRtxCodecName &&
                codec.name != cricket::kRedCodecName &&
                codec.name != cricket::kFlexfecCodecName &&
-               absl::c_any_of(send_codecs,
-                              [&codec](const cricket::Codec& send_codec) {
-                                return send_codec.MatchesCapability(codec);
-                              });
+               absl::c_any_of(send_codecs, [&codec](const T& send_codec) {
+                 return send_codec.MatchesCapability(codec);
+               });
       })) {
-    LOG_AND_RETURN_ERROR(RTCErrorType::INVALID_MODIFICATION,
-                         "Invalid codec preferences: Missing codec from send "
-                         "codec capabilities.");
+    return RTCError(RTCErrorType::INVALID_MODIFICATION,
+                    "Invalid codec preferences: Missing codec from send "
+                    "codec capabilities.");
   }
 
   // Let codecCapabilities be the union of
@@ -83,18 +79,18 @@ RTCError VerifyCodecPreferences(
   // RTCRtpReceiver.getCapabilities(kind).codecs. For each codec in codecs, If
   // codec is not in codecCapabilities, throw InvalidModificationError.
   for (const auto& codec_preference : codecs) {
-    bool is_recv_codec = absl::c_any_of(
-        recv_codecs, [&codec_preference](const cricket::Codec& codec) {
+    bool is_recv_codec =
+        absl::c_any_of(recv_codecs, [&codec_preference](const T& codec) {
           return codec.MatchesCapability(codec_preference);
         });
 
-    bool is_send_codec = absl::c_any_of(
-        send_codecs, [&codec_preference](const cricket::Codec& codec) {
+    bool is_send_codec =
+        absl::c_any_of(send_codecs, [&codec_preference](const T& codec) {
           return codec.MatchesCapability(codec_preference);
         });
 
     if (!is_recv_codec && !is_send_codec) {
-      LOG_AND_RETURN_ERROR(
+      return RTCError(
           RTCErrorType::INVALID_MODIFICATION,
           std::string("Invalid codec preferences: invalid codec with name \"") +
               codec_preference.name + "\".");
@@ -107,10 +103,9 @@ RTCError VerifyCodecPreferences(
                codec.name == cricket::kRedCodecName ||
                codec.name == cricket::kUlpfecCodecName;
       })) {
-    LOG_AND_RETURN_ERROR(
-        RTCErrorType::INVALID_MODIFICATION,
-        "Invalid codec preferences: codec list must have a non "
-        "RTX, RED or FEC entry.");
+    return RTCError(RTCErrorType::INVALID_MODIFICATION,
+                    "Invalid codec preferences: codec list must have a non "
+                    "RTX, RED or FEC entry.");
   }
 
   return RTCError::OK();
@@ -206,6 +201,8 @@ RTCError RtpTransceiver::CreateChannel(
     return RTCError(RTCErrorType::INTERNAL_ERROR,
                     "No media engine for mid=" + std::string(mid));
   }
+  bool use_split_media_channel =
+      !context()->field_trials().IsDisabled("WebRTC-SplitMediaChannel");
   std::unique_ptr<cricket::ChannelInterface> new_channel;
   if (media_type() == cricket::MEDIA_TYPE_AUDIO) {
     // TODO(bugs.webrtc.org/11992): CreateVideoChannel internally switches to
@@ -221,34 +218,49 @@ RTCError RtpTransceiver::CreateChannel(
 
       AudioCodecPairId codec_pair_id = AudioCodecPairId::Create();
 
-      std::unique_ptr<cricket::VoiceMediaSendChannelInterface>
-          media_send_channel = media_engine()->voice().CreateSendChannel(
-              call_ptr, media_config, audio_options, crypto_options,
-              codec_pair_id);
-      if (!media_send_channel) {
-        // TODO(bugs.webrtc.org/14912): Consider CHECK or reporting failure
-        return;
-      }
-      std::unique_ptr<cricket::VoiceMediaReceiveChannelInterface>
-          media_receive_channel = media_engine()->voice().CreateReceiveChannel(
-              call_ptr, media_config, audio_options, crypto_options,
-              codec_pair_id);
-      if (!media_receive_channel) {
-        return;
-      }
-      // Note that this is safe because both sending and
-      // receiving channels will be deleted at the same time.
-      media_send_channel->SetSsrcListChangedCallback(
-          [receive_channel =
-               media_receive_channel.get()](const std::set<uint32_t>& choices) {
-            receive_channel->ChooseReceiverReportSsrc(choices);
-          });
+      if (use_split_media_channel) {
+        std::unique_ptr<cricket::VoiceMediaChannel> media_send_channel =
+            absl::WrapUnique(media_engine()->voice().CreateMediaChannel(
+                cricket::MediaChannel::Role::kSend, call_ptr, media_config,
+                audio_options, crypto_options, codec_pair_id));
+        if (!media_send_channel) {
+          // TODO(bugs.webrtc.org/14912): Consider CHECK or reporting failure
+          return;
+        }
+        std::unique_ptr<cricket::VoiceMediaChannel> media_receive_channel =
+            absl::WrapUnique(media_engine()->voice().CreateMediaChannel(
+                cricket::MediaChannel::Role::kReceive, call_ptr, media_config,
+                audio_options, crypto_options, codec_pair_id));
+        if (!media_receive_channel) {
+          return;
+        }
+        // Note that this is safe because both sending and
+        // receiving channels will be deleted at the same time.
+        media_send_channel->SetSsrcListChangedCallback(
+            [receive_channel = media_receive_channel.get()](
+                const std::set<uint32_t>& choices) {
+              receive_channel->ChooseReceiverReportSsrc(choices);
+            });
 
-      new_channel = std::make_unique<cricket::VoiceChannel>(
-          context()->worker_thread(), context()->network_thread(),
-          context()->signaling_thread(), std::move(media_send_channel),
-          std::move(media_receive_channel), mid, srtp_required, crypto_options,
-          context()->ssrc_generator());
+        new_channel = std::make_unique<cricket::VoiceChannel>(
+            context()->worker_thread(), context()->network_thread(),
+            context()->signaling_thread(), std::move(media_send_channel),
+            std::move(media_receive_channel), mid, srtp_required,
+            crypto_options, context()->ssrc_generator());
+      } else {
+        cricket::VoiceMediaChannel* media_channel =
+            media_engine()->voice().CreateMediaChannel(
+                cricket::MediaChannel::Role::kBoth, call_ptr, media_config,
+                audio_options, crypto_options, AudioCodecPairId::Create());
+        if (!media_channel) {
+          return;
+        }
+
+        new_channel = std::make_unique<cricket::VoiceChannel>(
+            context()->worker_thread(), context()->network_thread(),
+            context()->signaling_thread(), absl::WrapUnique(media_channel), mid,
+            srtp_required, crypto_options, context()->ssrc_generator());
+      }
     });
   } else {
     RTC_DCHECK_EQ(cricket::MEDIA_TYPE_VIDEO, media_type());
@@ -259,33 +271,51 @@ RTCError RtpTransceiver::CreateChannel(
     context()->worker_thread()->BlockingCall([&] {
       RTC_DCHECK_RUN_ON(context()->worker_thread());
 
-      std::unique_ptr<cricket::VideoMediaSendChannelInterface>
-          media_send_channel = media_engine()->video().CreateSendChannel(
-              call_ptr, media_config, video_options, crypto_options,
-              video_bitrate_allocator_factory);
-      if (!media_send_channel) {
-        return;
-      }
+      if (use_split_media_channel) {
+        std::unique_ptr<cricket::VideoMediaChannel> media_send_channel =
+            absl::WrapUnique(media_engine()->video().CreateMediaChannel(
+                cricket::MediaChannel::Role::kSend, call_ptr, media_config,
+                video_options, crypto_options,
+                video_bitrate_allocator_factory));
+        if (!media_send_channel) {
+          return;
+        }
 
-      std::unique_ptr<cricket::VideoMediaReceiveChannelInterface>
-          media_receive_channel = media_engine()->video().CreateReceiveChannel(
-              call_ptr, media_config, video_options, crypto_options);
-      if (!media_receive_channel) {
-        return;
-      }
-      // Note that this is safe because both sending and
-      // receiving channels will be deleted at the same time.
-      media_send_channel->SetSsrcListChangedCallback(
-          [receive_channel =
-               media_receive_channel.get()](const std::set<uint32_t>& choices) {
-            receive_channel->ChooseReceiverReportSsrc(choices);
-          });
+        std::unique_ptr<cricket::VideoMediaChannel> media_receive_channel =
+            absl::WrapUnique(media_engine()->video().CreateMediaChannel(
+                cricket::MediaChannel::Role::kReceive, call_ptr, media_config,
+                video_options, crypto_options,
+                video_bitrate_allocator_factory));
+        if (!media_receive_channel) {
+          return;
+        }
+        // Note that this is safe because both sending and
+        // receiving channels will be deleted at the same time.
+        media_send_channel->SetSsrcListChangedCallback(
+            [receive_channel = media_receive_channel.get()](
+                const std::set<uint32_t>& choices) {
+              receive_channel->ChooseReceiverReportSsrc(choices);
+            });
 
-      new_channel = std::make_unique<cricket::VideoChannel>(
-          context()->worker_thread(), context()->network_thread(),
-          context()->signaling_thread(), std::move(media_send_channel),
-          std::move(media_receive_channel), mid, srtp_required, crypto_options,
-          context()->ssrc_generator());
+        new_channel = std::make_unique<cricket::VideoChannel>(
+            context()->worker_thread(), context()->network_thread(),
+            context()->signaling_thread(), std::move(media_send_channel),
+            std::move(media_receive_channel), mid, srtp_required,
+            crypto_options, context()->ssrc_generator());
+      } else {
+        cricket::VideoMediaChannel* media_channel =
+            media_engine()->video().CreateMediaChannel(
+                cricket::MediaChannel::Role::kBoth, call_ptr, media_config,
+                video_options, crypto_options, video_bitrate_allocator_factory);
+        if (!media_channel) {
+          return;
+        }
+
+        new_channel = std::make_unique<cricket::VideoChannel>(
+            context()->worker_thread(), context()->network_thread(),
+            context()->signaling_thread(), absl::WrapUnique(media_channel), mid,
+            srtp_required, crypto_options, context()->ssrc_generator());
+      }
     });
   }
   if (!new_channel) {
@@ -684,15 +714,15 @@ RTCError RtpTransceiver::SetCodecPreferences(
   // 6. to 8.
   RTCError result;
   if (media_type_ == cricket::MEDIA_TYPE_AUDIO) {
-    result =
-        VerifyCodecPreferences(codecs, media_engine()->voice().send_codecs(),
-                               media_engine()->voice().recv_codecs());
+    std::vector<cricket::AudioCodec> recv_codecs, send_codecs;
+    send_codecs = media_engine()->voice().send_codecs();
+    recv_codecs = media_engine()->voice().recv_codecs();
+    result = VerifyCodecPreferences(codecs, send_codecs, recv_codecs);
   } else if (media_type_ == cricket::MEDIA_TYPE_VIDEO) {
-    std::vector<cricket::Codec> send_codecs =
-        media_engine()->video().send_codecs(context()->use_rtx());
-    result = VerifyCodecPreferences(
-        codecs, send_codecs,
-        media_engine()->video().recv_codecs(context()->use_rtx()));
+    std::vector<cricket::VideoCodec> recv_codecs, send_codecs;
+    send_codecs = media_engine()->video().send_codecs(context()->use_rtx());
+    recv_codecs = media_engine()->video().recv_codecs(context()->use_rtx());
+    result = VerifyCodecPreferences(codecs, send_codecs, recv_codecs);
 
     if (result.ok()) {
       senders_.front()->internal()->SetVideoCodecPreferences(

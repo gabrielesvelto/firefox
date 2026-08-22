@@ -40,7 +40,8 @@
 
 namespace webrtc {
 namespace {
-constexpr TimeDelta kDefaultExpectedRetransmissionTime = TimeDelta::Millis(125);
+const int64_t kDefaultExpectedRetransmissionTimeMs = 125;
+
 constexpr TimeDelta kRttUpdateInterval = TimeDelta::Millis(1000);
 
 RTCPSender::Configuration AddRtcpSendEvaluationCallback(
@@ -479,17 +480,17 @@ absl::optional<TimeDelta> ModuleRtpRtcpImpl2::LastRtt() const {
   return rtt;
 }
 
-TimeDelta ModuleRtpRtcpImpl2::ExpectedRetransmissionTime() const {
+int64_t ModuleRtpRtcpImpl2::ExpectedRetransmissionTimeMs() const {
   int64_t expected_retransmission_time_ms = rtt_ms();
   if (expected_retransmission_time_ms > 0) {
-    return TimeDelta::Millis(expected_retransmission_time_ms);
+    return expected_retransmission_time_ms;
   }
   // No rtt available (`kRttUpdateInterval` not yet passed?), so try to
   // poll avg_rtt_ms directly from rtcp receiver.
   if (absl::optional<TimeDelta> rtt = rtcp_receiver_.AverageRtt()) {
-    return *rtt;
+    return rtt->ms();
   }
-  return kDefaultExpectedRetransmissionTime;
+  return kDefaultExpectedRetransmissionTimeMs;
 }
 
 // Force a send of an RTCP packet.

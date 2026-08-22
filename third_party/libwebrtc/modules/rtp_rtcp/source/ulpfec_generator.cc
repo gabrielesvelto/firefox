@@ -77,7 +77,7 @@ UlpfecGenerator::UlpfecGenerator(int red_payload_type,
       num_protected_frames_(0),
       min_num_media_packets_(1),
       media_contains_keyframe_(false),
-      fec_bitrate_(/*max_window_size=*/TimeDelta::Seconds(1)) {}
+      fec_bitrate_(/*max_window_size_ms=*/1000, RateStatistics::kBpsScale) {}
 
 // Used by FlexFecSender, payload types are unused.
 UlpfecGenerator::UlpfecGenerator(std::unique_ptr<ForwardErrorCorrection> fec,
@@ -89,7 +89,7 @@ UlpfecGenerator::UlpfecGenerator(std::unique_ptr<ForwardErrorCorrection> fec,
       num_protected_frames_(0),
       min_num_media_packets_(1),
       media_contains_keyframe_(false),
-      fec_bitrate_(/*max_window_size=*/TimeDelta::Seconds(1)) {}
+      fec_bitrate_(/*max_window_size_ms=*/1000, RateStatistics::kBpsScale) {}
 
 UlpfecGenerator::~UlpfecGenerator() = default;
 
@@ -235,14 +235,15 @@ std::vector<std::unique_ptr<RtpPacketToSend>> UlpfecGenerator::GetFecPackets() {
   ResetState();
 
   MutexLock lock(&mutex_);
-  fec_bitrate_.Update(total_fec_size_bytes, clock_->CurrentTime());
+  fec_bitrate_.Update(total_fec_size_bytes, clock_->TimeInMilliseconds());
 
   return fec_packets;
 }
 
 DataRate UlpfecGenerator::CurrentFecRate() const {
   MutexLock lock(&mutex_);
-  return fec_bitrate_.Rate(clock_->CurrentTime()).value_or(DataRate::Zero());
+  return DataRate::BitsPerSec(
+      fec_bitrate_.Rate(clock_->TimeInMilliseconds()).value_or(0));
 }
 
 int UlpfecGenerator::Overhead() const {

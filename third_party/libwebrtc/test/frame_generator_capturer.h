@@ -52,8 +52,8 @@ class FrameGeneratorCapturer : public TestVideoCapturer {
       TaskQueueFactory& task_queue_factory);
   virtual ~FrameGeneratorCapturer();
 
-  void Start() override;
-  void Stop() override;
+  void Start();
+  void Stop();
   void ChangeResolution(size_t width, size_t height);
   void ChangeFramerate(int target_framerate);
 

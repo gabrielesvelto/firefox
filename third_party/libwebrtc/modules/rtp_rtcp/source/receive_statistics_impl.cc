@@ -47,7 +47,8 @@ StreamStatisticianImpl::StreamStatisticianImpl(uint32_t ssrc,
     : ssrc_(ssrc),
       clock_(clock),
       delta_internal_unix_epoch_(UnixEpochDelta(*clock_)),
-      incoming_bitrate_(/*max_window_size=*/kStatisticsProcessInterval),
+      incoming_bitrate_(kStatisticsProcessInterval.ms(),
+                        RateStatistics::kBpsScale),
       max_reordering_threshold_(max_reordering_threshold),
       enable_retransmit_detection_(false),
       cumulative_loss_is_capped_(false),
@@ -116,7 +117,7 @@ void StreamStatisticianImpl::UpdateCounters(const RtpPacketReceived& packet) {
   RTC_DCHECK_EQ(ssrc_, packet.Ssrc());
   Timestamp now = clock_->CurrentTime();
 
-  incoming_bitrate_.Update(packet.size(), now);
+  incoming_bitrate_.Update(packet.size(), now.ms());
   receive_counters_.transmitted.AddPacket(packet);
   --cumulative_loss_;
 
@@ -259,7 +260,7 @@ void StreamStatisticianImpl::MaybeAppendReportBlockAndReset(
 
   int packets_lost = cumulative_loss_ + cumulative_loss_rtcp_offset_;
   if (packets_lost < 0) {
-    // Clamp to zero. Work around to accommodate for senders that misbehave with
+    // Clamp to zero. Work around to accomodate for senders that misbehave with
     // negative cumulative loss.
     packets_lost = 0;
     cumulative_loss_rtcp_offset_ = -cumulative_loss_;
@@ -309,9 +310,7 @@ StreamDataCounters StreamStatisticianImpl::GetReceiveStreamDataCounters()
 }
 
 uint32_t StreamStatisticianImpl::BitrateReceived() const {
-  return incoming_bitrate_.Rate(clock_->CurrentTime())
-      .value_or(DataRate::Zero())
-      .bps<uint32_t>();
+  return incoming_bitrate_.Rate(clock_->TimeInMilliseconds()).value_or(0);
 }
 
 bool StreamStatisticianImpl::IsRetransmitOfOldPacket(
@@ -319,7 +318,7 @@ bool StreamStatisticianImpl::IsRetransmitOfOldPacket(
     Timestamp now) const {
   int frequency_hz = packet.payload_type_frequency();
   RTC_DCHECK(last_receive_time_.has_value());
-  RTC_CHECK_GT(frequency_hz, 0);
+  RTC_DCHECK_GT(frequency_hz, 0);
   TimeDelta time_diff = now - *last_receive_time_;
 
   // Diff in time stamp since last received in order.

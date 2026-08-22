@@ -23,7 +23,7 @@ CopyOnWriteBuffer::CopyOnWriteBuffer() : offset_(0), size_(0) {
 CopyOnWriteBuffer::CopyOnWriteBuffer(const CopyOnWriteBuffer& buf)
     : buffer_(buf.buffer_), offset_(buf.offset_), size_(buf.size_) {}
 
-CopyOnWriteBuffer::CopyOnWriteBuffer(CopyOnWriteBuffer&& buf) noexcept
+CopyOnWriteBuffer::CopyOnWriteBuffer(CopyOnWriteBuffer&& buf)
     : buffer_(std::move(buf.buffer_)), offset_(buf.offset_), size_(buf.size_) {
   buf.offset_ = 0;
   buf.size_ = 0;

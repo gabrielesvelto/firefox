@@ -29,7 +29,7 @@ class MockSctpDataChannel : public SctpDataChannel {
                             id,
                             "MockSctpDataChannel",
                             state,
-                            "someProtocol",
+                            "udp",
                             0,
                             0,
                             0,

@@ -22,10 +22,9 @@ Anyone with a [Google account][1] can file bugs in the Chrome and WebRTC tracker
 * Identify which bug tracker to use:
 
   * If you're hitting a problem in Chrome, file the bug using the
-    [the Chromium issue wizard](https://crbug.com/new)
+    [the Chromium issue wizard](https://chromiumbugs.appspot.com/?token=0)
     Choose "Web Developer" and "API", then fill out the form. For the component choose
     * Blink>GetUserMedia for camera/microphone issues
-    * Blink>GetDisplayMedia for screen capture issues
     * Blink>MediaRecording for issues with the MediaRecorder API
     * Blink>WebRTC for issues with the RTCPeerConnection API
     This ensures the right people will look at your bug.
@@ -52,10 +51,10 @@ Anyone with a [Google account][1] can file bugs in the Chrome and WebRTC tracker
 
   * Camera and microphone model and version (if applicable)
 
-    * Try reproducing with the minimal samples at
-      https://webrtc.github.io/samples/src/content/getusermedia/audio/
-      and
-      https://webrtc.github.io/samples/src/content/getusermedia/gum/
+    * For Chrome audio and video device issues, please run the tests at
+      <https://test.webrtc.org>. After the tests finish running, click the bug
+      icon at the top, download the report, and attach the report to the issue
+      tracker.
 
   * Web site URL
 
@@ -77,19 +76,17 @@ Anyone with a [Google account][1] can file bugs in the Chrome and WebRTC tracker
   * For **connectivity** issues on Chrome, ensure **chrome://webrtc-internals**
     is open in another tab before starting the call and while the call is in progress,
 
-    * expand the **Create a WebRTC-Internals dump** section,
+    * expand the **Create Dump** section,
 
-    * click the **Download the webrtc-internals dump** button.
+    * click the **Download the PeerConnection updates and stats data** button.
       You will be prompted to save the dump to your local machine. Please
-      attach that dump to the bug report. You can inspect the dump and
-      remove any information you consider personally identifiable such as
-      IP addresses.
+      attach that dump to the bug report.
 
   * For **audio quality** issues on Chrome, while the call is in progress,
 
     * please open **chrome://webrtc-internals** in another tab,
 
-    * expand the **Create a WebRTC-Internals dump** section,
+    * expand the **Create Dump** section,
 
     * fill in the **Enable diagnostic audio recordings** checkbox. You will be
       prompted to save the recording to your local machine. After ending the

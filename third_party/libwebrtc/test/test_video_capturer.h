@@ -49,13 +49,6 @@ class TestVideoCapturer : public rtc::VideoSourceInterface<VideoFrame> {
                              int height,
                              const absl::optional<int>& max_fps);
 
-  // Starts or resumes video capturing. Can be called multiple times during
-  // lifetime of this object.
-  virtual void Start() = 0;
-  // Stops or pauses video capturing. Can be called multiple times during
-  // lifetime of this object.
-  virtual void Stop() = 0;
-
   virtual int GetFrameWidth() const = 0;
   virtual int GetFrameHeight() const = 0;
 
@@ -69,7 +62,7 @@ class TestVideoCapturer : public rtc::VideoSourceInterface<VideoFrame> {
 
   Mutex lock_;
   std::unique_ptr<FramePreprocessor> preprocessor_ RTC_GUARDED_BY(lock_);
-  bool enable_adaptation_ RTC_GUARDED_BY(lock_) = true;
+  bool enable_adaptation_ RTC_GUARDED_BY(lock_) = false;
   rtc::VideoBroadcaster broadcaster_;
   cricket::VideoAdapter video_adapter_;
 };

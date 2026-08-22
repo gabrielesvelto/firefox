@@ -23,9 +23,6 @@
 #include "api/units/timestamp.h"
 #include "modules/remote_bitrate_estimator/aimd_rate_control.h"
 #include "modules/remote_bitrate_estimator/include/remote_bitrate_estimator.h"
-#include "modules/remote_bitrate_estimator/inter_arrival.h"
-#include "modules/remote_bitrate_estimator/overuse_detector.h"
-#include "modules/remote_bitrate_estimator/overuse_estimator.h"
 #include "rtc_base/rate_statistics.h"
 
 namespace webrtc {
@@ -46,30 +43,27 @@ class RemoteBitrateEstimatorSingleStream : public RemoteBitrateEstimator {
 
   ~RemoteBitrateEstimatorSingleStream() override;
 
-  void IncomingPacket(const RtpPacketReceived& rtp_packet) override;
+  void IncomingPacket(int64_t arrival_time_ms,
+                      size_t payload_size,
+                      const RTPHeader& header) override;
   TimeDelta Process() override;
   void OnRttUpdate(int64_t avg_rtt_ms, int64_t max_rtt_ms) override;
   void RemoveStream(uint32_t ssrc) override;
   DataRate LatestEstimate() const override;
 
  private:
-  struct Detector {
-    Detector();
+  struct Detector;
 
-    int64_t last_packet_time_ms;
-    InterArrival inter_arrival;
-    OveruseEstimator estimator;
-    OveruseDetector detector;
-  };
+  typedef std::map<uint32_t, Detector*> SsrcOveruseEstimatorMap;
 
   // Triggers a new estimate calculation.
   void UpdateEstimate(int64_t time_now);
 
-  std::vector<uint32_t> GetSsrcs() const;
+  void GetSsrcs(std::vector<uint32_t>* ssrcs) const;
 
   Clock* const clock_;
   const FieldTrialBasedConfig field_trials_;
-  std::map<uint32_t, Detector> overuse_detectors_;
+  SsrcOveruseEstimatorMap overuse_detectors_;
   RateStatistics incoming_bitrate_;
   uint32_t last_valid_incoming_bitrate_;
   AimdRateControl remote_rate_;

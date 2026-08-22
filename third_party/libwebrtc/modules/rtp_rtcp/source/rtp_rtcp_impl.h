@@ -172,7 +172,7 @@ class ABSL_DEPRECATED("") ModuleRtpRtcpImpl
   // Get RoundTripTime.
   absl::optional<TimeDelta> LastRtt() const override;
 
-  TimeDelta ExpectedRetransmissionTime() const override;
+  int64_t ExpectedRetransmissionTimeMs() const override;
 
   // Force a send of an RTCP packet.
   // Normal SR and RR are triggered via the process function.

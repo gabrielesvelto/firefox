@@ -23,8 +23,6 @@
 #include "api/units/timestamp.h"
 #include "modules/remote_bitrate_estimator/include/bwe_defines.h"
 #include "modules/remote_bitrate_estimator/include/remote_bitrate_estimator.h"
-#include "modules/rtp_rtcp/source/rtp_header_extensions.h"
-#include "modules/rtp_rtcp/source/rtp_packet_received.h"
 #include "rtc_base/checks.h"
 #include "rtc_base/logging.h"
 #include "system_wrappers/include/metrics.h"
@@ -210,19 +208,26 @@ bool RemoteBitrateEstimatorAbsSendTime::IsBitrateImproving(
 }
 
 void RemoteBitrateEstimatorAbsSendTime::IncomingPacket(
-    const RtpPacketReceived& rtp_packet) {
-  uint32_t send_time_24bits;
-  if (!rtp_packet.GetExtension<AbsoluteSendTime>(&send_time_24bits)) {
+    int64_t arrival_time_ms,
+    size_t payload_size,
+    const RTPHeader& header) {
+  if (!header.extension.hasAbsoluteSendTime) {
     RTC_LOG(LS_WARNING)
         << "RemoteBitrateEstimatorAbsSendTimeImpl: Incoming packet "
            "is missing absolute send time extension!";
     return;
   }
+  IncomingPacketInfo(Timestamp::Millis(arrival_time_ms),
+                     header.extension.absoluteSendTime,
+                     DataSize::Bytes(payload_size), header.ssrc);
+}
 
-  Timestamp arrival_time = rtp_packet.arrival_time();
-  DataSize payload_size =
-      DataSize::Bytes(rtp_packet.payload_size() + rtp_packet.padding_size());
-
+void RemoteBitrateEstimatorAbsSendTime::IncomingPacketInfo(
+    Timestamp arrival_time,
+    uint32_t send_time_24bits,
+    DataSize payload_size,
+    uint32_t ssrc) {
+  RTC_CHECK(send_time_24bits < (1ul << 24));
   if (!uma_recorded_) {
     RTC_HISTOGRAM_ENUMERATION(kBweTypeHistogram, BweNames::kReceiverAbsSendTime,
                               BweNames::kBweNamesMax);
@@ -265,7 +270,7 @@ void RemoteBitrateEstimatorAbsSendTime::IncomingPacket(
   TimeoutStreams(now);
   RTC_DCHECK(inter_arrival_);
   RTC_DCHECK(estimator_);
-  ssrcs_.insert_or_assign(rtp_packet.Ssrc(), now);
+  ssrcs_.insert_or_assign(ssrc, now);
 
   // For now only try to detect probes while we don't have a valid estimate.
   // We currently assume that only packets larger than 200 bytes are paced by

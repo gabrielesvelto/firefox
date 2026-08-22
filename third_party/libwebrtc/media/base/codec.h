@@ -19,7 +19,6 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
-#include "api/audio_codecs/audio_format.h"
 #include "api/field_trials_view.h"
 #include "api/rtp_parameters.h"
 #include "api/video_codecs/sdp_video_format.h"
@@ -167,14 +166,12 @@ struct RTC_EXPORT Codec {
         int clockrate,
         size_t channels);
 
-  explicit Codec(const webrtc::SdpAudioFormat& c);
   explicit Codec(const webrtc::SdpVideoFormat& c);
 
   friend Codec CreateAudioCodec(int id,
                                 const std::string& name,
                                 int clockrate,
                                 size_t channels);
-  friend Codec CreateAudioCodec(const webrtc::SdpAudioFormat& c);
   friend Codec CreateAudioRtxCodec(int rtx_payload_type,
                                    int associated_payload_type);
   friend Codec CreateVideoCodec(int id, const std::string& name);
@@ -191,7 +188,6 @@ Codec CreateAudioCodec(int id,
                        const std::string& name,
                        int clockrate,
                        size_t channels);
-Codec CreateAudioCodec(const webrtc::SdpAudioFormat& c);
 Codec CreateAudioRtxCodec(int rtx_payload_type, int associated_payload_type);
 Codec CreateVideoCodec(const std::string& name);
 Codec CreateVideoCodec(int id, const std::string& name);

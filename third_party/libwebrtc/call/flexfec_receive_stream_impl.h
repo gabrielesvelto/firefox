@@ -70,10 +70,6 @@ class FlexfecReceiveStreamImpl : public FlexfecReceiveStream {
     rtp_rtcp_->SetRTCPStatus(mode);
   }
 
-  const ReceiveStatistics* GetStats() const override {
-    return rtp_receive_statistics_.get();
-  }
-
  private:
   RTC_NO_UNIQUE_ADDRESS SequenceChecker packet_sequence_checker_;
 

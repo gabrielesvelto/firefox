@@ -45,15 +45,9 @@ class TestVideoCapturerVideoTrackSource : public test::TestVideoTrackSource {
 
   ~TestVideoCapturerVideoTrackSource() = default;
 
-  void Start() override {
-    SetState(kLive);
-    video_capturer_->Start();
-  }
+  void Start() override { SetState(kLive); }
 
-  void Stop() override {
-    SetState(kMuted);
-    video_capturer_->Stop();
-  }
+  void Stop() override { SetState(kMuted); }
 
   int GetFrameWidth() const override {
     return video_capturer_->GetFrameWidth();
