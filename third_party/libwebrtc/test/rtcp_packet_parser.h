@@ -79,7 +79,7 @@ class RtcpPacketParser {
   RtcpPacketParser();
   ~RtcpPacketParser();
 
-  bool Parse(rtc::ArrayView<const uint8_t> packet);
+  bool Parse(const void* packet, size_t packet_len);
 
   PacketCounter<rtcp::App>* app() { return &app_; }
   PacketCounter<rtcp::Bye>* bye() { return &bye_; }

@@ -190,9 +190,9 @@ TEST_F(VideoSendStreamTest, SupportsCName) {
     CNameObserver() : SendTest(test::VideoTestConstants::kDefaultTimeout) {}
 
    private:
-    Action OnSendRtcp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtcp(const uint8_t* packet, size_t length) override {
       test::RtcpPacketParser parser;
-      EXPECT_TRUE(parser.Parse(packet));
+      EXPECT_TRUE(parser.Parse(packet, length));
       if (parser.sdes()->num_packets() > 0) {
         EXPECT_EQ(1u, parser.sdes()->chunks().size());
         EXPECT_EQ(kCName, parser.sdes()->chunks()[0].cname);
@@ -226,9 +226,9 @@ TEST_F(VideoSendStreamTest, SupportsAbsoluteSendTime) {
       extensions_.Register<AbsoluteSendTime>(kAbsSendTimeExtensionId);
     }
 
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
       RtpPacket rtp_packet(&extensions_);
-      EXPECT_TRUE(rtp_packet.Parse(packet));
+      EXPECT_TRUE(rtp_packet.Parse(packet, length));
 
       uint32_t abs_send_time = 0;
       EXPECT_FALSE(rtp_packet.HasExtension<TransmissionOffset>());
@@ -282,9 +282,9 @@ TEST_F(VideoSendStreamTest, SupportsTransmissionTimeOffset) {
     }
 
    private:
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
       RtpPacket rtp_packet(&extensions_);
-      EXPECT_TRUE(rtp_packet.Parse(packet));
+      EXPECT_TRUE(rtp_packet.Parse(packet, length));
 
       int32_t toffset = 0;
       EXPECT_TRUE(rtp_packet.GetExtension<TransmissionOffset>(&toffset));
@@ -330,9 +330,9 @@ TEST_F(VideoSendStreamTest, SupportsTransportWideSequenceNumbers) {
     }
 
    private:
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
       RtpPacket rtp_packet(&extensions_);
-      EXPECT_TRUE(rtp_packet.Parse(packet));
+      EXPECT_TRUE(rtp_packet.Parse(packet, length));
 
       EXPECT_TRUE(rtp_packet.HasExtension<TransportSequenceNumber>());
       EXPECT_FALSE(rtp_packet.HasExtension<TransmissionOffset>());
@@ -369,9 +369,9 @@ TEST_F(VideoSendStreamTest, SupportsVideoRotation) {
       extensions_.Register<VideoOrientation>(kVideoRotationExtensionId);
     }
 
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
       RtpPacket rtp_packet(&extensions_);
-      EXPECT_TRUE(rtp_packet.Parse(packet));
+      EXPECT_TRUE(rtp_packet.Parse(packet, length));
       // Only the last packet of the frame is required to have the extension.
       if (!rtp_packet.Marker())
         return SEND_PACKET;
@@ -415,9 +415,9 @@ TEST_F(VideoSendStreamTest, SupportsVideoContentType) {
           kVideoContentTypeExtensionId);
     }
 
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
       RtpPacket rtp_packet(&extensions_);
-      EXPECT_TRUE(rtp_packet.Parse(packet));
+      EXPECT_TRUE(rtp_packet.Parse(packet, length));
       // Only the last packet of the key-frame must have extension.
       if (!rtp_packet.Marker() || first_frame_sent_)
         return SEND_PACKET;
@@ -461,9 +461,9 @@ TEST_F(VideoSendStreamTest, SupportsVideoTimingFrames) {
       extensions_.Register<VideoTimingExtension>(kVideoTimingExtensionId);
     }
 
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
       RtpPacket rtp_packet(&extensions_);
-      EXPECT_TRUE(rtp_packet.Parse(packet));
+      EXPECT_TRUE(rtp_packet.Parse(packet, length));
       // Only the last packet of the frame must have extension.
       // Also don't check packets of the second frame if they happen to get
       // through before the test terminates.
@@ -545,9 +545,9 @@ class UlpfecObserver : public test::EndToEndTest {
   }
 
  private:
-  Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+  Action OnSendRtp(const uint8_t* packet, size_t length) override {
     RtpPacket rtp_packet(&extensions_);
-    EXPECT_TRUE(rtp_packet.Parse(packet));
+    EXPECT_TRUE(rtp_packet.Parse(packet, length));
 
     int encapsulated_payload_type = -1;
     if (rtp_packet.PayloadType() == test::VideoTestConstants::kRedPayloadType) {
@@ -771,9 +771,9 @@ class FlexfecObserver : public test::EndToEndTest {
   size_t GetNumVideoStreams() const override { return num_video_streams_; }
 
  private:
-  Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+  Action OnSendRtp(const uint8_t* packet, size_t length) override {
     RtpPacket rtp_packet(&extensions_);
-    EXPECT_TRUE(rtp_packet.Parse(packet));
+    EXPECT_TRUE(rtp_packet.Parse(packet, length));
 
     if (rtp_packet.PayloadType() ==
         test::VideoTestConstants::kFlexfecPayloadType) {
@@ -944,9 +944,9 @@ void VideoSendStreamTest::TestNackRetransmission(
           retransmit_payload_type_(retransmit_payload_type) {}
 
    private:
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
       RtpPacket rtp_packet;
-      EXPECT_TRUE(rtp_packet.Parse(packet));
+      EXPECT_TRUE(rtp_packet.Parse(packet, length));
 
       // NACK packets two times at some arbitrary points.
       const int kNackedPacketsAtOnceCount = 3;
@@ -1105,10 +1105,10 @@ void VideoSendStreamTest::TestPacketFragmentationSize(VideoFormat format,
     }
 
    private:
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
-      size_t length = packet.size();
+    Action OnSendRtp(const uint8_t* packet, size_t size) override {
+      size_t length = size;
       RtpPacket rtp_packet;
-      EXPECT_TRUE(rtp_packet.Parse(packet));
+      EXPECT_TRUE(rtp_packet.Parse(packet, length));
 
       EXPECT_LE(length, max_packet_size_);
 
@@ -1325,12 +1325,12 @@ TEST_F(VideoSendStreamTest, NoPaddingWhenVideoIsMuted) {
           capturer_(nullptr) {}
 
    private:
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
       MutexLock lock(&mutex_);
       last_packet_time_ms_ = clock_->TimeInMilliseconds();
 
       RtpPacket rtp_packet;
-      rtp_packet.Parse(packet);
+      rtp_packet.Parse(packet, length);
       const bool only_padding = rtp_packet.payload_size() == 0;
 
       if (test_state_ == kBeforeStopCapture) {
@@ -1353,7 +1353,7 @@ TEST_F(VideoSendStreamTest, NoPaddingWhenVideoIsMuted) {
       return SEND_PACKET;
     }
 
-    Action OnSendRtcp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtcp(const uint8_t* packet, size_t length) override {
       MutexLock lock(&mutex_);
       const int kNoPacketsThresholdMs = 2000;
       if (test_state_ == kWaitingForNoPackets &&
@@ -1420,13 +1420,13 @@ TEST_F(VideoSendStreamTest, PaddingIsPrimarilyRetransmissions) {
       call_ = sender_call;
     }
 
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
       MutexLock lock(&mutex_);
 
       RtpPacket rtp_packet;
-      rtp_packet.Parse(packet);
+      rtp_packet.Parse(packet, length);
       padding_length_ += rtp_packet.padding_size();
-      total_length_ += packet.size();
+      total_length_ += length;
       return SEND_PACKET;
     }
 
@@ -1495,12 +1495,12 @@ TEST_F(VideoSendStreamTest, MinTransmitBitrateRespectsRemb) {
           task_safety_flag_(PendingTaskSafetyFlag::CreateDetached()) {}
 
    private:
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
-      if (IsRtcpPacket(packet))
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
+      if (IsRtcpPacket(rtc::MakeArrayView(packet, length)))
         return DROP_PACKET;
 
       RtpPacket rtp_packet;
-      RTC_CHECK(rtp_packet.Parse(packet));
+      RTC_CHECK(rtp_packet.Parse(packet, length));
       const uint32_t ssrc = rtp_packet.Ssrc();
       RTC_DCHECK(stream_);
 
@@ -1619,7 +1619,7 @@ TEST_F(VideoSendStreamTest, ChangingNetworkRoute) {
           RtpExtension::kTransportSequenceNumberUri, kExtensionId));
     }
 
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
       RTC_DCHECK_RUN_ON(&module_process_thread_);
       task_queue_->PostTask([this]() {
         RTC_DCHECK_RUN_ON(&task_queue_thread_);
@@ -1719,7 +1719,7 @@ TEST_F(VideoSendStreamTest, DISABLED_RelayToDirectRoute) {
       call_ = sender_call;
     }
 
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
       RTC_DCHECK_RUN_ON(&module_process_thread_);
       task_queue_->PostTask([this]() {
         RTC_DCHECK_RUN_ON(&task_queue_thread_);
@@ -1803,8 +1803,8 @@ TEST_F(VideoSendStreamTest, ChangingTransportOverhead) {
       call_ = sender_call;
     }
 
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
-      EXPECT_LE(packet.size(), kMaxRtpPacketSize);
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
+      EXPECT_LE(length, kMaxRtpPacketSize);
       MutexLock lock(&lock_);
       if (++packets_sent_ < 100)
         return SEND_PACKET;
@@ -1911,7 +1911,7 @@ class MaxPaddingSetTest : public test::SendTest {
   }
 
   // Called on the pacer thread.
-  Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+  Action OnSendRtp(const uint8_t* packet, size_t length) override {
     RTC_DCHECK_RUN_ON(&module_process_thread_);
 
     // Check the stats on the correct thread and signal the 'complete' flag
@@ -2570,19 +2570,19 @@ TEST_F(VideoSendStreamTest, RtcpSenderReportContainsMediaBytesSent) {
           media_bytes_sent_(0) {}
 
    private:
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
       MutexLock lock(&mutex_);
       RtpPacket rtp_packet;
-      EXPECT_TRUE(rtp_packet.Parse(packet));
+      EXPECT_TRUE(rtp_packet.Parse(packet, length));
       ++rtp_packets_sent_;
       media_bytes_sent_ += rtp_packet.payload_size();
       return SEND_PACKET;
     }
 
-    Action OnSendRtcp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtcp(const uint8_t* packet, size_t length) override {
       MutexLock lock(&mutex_);
       test::RtcpPacketParser parser;
-      EXPECT_TRUE(parser.Parse(packet));
+      EXPECT_TRUE(parser.Parse(packet, length));
 
       if (parser.sender_report()->num_packets() > 0) {
         // Only compare sent media bytes if SenderPacketCount matches the
@@ -3034,9 +3034,9 @@ class Vp9HeaderObserver : public test::SendTest {
     }
   }
 
-  Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+  Action OnSendRtp(const uint8_t* packet, size_t length) override {
     RtpPacket rtp_packet;
-    EXPECT_TRUE(rtp_packet.Parse(packet));
+    EXPECT_TRUE(rtp_packet.Parse(packet, length));
 
     EXPECT_EQ(kVp9PayloadType, rtp_packet.PayloadType());
     rtc::ArrayView<const uint8_t> rtp_payload = rtp_packet.payload();
@@ -3739,7 +3739,7 @@ TEST_F(VideoSendStreamTest, RemoveOverheadFromBandwidth) {
       EXPECT_FALSE(send_config->rtp.extensions.empty());
     }
 
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
       MutexLock lock(&mutex_);
       first_packet_sent_ = true;
       return SEND_PACKET;
@@ -3922,7 +3922,7 @@ class ContentSwitchTest : public test::SendTest {
     done_ = true;
   }
 
-  Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+  Action OnSendRtp(const uint8_t* packet, size_t length) override {
     task_queue_->PostTask([this]() {
       MutexLock lock(&mutex_);
       if (done_)
@@ -4118,10 +4118,11 @@ void VideoSendStreamTest::TestTemporalLayers(
       int temporal_idx;
     };
 
-    bool ParsePayload(rtc::ArrayView<const uint8_t> packet,
+    bool ParsePayload(const uint8_t* packet,
+                      size_t length,
                       ParsedPacket& parsed) const {
       RtpPacket rtp_packet;
-      EXPECT_TRUE(rtp_packet.Parse(packet));
+      EXPECT_TRUE(rtp_packet.Parse(packet, length));
 
       if (rtp_packet.payload_size() == 0) {
         return false;  // Padding packet.
@@ -4145,9 +4146,9 @@ void VideoSendStreamTest::TestTemporalLayers(
       return true;
     }
 
-    Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+    Action OnSendRtp(const uint8_t* packet, size_t length) override {
       ParsedPacket parsed;
-      if (!ParsePayload(packet, parsed))
+      if (!ParsePayload(packet, length, parsed))
         return SEND_PACKET;
 
       uint32_t ssrc = parsed.ssrc;

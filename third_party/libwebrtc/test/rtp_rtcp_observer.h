@@ -52,19 +52,19 @@ class RtpRtcpObserver {
     return observation_complete_.Wait(timeout_);
   }
 
-  virtual Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) {
+  virtual Action OnSendRtp(const uint8_t* packet, size_t length) {
     return SEND_PACKET;
   }
 
-  virtual Action OnSendRtcp(rtc::ArrayView<const uint8_t> packet) {
+  virtual Action OnSendRtcp(const uint8_t* packet, size_t length) {
     return SEND_PACKET;
   }
 
-  virtual Action OnReceiveRtp(rtc::ArrayView<const uint8_t> packet) {
+  virtual Action OnReceiveRtp(const uint8_t* packet, size_t length) {
     return SEND_PACKET;
   }
 
-  virtual Action OnReceiveRtcp(rtc::ArrayView<const uint8_t> packet) {
+  virtual Action OnReceiveRtcp(const uint8_t* packet, size_t length) {
     return SEND_PACKET;
   }
 
@@ -100,15 +100,16 @@ class PacketTransport : public test::DirectTransport {
         transport_type_(transport_type) {}
 
  private:
-  bool SendRtp(rtc::ArrayView<const uint8_t> packet,
+  bool SendRtp(const uint8_t* packet,
+               size_t length,
                const PacketOptions& options) override {
-    EXPECT_TRUE(IsRtpPacket(packet));
+    EXPECT_TRUE(IsRtpPacket(rtc::MakeArrayView(packet, length)));
     RtpRtcpObserver::Action action = RtpRtcpObserver::SEND_PACKET;
     if (observer_) {
       if (transport_type_ == kSender) {
-        action = observer_->OnSendRtp(packet);
+        action = observer_->OnSendRtp(packet, length);
       } else {
-        action = observer_->OnReceiveRtp(packet);
+        action = observer_->OnReceiveRtp(packet, length);
       }
     }
     switch (action) {
@@ -116,19 +117,19 @@ class PacketTransport : public test::DirectTransport {
         // Drop packet silently.
         return true;
       case RtpRtcpObserver::SEND_PACKET:
-        return test::DirectTransport::SendRtp(packet, options);
+        return test::DirectTransport::SendRtp(packet, length, options);
     }
     return true;  // Will never happen, makes compiler happy.
   }
 
-  bool SendRtcp(rtc::ArrayView<const uint8_t> packet) override {
-    EXPECT_TRUE(IsRtcpPacket(packet));
+  bool SendRtcp(const uint8_t* packet, size_t length) override {
+    EXPECT_TRUE(IsRtcpPacket(rtc::MakeArrayView(packet, length)));
     RtpRtcpObserver::Action action = RtpRtcpObserver::SEND_PACKET;
     if (observer_) {
       if (transport_type_ == kSender) {
-        action = observer_->OnSendRtcp(packet);
+        action = observer_->OnSendRtcp(packet, length);
       } else {
-        action = observer_->OnReceiveRtcp(packet);
+        action = observer_->OnReceiveRtcp(packet, length);
       }
     }
     switch (action) {
@@ -136,7 +137,7 @@ class PacketTransport : public test::DirectTransport {
         // Drop packet silently.
         return true;
       case RtpRtcpObserver::SEND_PACKET:
-        return test::DirectTransport::SendRtcp(packet);
+        return test::DirectTransport::SendRtcp(packet, length);
     }
     return true;  // Will never happen, makes compiler happy.
   }

@@ -665,10 +665,8 @@ bool ForwardErrorCorrection::RecoverPacket(const ReceivedFecPacket& fec_packet,
   return true;
 }
 
-size_t ForwardErrorCorrection::AttemptRecovery(
+void ForwardErrorCorrection::AttemptRecovery(
     RecoveredPacketList* recovered_packets) {
-  size_t num_recovered_packets = 0;
-
   auto fec_packet_it = received_fec_packets_.begin();
   while (fec_packet_it != received_fec_packets_.end()) {
     // Search for each FEC packet's protected media packets.
@@ -684,8 +682,6 @@ size_t ForwardErrorCorrection::AttemptRecovery(
         fec_packet_it = received_fec_packets_.erase(fec_packet_it);
         continue;
       }
-
-      ++num_recovered_packets;
 
       auto* recovered_packet_ptr = recovered_packet.get();
       // Add recovered packet to the list of recovered packets and update any
@@ -712,8 +708,6 @@ size_t ForwardErrorCorrection::AttemptRecovery(
       fec_packet_it++;
     }
   }
-
-  return num_recovered_packets;
 }
 
 int ForwardErrorCorrection::NumCoveredPacketsMissing(
@@ -764,9 +758,8 @@ uint32_t ForwardErrorCorrection::ParseSsrc(const uint8_t* packet) {
   return (packet[8] << 24) + (packet[9] << 16) + (packet[10] << 8) + packet[11];
 }
 
-ForwardErrorCorrection::DecodeFecResult ForwardErrorCorrection::DecodeFec(
-    const ReceivedPacket& received_packet,
-    RecoveredPacketList* recovered_packets) {
+void ForwardErrorCorrection::DecodeFec(const ReceivedPacket& received_packet,
+                                       RecoveredPacketList* recovered_packets) {
   RTC_DCHECK(recovered_packets);
 
   const size_t max_media_packets = fec_header_reader_->MaxMediaPackets();
@@ -789,10 +782,7 @@ ForwardErrorCorrection::DecodeFecResult ForwardErrorCorrection::DecodeFec(
   }
 
   InsertPacket(received_packet, recovered_packets);
-
-  DecodeFecResult decode_result;
-  decode_result.num_recovered_packets = AttemptRecovery(recovered_packets);
-  return decode_result;
+  AttemptRecovery(recovered_packets);
 }
 
 size_t ForwardErrorCorrection::MaxPacketOverhead() const {

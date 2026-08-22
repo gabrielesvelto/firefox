@@ -124,6 +124,7 @@ RTPSenderVideoFrameTransformerDelegate::RTPSenderVideoFrameTransformerDelegate(
     RTPVideoFrameSenderInterface* sender,
     rtc::scoped_refptr<FrameTransformerInterface> frame_transformer,
     uint32_t ssrc,
+    std::vector<uint32_t> csrcs,
     const std::string& rid,
     TaskQueueFactory* task_queue_factory)
     : sender_(sender),
@@ -148,8 +149,7 @@ bool RTPSenderVideoFrameTransformerDelegate::TransformFrame(
     TimeDelta expected_retransmission_time) {
   frame_transformer_->Transform(std::make_unique<TransformableVideoSenderFrame>(
       encoded_image, video_header, payload_type, codec_type, rtp_timestamp,
-      expected_retransmission_time, ssrc_,
-      /*csrcs=*/std::vector<uint32_t>(), rid_));
+      expected_retransmission_time, ssrc_, csrcs_, rid_));
   return true;
 }
 

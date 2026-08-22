@@ -175,11 +175,11 @@ class PictureIdObserver : public test::RtpRtcpObserver {
     }
   }
 
-  Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+  Action OnSendRtp(const uint8_t* packet, size_t length) override {
     MutexLock lock(&mutex_);
 
     ParsedPacket parsed;
-    if (!ParsePayload(packet.data(), packet.size(), &parsed))
+    if (!ParsePayload(packet, length, &parsed))
       return SEND_PACKET;
 
     uint32_t ssrc = parsed.ssrc;

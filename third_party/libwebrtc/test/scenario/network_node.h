@@ -53,9 +53,10 @@ class NetworkNodeTransport : public Transport {
   NetworkNodeTransport(Clock* sender_clock, Call* sender_call);
   ~NetworkNodeTransport() override;
 
-  bool SendRtp(rtc::ArrayView<const uint8_t> packet,
+  bool SendRtp(const uint8_t* packet,
+               size_t length,
                const PacketOptions& options) override;
-  bool SendRtcp(rtc::ArrayView<const uint8_t> packet) override;
+  bool SendRtcp(const uint8_t* packet, size_t length) override;
 
   void Connect(EmulatedEndpoint* endpoint,
                const rtc::SocketAddress& receiver_address,

@@ -579,13 +579,10 @@ void RtpVideoStreamReceiver2::OnReceivedPayloadData(
       &video_header.content_type);
   rtp_packet.GetExtension<VideoTimingExtension>(&video_header.video_timing);
   if (forced_playout_delay_max_ms_ && forced_playout_delay_min_ms_) {
-    if (!video_header.playout_delay.emplace().Set(
-            TimeDelta::Millis(*forced_playout_delay_min_ms_),
-            TimeDelta::Millis(*forced_playout_delay_max_ms_))) {
-      video_header.playout_delay = absl::nullopt;
-    }
+    video_header.playout_delay.max_ms = *forced_playout_delay_max_ms_;
+    video_header.playout_delay.min_ms = *forced_playout_delay_min_ms_;
   } else {
-    video_header.playout_delay = rtp_packet.GetExtension<PlayoutDelayLimits>();
+    rtp_packet.GetExtension<PlayoutDelayLimits>(&video_header.playout_delay);
   }
 
   ParseGenericDependenciesResult generic_descriptor_state =

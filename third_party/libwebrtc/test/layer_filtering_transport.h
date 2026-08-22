@@ -54,7 +54,8 @@ class LayerFilteringTransport : public test::DirectTransport {
       rtc::ArrayView<const RtpExtension> audio_extensions,
       rtc::ArrayView<const RtpExtension> video_extensions);
   bool DiscardedLastPacket() const;
-  bool SendRtp(rtc::ArrayView<const uint8_t> data,
+  bool SendRtp(const uint8_t* data,
+               size_t length,
                const PacketOptions& options) override;
 
  private:

@@ -31,17 +31,18 @@ DegradedCall::FakeNetworkPipeOnTaskQueue::FakeNetworkPipeOnTaskQueue(
       pipe_(clock, std::move(network_behavior)) {}
 
 void DegradedCall::FakeNetworkPipeOnTaskQueue::SendRtp(
-    rtc::ArrayView<const uint8_t> packet,
+    const uint8_t* packet,
+    size_t length,
     const PacketOptions& options,
     Transport* transport) {
-  pipe_.SendRtp(packet, options, transport);
+  pipe_.SendRtp(packet, length, options, transport);
   Process();
 }
 
-void DegradedCall::FakeNetworkPipeOnTaskQueue::SendRtcp(
-    rtc::ArrayView<const uint8_t> packet,
-    Transport* transport) {
-  pipe_.SendRtcp(packet, transport);
+void DegradedCall::FakeNetworkPipeOnTaskQueue::SendRtcp(const uint8_t* packet,
+                                                        size_t length,
+                                                        Transport* transport) {
+  pipe_.SendRtcp(packet, length, transport);
   Process();
 }
 
@@ -101,19 +102,20 @@ DegradedCall::FakeNetworkPipeTransportAdapter::
 }
 
 bool DegradedCall::FakeNetworkPipeTransportAdapter::SendRtp(
-    rtc::ArrayView<const uint8_t> packet,
+    const uint8_t* packet,
+    size_t length,
     const PacketOptions& options) {
   // A call here comes from the RTP stack (probably pacer). We intercept it and
   // put it in the fake network pipe instead, but report to Call that is has
   // been sent, so that the bandwidth estimator sees the delay we add.
-  network_pipe_->SendRtp(packet, options, real_transport_);
+  network_pipe_->SendRtp(packet, length, options, real_transport_);
   if (options.packet_id != -1) {
     rtc::SentPacket sent_packet;
     sent_packet.packet_id = options.packet_id;
     sent_packet.send_time_ms = clock_->TimeInMilliseconds();
     sent_packet.info.included_in_feedback = options.included_in_feedback;
     sent_packet.info.included_in_allocation = options.included_in_allocation;
-    sent_packet.info.packet_size_bytes = packet.size();
+    sent_packet.info.packet_size_bytes = length;
     sent_packet.info.packet_type = rtc::PacketType::kData;
     call_->OnSentPacket(sent_packet);
   }
@@ -121,8 +123,9 @@ bool DegradedCall::FakeNetworkPipeTransportAdapter::SendRtp(
 }
 
 bool DegradedCall::FakeNetworkPipeTransportAdapter::SendRtcp(
-    rtc::ArrayView<const uint8_t> packet) {
-  network_pipe_->SendRtcp(packet, real_transport_);
+    const uint8_t* packet,
+    size_t length) {
+  network_pipe_->SendRtcp(packet, length, real_transport_);
   return true;
 }
 

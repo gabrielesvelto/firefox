@@ -23,9 +23,9 @@ class MockTransport : public Transport {
 
   MOCK_METHOD(bool,
               SendRtp,
-              (rtc::ArrayView<const uint8_t>, const PacketOptions&),
+              (const uint8_t*, size_t, const PacketOptions&),
               (override));
-  MOCK_METHOD(bool, SendRtcp, (rtc::ArrayView<const uint8_t>), (override));
+  MOCK_METHOD(bool, SendRtcp, (const uint8_t*, size_t len), (override));
 };
 
 }  // namespace webrtc

@@ -265,9 +265,8 @@ TEST(RtpPacketTest, CreateWithTwoByteHeaderExtensionFirst) {
   packet.SetTimestamp(kTimestamp);
   packet.SetSsrc(kSsrc);
   // Set extension that requires two-byte header.
-  VideoPlayoutDelay playout_delay(TimeDelta::Millis(30),
-                                  TimeDelta::Millis(340));
-  ASSERT_TRUE(packet.SetExtension<PlayoutDelayLimits>(playout_delay));
+  VideoPlayoutDelay playoutDelay = {30, 340};
+  ASSERT_TRUE(packet.SetExtension<PlayoutDelayLimits>(playoutDelay));
   packet.SetExtension<TransmissionOffset>(kTimeOffset);
   packet.SetExtension<AudioLevel>(kVoiceActive, kAudioLevel);
   EXPECT_THAT(kPacketWithTwoByteExtensionIdFirst,
@@ -290,9 +289,8 @@ TEST(RtpPacketTest, CreateWithTwoByteHeaderExtensionLast) {
   EXPECT_THAT(kPacketWithTOAndAL,
               ElementsAreArray(packet.data(), packet.size()));
   // Set extension that requires two-byte header.
-  VideoPlayoutDelay playout_delay(TimeDelta::Millis(30),
-                                  TimeDelta::Millis(340));
-  ASSERT_TRUE(packet.SetExtension<PlayoutDelayLimits>(playout_delay));
+  VideoPlayoutDelay playoutDelay = {30, 340};
+  ASSERT_TRUE(packet.SetExtension<PlayoutDelayLimits>(playoutDelay));
   EXPECT_THAT(kPacketWithTwoByteExtensionIdLast,
               ElementsAreArray(packet.data(), packet.size()));
 }

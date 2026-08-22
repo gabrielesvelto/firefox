@@ -211,7 +211,8 @@ bool Codec::Matches(const Codec& codec,
   return matches_id && matches_type_specific();
 }
 
-bool Codec::MatchesRtpCodec(const webrtc::RtpCodec& codec_capability) const {
+bool Codec::MatchesCapability(
+    const webrtc::RtpCodecCapability& codec_capability) const {
   webrtc::RtpCodecParameters codec_parameters = ToCodecParameters();
 
   return codec_parameters.name == codec_capability.name &&

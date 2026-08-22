@@ -102,20 +102,21 @@ class SendTransport : public Transport,
 
   void SetRtpRtcpModule(ModuleRtpRtcpImpl2* receiver) { receiver_ = receiver; }
   void SimulateNetworkDelay(TimeDelta delay) { delay_ = delay; }
-  bool SendRtp(rtc::ArrayView<const uint8_t> data,
+  bool SendRtp(const uint8_t* data,
+               size_t len,
                const PacketOptions& options) override {
-    EXPECT_TRUE(last_packet_.Parse(data));
+    EXPECT_TRUE(last_packet_.Parse(data, len));
     ++rtp_packets_sent_;
     return true;
   }
-  bool SendRtcp(rtc::ArrayView<const uint8_t> data) override {
+  bool SendRtcp(const uint8_t* data, size_t len) override {
     test::RtcpPacketParser parser;
-    parser.Parse(data);
+    parser.Parse(data, len);
     last_nack_list_ = parser.nack()->packet_ids();
     Timestamp current_time = time_controller_->GetClock()->CurrentTime();
     Timestamp delivery_time = current_time + delay_;
     rtcp_packets_.push_back(
-        Packet{delivery_time, std::vector<uint8_t>(data.begin(), data.end())});
+        Packet{delivery_time, std::vector<uint8_t>(data, data + len)});
     ++rtcp_packets_sent_;
     RunReady(current_time);
     return true;
@@ -349,6 +350,7 @@ class RtpRtcpImpl2Test : public ::testing::Test {
     rtp_video_header.height = kHeight;
     rtp_video_header.rotation = kVideoRotation_0;
     rtp_video_header.content_type = VideoContentType::UNSPECIFIED;
+    rtp_video_header.playout_delay = {-1, -1};
     rtp_video_header.is_first_packet_in_frame = true;
     rtp_video_header.simulcastIdx = 0;
     rtp_video_header.codec = kVideoCodecVP8;

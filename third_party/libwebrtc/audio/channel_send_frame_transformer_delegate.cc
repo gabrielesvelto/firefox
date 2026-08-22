@@ -50,14 +50,16 @@ class TransformableOutgoingAudioFrame
  public:
   TransformableOutgoingAudioFrame(AudioFrameType frame_type,
                                   uint8_t payload_type,
-                                  uint32_t rtp_timestamp_with_offset,
+                                  uint32_t rtp_timestamp,
+                                  uint32_t rtp_start_timestamp,
                                   const uint8_t* payload_data,
                                   size_t payload_size,
                                   int64_t absolute_capture_timestamp_ms,
                                   uint32_t ssrc)
       : frame_type_(frame_type),
         payload_type_(payload_type),
-        rtp_timestamp_with_offset_(rtp_timestamp_with_offset),
+        rtp_timestamp_(rtp_timestamp),
+        rtp_start_timestamp_(rtp_start_timestamp),
         payload_(payload_data, payload_size),
         absolute_capture_timestamp_ms_(absolute_capture_timestamp_ms),
         ssrc_(ssrc) {}
@@ -66,7 +68,10 @@ class TransformableOutgoingAudioFrame
   void SetData(rtc::ArrayView<const uint8_t> data) override {
     payload_.SetData(data.data(), data.size());
   }
-  uint32_t GetTimestamp() const override { return rtp_timestamp_with_offset_; }
+  uint32_t GetTimestamp() const override {
+    return rtp_timestamp_ + rtp_start_timestamp_;
+  }
+  uint32_t GetStartTimestamp() const { return rtp_start_timestamp_; }
   uint32_t GetSsrc() const override { return ssrc_; }
 
   IfaceFrameType Type() const override {
@@ -76,6 +81,10 @@ class TransformableOutgoingAudioFrame
   uint8_t GetPayloadType() const override { return payload_type_; }
   Direction GetDirection() const override { return Direction::kSender; }
 
+  // TODO(crbug.com/1453226): Remove once GetHeader() is removed from
+  // TransformableAudioFrameInterface.
+  const RTPHeader& GetHeader() const override { return empty_header_; }
+
   rtc::ArrayView<const uint32_t> GetContributingSources() const override {
     return {};
   }
@@ -84,8 +93,8 @@ class TransformableOutgoingAudioFrame
     return absl::nullopt;
   }
 
-  void SetRTPTimestamp(uint32_t rtp_timestamp_with_offset) override {
-    rtp_timestamp_with_offset_ = rtp_timestamp_with_offset;
+  void SetRTPTimestamp(uint32_t timestamp) override {
+    rtp_timestamp_ = timestamp - rtp_start_timestamp_;
   }
 
   absl::optional<uint64_t> AbsoluteCaptureTimestamp() const override {
@@ -95,10 +104,15 @@ class TransformableOutgoingAudioFrame
  private:
   AudioFrameType frame_type_;
   uint8_t payload_type_;
-  uint32_t rtp_timestamp_with_offset_;
+  uint32_t rtp_timestamp_;
+  uint32_t rtp_start_timestamp_;
   rtc::Buffer payload_;
   int64_t absolute_capture_timestamp_ms_;
   uint32_t ssrc_;
+
+  // TODO(crbug.com/1453226): Remove once GetHeader() is removed from
+  // TransformableAudioFrameInterface.
+  RTPHeader empty_header_;
 };
 }  // namespace
 
@@ -127,14 +141,15 @@ void ChannelSendFrameTransformerDelegate::Transform(
     AudioFrameType frame_type,
     uint8_t payload_type,
     uint32_t rtp_timestamp,
+    uint32_t rtp_start_timestamp,
     const uint8_t* payload_data,
     size_t payload_size,
     int64_t absolute_capture_timestamp_ms,
     uint32_t ssrc) {
   frame_transformer_->Transform(
       std::make_unique<TransformableOutgoingAudioFrame>(
-          frame_type, payload_type, rtp_timestamp, payload_data, payload_size,
-          absolute_capture_timestamp_ms, ssrc));
+          frame_type, payload_type, rtp_timestamp, rtp_start_timestamp,
+          payload_data, payload_size, absolute_capture_timestamp_ms, ssrc));
 }
 
 void ChannelSendFrameTransformerDelegate::OnTransformedFrame(
@@ -153,17 +168,19 @@ void ChannelSendFrameTransformerDelegate::SendFrame(
     std::unique_ptr<TransformableFrameInterface> frame) const {
   MutexLock lock(&send_lock_);
   RTC_DCHECK_RUN_ON(encoder_queue_);
+  RTC_CHECK_EQ(frame->GetDirection(),
+               TransformableFrameInterface::Direction::kSender);
   if (!send_frame_callback_)
     return;
   auto* transformed_frame =
-      static_cast<TransformableAudioFrameInterface*>(frame.get());
+      static_cast<TransformableOutgoingAudioFrame*>(frame.get());
   send_frame_callback_(
       InterfaceFrameTypeToInternalFrameType(transformed_frame->Type()),
-      transformed_frame->GetPayloadType(), transformed_frame->GetTimestamp(),
+      transformed_frame->GetPayloadType(),
+      transformed_frame->GetTimestamp() -
+          transformed_frame->GetStartTimestamp(),
       transformed_frame->GetData(),
-      transformed_frame->AbsoluteCaptureTimestamp()
-          ? *transformed_frame->AbsoluteCaptureTimestamp()
-          : 0);
+      *transformed_frame->AbsoluteCaptureTimestamp());
 }
 
 std::unique_ptr<TransformableAudioFrameInterface> CloneSenderAudioFrame(
@@ -172,8 +189,9 @@ std::unique_ptr<TransformableAudioFrameInterface> CloneSenderAudioFrame(
   return std::make_unique<TransformableOutgoingAudioFrame>(
       InterfaceFrameTypeToInternalFrameType(original->Type()),
       original->GetPayloadType(), original->GetTimestamp(),
-      original->GetData().data(), original->GetData().size(),
-      original->GetTimestamp(), original->GetSsrc());
+      /*rtp_start_timestamp=*/0u, original->GetData().data(),
+      original->GetData().size(), original->GetTimestamp(),
+      original->GetSsrc());
 }
 
 }  // namespace webrtc

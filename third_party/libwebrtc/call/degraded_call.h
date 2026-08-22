@@ -128,10 +128,11 @@ class DegradedCall : public Call, private PacketReceiver {
         Clock* clock,
         std::unique_ptr<NetworkBehaviorInterface> network_behavior);
 
-    void SendRtp(rtc::ArrayView<const uint8_t> packet,
+    void SendRtp(const uint8_t* packet,
+                 size_t length,
                  const PacketOptions& options,
                  Transport* transport);
-    void SendRtcp(rtc::ArrayView<const uint8_t> packet, Transport* transport);
+    void SendRtcp(const uint8_t* packet, size_t length, Transport* transport);
 
     void AddActiveTransport(Transport* transport);
     void RemoveActiveTransport(Transport* transport);
@@ -160,9 +161,10 @@ class DegradedCall : public Call, private PacketReceiver {
                                     Transport* real_transport);
     ~FakeNetworkPipeTransportAdapter();
 
-    bool SendRtp(rtc::ArrayView<const uint8_t> packet,
+    bool SendRtp(const uint8_t* packet,
+                 size_t length,
                  const PacketOptions& options) override;
-    bool SendRtcp(rtc::ArrayView<const uint8_t> packet) override;
+    bool SendRtcp(const uint8_t* packet, size_t length) override;
 
    private:
     FakeNetworkPipeOnTaskQueue* const network_pipe_;

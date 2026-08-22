@@ -19,7 +19,6 @@
 #include <string>
 #include <vector>
 
-#include "absl/functional/any_invocable.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "rtc_base/buffer.h"
@@ -34,7 +33,6 @@
 #include "rtc_base/stream.h"
 #include "rtc_base/system/rtc_export.h"
 #include "rtc_base/task_utils/repeating_task.h"
-#include "rtc_base/third_party/sigslot/sigslot.h"
 
 namespace rtc {
 
@@ -72,12 +70,9 @@ class SSLCertChain;
 // configuration is restored.
 RTC_EXPORT void SetAllowLegacyTLSProtocols(const absl::optional<bool>& allow);
 
-class OpenSSLStreamAdapter final : public SSLStreamAdapter,
-                                   public sigslot::has_slots<> {
+class OpenSSLStreamAdapter final : public SSLStreamAdapter {
  public:
-  OpenSSLStreamAdapter(
-      std::unique_ptr<StreamInterface> stream,
-      absl::AnyInvocable<void(SSLHandshakeError)> handshake_error);
+  explicit OpenSSLStreamAdapter(std::unique_ptr<StreamInterface> stream);
   ~OpenSSLStreamAdapter() override;
 
   void SetIdentity(std::unique_ptr<SSLIdentity> identity) override;
@@ -207,7 +202,6 @@ class OpenSSLStreamAdapter final : public SSLStreamAdapter,
   }
 
   const std::unique_ptr<StreamInterface> stream_;
-  absl::AnyInvocable<void(SSLHandshakeError)> handshake_error_;
 
   rtc::Thread* const owner_;
   webrtc::ScopedTaskSafety task_safety_;

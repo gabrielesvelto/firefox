@@ -118,6 +118,7 @@ class StreamGenerator {
 class DelayBasedBweTest : public ::testing::Test {
  public:
   DelayBasedBweTest();
+  explicit DelayBasedBweTest(absl::string_view field_trial_string);
   ~DelayBasedBweTest() override;
 
  protected:

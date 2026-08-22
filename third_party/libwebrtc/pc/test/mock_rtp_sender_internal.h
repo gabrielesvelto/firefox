@@ -64,12 +64,9 @@ class MockRtpSenderInternal : public RtpSenderInternal {
               SetParametersInternalWithAllLayers,
               (const RtpParameters&),
               (override));
-  MOCK_METHOD(RTCError,
-              CheckCodecParameters,
-              (const RtpParameters&),
-              (override));
+  MOCK_METHOD(RTCError, CheckSVCParameters, (const RtpParameters&), (override));
   MOCK_METHOD(void,
-              SetCodecPreferences,
+              SetVideoCodecPreferences,
               (std::vector<cricket::VideoCodec>),
               (override));
   MOCK_METHOD(rtc::scoped_refptr<DtmfSenderInterface>,

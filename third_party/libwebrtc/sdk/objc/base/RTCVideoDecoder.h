@@ -29,7 +29,6 @@ RTC_OBJC_EXPORT
     - (void)setCallback : (RTCVideoDecoderCallback)callback;
 - (NSInteger)startDecodeWithNumberOfCores:(int)numberOfCores;
 - (NSInteger)releaseDecoder;
-// TODO(bugs.webrtc.org/15444): Remove obsolete missingFrames param.
 - (NSInteger)decode:(RTC_OBJC_TYPE(RTCEncodedImage) *)encodedImage
         missingFrames:(BOOL)missingFrames
     codecSpecificInfo:(nullable id<RTC_OBJC_TYPE(RTCCodecSpecificInfo)>)info

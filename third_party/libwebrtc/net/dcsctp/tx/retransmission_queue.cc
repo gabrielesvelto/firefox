@@ -426,21 +426,18 @@ RetransmissionQueue::GetChunksForFastRetransmit(size_t bytes_in_packet) {
   if (!t3_rtx_.is_running()) {
     t3_rtx_.Start();
   }
-
-  size_t bytes_retransmitted = absl::c_accumulate(
-      to_be_sent, 0, [&](size_t r, const std::pair<TSN, Data>& d) {
-        return r + GetSerializedChunkSize(d.second);
-      });
-  ++rtx_packets_count_;
-  rtx_bytes_count_ += bytes_retransmitted;
-
   RTC_DLOG(LS_VERBOSE) << log_prefix_ << "Fast-retransmitting TSN "
                        << StrJoin(to_be_sent, ",",
                                   [&](rtc::StringBuilder& sb,
                                       const std::pair<TSN, Data>& c) {
                                     sb << *c.first;
                                   })
-                       << " - " << bytes_retransmitted
+                       << " - "
+                       << absl::c_accumulate(
+                              to_be_sent, 0,
+                              [&](size_t r, const std::pair<TSN, Data>& d) {
+                                return r + GetSerializedChunkSize(d.second);
+                              })
                        << " bytes. outstanding_bytes=" << outstanding_bytes()
                        << " (" << old_outstanding_bytes << ")";
 
@@ -466,17 +463,10 @@ std::vector<std::pair<TSN, Data>> RetransmissionQueue::GetChunksToSend(
       RoundDownTo4(std::min(max_bytes_to_send(), bytes_remaining_in_packet));
 
   to_be_sent = outstanding_data_.GetChunksToBeRetransmitted(max_bytes);
-
-  size_t bytes_retransmitted = absl::c_accumulate(
-      to_be_sent, 0, [&](size_t r, const std::pair<TSN, Data>& d) {
-        return r + GetSerializedChunkSize(d.second);
-      });
-  max_bytes -= bytes_retransmitted;
-
-  if (!to_be_sent.empty()) {
-    ++rtx_packets_count_;
-    rtx_bytes_count_ += bytes_retransmitted;
-  }
+  max_bytes -= absl::c_accumulate(to_be_sent, 0,
+                                  [&](size_t r, const std::pair<TSN, Data>& d) {
+                                    return r + GetSerializedChunkSize(d.second);
+                                  });
 
   while (max_bytes > data_chunk_header_size_) {
     RTC_DCHECK(IsDivisibleBy4(max_bytes));

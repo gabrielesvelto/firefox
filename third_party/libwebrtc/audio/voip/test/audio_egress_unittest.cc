@@ -122,8 +122,8 @@ TEST_F(AudioEgressTest, ProcessAudioWithMute) {
   rtc::Event event;
   int rtp_count = 0;
   RtpPacketReceived rtp;
-  auto rtp_sent = [&](rtc::ArrayView<const uint8_t> packet, Unused) {
-    rtp.Parse(packet);
+  auto rtp_sent = [&](const uint8_t* packet, size_t length, Unused) {
+    rtp.Parse(packet, length);
     if (++rtp_count == kExpected) {
       event.Set();
     }
@@ -160,8 +160,8 @@ TEST_F(AudioEgressTest, ProcessAudioWithSineWave) {
   rtc::Event event;
   int rtp_count = 0;
   RtpPacketReceived rtp;
-  auto rtp_sent = [&](rtc::ArrayView<const uint8_t> packet, Unused) {
-    rtp.Parse(packet);
+  auto rtp_sent = [&](const uint8_t* packet, size_t length, Unused) {
+    rtp.Parse(packet, length);
     if (++rtp_count == kExpected) {
       event.Set();
     }
@@ -195,7 +195,7 @@ TEST_F(AudioEgressTest, SkipAudioEncodingAfterStopSend) {
   constexpr int kExpected = 10;
   rtc::Event event;
   int rtp_count = 0;
-  auto rtp_sent = [&](rtc::ArrayView<const uint8_t> packet, Unused) {
+  auto rtp_sent = [&](const uint8_t* packet, size_t length, Unused) {
     if (++rtp_count == kExpected) {
       event.Set();
     }
@@ -269,9 +269,9 @@ TEST_F(AudioEgressTest, SendDTMF) {
   // It's possible that we may have actual audio RTP packets along with
   // DTMF packtets.  We are only interested in the exact number of DTMF
   // packets rtp stack is emitting.
-  auto rtp_sent = [&](rtc::ArrayView<const uint8_t> packet, Unused) {
+  auto rtp_sent = [&](const uint8_t* packet, size_t length, Unused) {
     RtpPacketReceived rtp;
-    rtp.Parse(packet);
+    rtp.Parse(packet, length);
     if (is_dtmf(rtp) && ++dtmf_count == kExpected) {
       event.Set();
     }
@@ -296,7 +296,7 @@ TEST_F(AudioEgressTest, TestAudioInputLevelAndEnergyDuration) {
   constexpr int kExpected = 6;
   rtc::Event event;
   int rtp_count = 0;
-  auto rtp_sent = [&](rtc::ArrayView<const uint8_t> packet, Unused) {
+  auto rtp_sent = [&](const uint8_t* packet, size_t length, Unused) {
     if (++rtp_count == kExpected) {
       event.Set();
     }

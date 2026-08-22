@@ -357,9 +357,7 @@ bool DtlsTransport::SetupDtls() {
     auto downward = std::make_unique<StreamInterfaceChannel>(ice_transport_);
     StreamInterfaceChannel* downward_ptr = downward.get();
 
-    dtls_ = rtc::SSLStreamAdapter::Create(
-        std::move(downward),
-        [this](rtc::SSLHandshakeError error) { OnDtlsHandshakeError(error); });
+    dtls_ = rtc::SSLStreamAdapter::Create(std::move(downward));
     if (!dtls_) {
       RTC_LOG(LS_ERROR) << ToString() << ": Failed to create DTLS adapter.";
       return false;
@@ -372,6 +370,8 @@ bool DtlsTransport::SetupDtls() {
   dtls_->SetMaxProtocolVersion(ssl_max_version_);
   dtls_->SetServerRole(*dtls_role_);
   dtls_->SignalEvent.connect(this, &DtlsTransport::OnDtlsEvent);
+  dtls_->SignalSSLHandshakeError.connect(this,
+                                         &DtlsTransport::OnDtlsHandshakeError);
   if (remote_fingerprint_value_.size() &&
       !dtls_->SetPeerCertificateDigest(
           remote_fingerprint_algorithm_,

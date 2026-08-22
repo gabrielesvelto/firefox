@@ -244,7 +244,7 @@ void SrtpTransport::OnRtcpPacketReceived(rtc::CopyOnWriteBuffer packet,
     return;
   }
   packet.SetSize(len);
-  SendRtcpPacketReceived(&packet, packet_time_us);
+  SignalRtcpPacketReceived(&packet, packet_time_us);
 }
 
 void SrtpTransport::OnNetworkRouteChanged(
@@ -257,12 +257,12 @@ void SrtpTransport::OnNetworkRouteChanged(
     }
     network_route->packet_overhead += srtp_overhead;
   }
-  SendNetworkRouteChanged(network_route);
+  SignalNetworkRouteChanged(network_route);
 }
 
 void SrtpTransport::OnWritableState(
     rtc::PacketTransportInternal* packet_transport) {
-  SendWritableState(IsWritable(/*rtcp=*/false) && IsWritable(/*rtcp=*/true));
+  SignalWritableState(IsWritable(/*rtcp=*/false) && IsWritable(/*rtcp=*/true));
 }
 
 bool SrtpTransport::SetRtpParams(int send_crypto_suite,
@@ -515,7 +515,7 @@ void SrtpTransport::MaybeUpdateWritableState() {
   // Only fire the signal if the writable state changes.
   if (writable_ != writable) {
     writable_ = writable;
-    SendWritableState(writable_);
+    SignalWritableState(writable_);
   }
 }
 

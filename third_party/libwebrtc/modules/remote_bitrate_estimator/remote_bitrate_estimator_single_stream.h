@@ -17,7 +17,6 @@
 #include <map>
 #include <vector>
 
-#include "absl/types/optional.h"
 #include "api/transport/field_trial_based_config.h"
 #include "api/units/data_rate.h"
 #include "api/units/time_delta.h"
@@ -27,7 +26,7 @@
 #include "modules/remote_bitrate_estimator/inter_arrival.h"
 #include "modules/remote_bitrate_estimator/overuse_detector.h"
 #include "modules/remote_bitrate_estimator/overuse_estimator.h"
-#include "rtc_base/bitrate_tracker.h"
+#include "rtc_base/rate_statistics.h"
 
 namespace webrtc {
 
@@ -57,26 +56,26 @@ class RemoteBitrateEstimatorSingleStream : public RemoteBitrateEstimator {
   struct Detector {
     Detector();
 
-    Timestamp last_packet_time;
+    int64_t last_packet_time_ms;
     InterArrival inter_arrival;
     OveruseEstimator estimator;
     OveruseDetector detector;
   };
 
   // Triggers a new estimate calculation.
-  void UpdateEstimate(Timestamp now);
+  void UpdateEstimate(int64_t time_now);
 
   std::vector<uint32_t> GetSsrcs() const;
 
   Clock* const clock_;
   const FieldTrialBasedConfig field_trials_;
   std::map<uint32_t, Detector> overuse_detectors_;
-  BitrateTracker incoming_bitrate_;
-  DataRate last_valid_incoming_bitrate_;
+  RateStatistics incoming_bitrate_;
+  uint32_t last_valid_incoming_bitrate_;
   AimdRateControl remote_rate_;
   RemoteBitrateObserver* const observer_;
-  absl::optional<Timestamp> last_process_time_;
-  TimeDelta process_interval_;
+  int64_t last_process_time_;
+  int64_t process_interval_ms_;
   bool uma_recorded_;
 };
 

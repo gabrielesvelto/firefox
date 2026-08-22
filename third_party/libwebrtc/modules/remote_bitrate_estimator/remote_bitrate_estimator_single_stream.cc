@@ -32,21 +32,29 @@ namespace {
 constexpr int kTimestampGroupLengthMs = 5;
 constexpr double kTimestampToMs = 1.0 / 90.0;
 
+absl::optional<DataRate> OptionalRateFromOptionalBps(
+    absl::optional<int> bitrate_bps) {
+  if (bitrate_bps) {
+    return DataRate::BitsPerSec(*bitrate_bps);
+  } else {
+    return absl::nullopt;
+  }
+}
 }  // namespace
 
 RemoteBitrateEstimatorSingleStream::Detector::Detector()
-    : last_packet_time(Timestamp::Zero()),
-      inter_arrival(90 * kTimestampGroupLengthMs, kTimestampToMs) {}
+    : inter_arrival(90 * kTimestampGroupLengthMs, kTimestampToMs) {}
 
 RemoteBitrateEstimatorSingleStream::RemoteBitrateEstimatorSingleStream(
     RemoteBitrateObserver* observer,
     Clock* clock)
     : clock_(clock),
-      incoming_bitrate_(kBitrateWindow),
-      last_valid_incoming_bitrate_(DataRate::Zero()),
+      incoming_bitrate_(kBitrateWindowMs, 8000),
+      last_valid_incoming_bitrate_(0),
       remote_rate_(field_trials_),
       observer_(observer),
-      process_interval_(kProcessInterval),
+      last_process_time_(-1),
+      process_interval_ms_(kProcessIntervalMs),
       uma_recorded_(false) {
   RTC_LOG(LS_INFO) << "RemoteBitrateEstimatorSingleStream: Instantiating.";
 }
@@ -68,29 +76,28 @@ void RemoteBitrateEstimatorSingleStream::IncomingPacket(
   uint32_t ssrc = rtp_packet.Ssrc();
   uint32_t rtp_timestamp =
       rtp_packet.Timestamp() + transmission_time_offset.value_or(0);
-  Timestamp now = clock_->CurrentTime();
+  int64_t now_ms = clock_->TimeInMilliseconds();
   Detector& estimator = overuse_detectors_[ssrc];
-  estimator.last_packet_time = now;
+  estimator.last_packet_time_ms = now_ms;
 
   // Check if incoming bitrate estimate is valid, and if it needs to be reset.
-  absl::optional<DataRate> incoming_bitrate = incoming_bitrate_.Rate(now);
+  absl::optional<uint32_t> incoming_bitrate = incoming_bitrate_.Rate(now_ms);
   if (incoming_bitrate) {
     last_valid_incoming_bitrate_ = *incoming_bitrate;
-  } else if (last_valid_incoming_bitrate_ > DataRate::Zero()) {
+  } else if (last_valid_incoming_bitrate_ > 0) {
     // Incoming bitrate had a previous valid value, but now not enough data
     // point are left within the current window. Reset incoming bitrate
     // estimator so that the window size will only contain new data points.
     incoming_bitrate_.Reset();
-    last_valid_incoming_bitrate_ = DataRate::Zero();
+    last_valid_incoming_bitrate_ = 0;
   }
   size_t payload_size = rtp_packet.payload_size() + rtp_packet.padding_size();
-  incoming_bitrate_.Update(payload_size, now);
+  incoming_bitrate_.Update(payload_size, now_ms);
 
   const BandwidthUsage prior_state = estimator.detector.State();
   uint32_t timestamp_delta = 0;
   int64_t time_delta = 0;
   int size_delta = 0;
-  int64_t now_ms = now.ms();
   if (estimator.inter_arrival.ComputeDeltas(
           rtp_timestamp, rtp_packet.arrival_time().ms(), now_ms, payload_size,
           &timestamp_delta, &time_delta, &size_delta)) {
@@ -101,41 +108,42 @@ void RemoteBitrateEstimatorSingleStream::IncomingPacket(
                               estimator.estimator.num_of_deltas(), now_ms);
   }
   if (estimator.detector.State() == BandwidthUsage::kBwOverusing) {
-    absl::optional<DataRate> incoming_bitrate = incoming_bitrate_.Rate(now);
-    if (incoming_bitrate.has_value() &&
+    absl::optional<uint32_t> incoming_bitrate_bps =
+        incoming_bitrate_.Rate(now_ms);
+    if (incoming_bitrate_bps &&
         (prior_state != BandwidthUsage::kBwOverusing ||
-         remote_rate_.TimeToReduceFurther(now, *incoming_bitrate))) {
+         remote_rate_.TimeToReduceFurther(
+             Timestamp::Millis(now_ms),
+             DataRate::BitsPerSec(*incoming_bitrate_bps)))) {
       // The first overuse should immediately trigger a new estimate.
       // We also have to update the estimate immediately if we are overusing
       // and the target bitrate is too high compared to what we are receiving.
-      UpdateEstimate(now);
+      UpdateEstimate(now_ms);
     }
   }
 }
 
 TimeDelta RemoteBitrateEstimatorSingleStream::Process() {
-  Timestamp now = clock_->CurrentTime();
-  Timestamp next_process_time = last_process_time_.has_value()
-                                    ? *last_process_time_ + process_interval_
-                                    : now;
-  // TODO(bugs.webrtc.org/13756): Removing rounding to milliseconds after
-  // investigating why tests fails without that rounding.
-  if (now.ms() >= next_process_time.ms()) {
-    UpdateEstimate(now);
-    last_process_time_ = now;
-    return process_interval_;
+  int64_t now_ms = clock_->TimeInMilliseconds();
+  int64_t next_process_time_ms = last_process_time_ + process_interval_ms_;
+  if (last_process_time_ == -1 || now_ms >= next_process_time_ms) {
+    UpdateEstimate(now_ms);
+    last_process_time_ = now_ms;
+    return TimeDelta::Millis(process_interval_ms_);
   }
 
-  return next_process_time - now;
+  return TimeDelta::Millis(next_process_time_ms - now_ms);
 }
 
-void RemoteBitrateEstimatorSingleStream::UpdateEstimate(Timestamp now) {
+void RemoteBitrateEstimatorSingleStream::UpdateEstimate(int64_t now_ms) {
   BandwidthUsage bw_state = BandwidthUsage::kBwNormal;
   auto it = overuse_detectors_.begin();
   while (it != overuse_detectors_.end()) {
-    if (now - it->second.last_packet_time > kStreamTimeOut) {
-      // This over-use detector hasn't received packets for `kStreamTimeOut`
-      // and is considered stale.
+    const int64_t time_of_last_received_packet = it->second.last_packet_time_ms;
+    if (time_of_last_received_packet >= 0 &&
+        now_ms - time_of_last_received_packet > kStreamTimeOutMs) {
+      // This over-use detector hasn't received packets for `kStreamTimeOutMs`
+      // milliseconds and is considered stale.
       overuse_detectors_.erase(it++);
     } else {
       // Make sure that we trigger an over-use if any of the over-use detectors
@@ -151,11 +159,13 @@ void RemoteBitrateEstimatorSingleStream::UpdateEstimate(Timestamp now) {
     return;
   }
 
-  const RateControlInput input(bw_state, incoming_bitrate_.Rate(now));
-  uint32_t target_bitrate = remote_rate_.Update(input, now).bps<uint32_t>();
+  const RateControlInput input(
+      bw_state, OptionalRateFromOptionalBps(incoming_bitrate_.Rate(now_ms)));
+  uint32_t target_bitrate =
+      remote_rate_.Update(input, Timestamp::Millis(now_ms)).bps<uint32_t>();
   if (remote_rate_.ValidEstimate()) {
-    process_interval_ = remote_rate_.GetFeedbackInterval();
-    RTC_DCHECK_GT(process_interval_, TimeDelta::Zero());
+    process_interval_ms_ = remote_rate_.GetFeedbackInterval().ms();
+    RTC_DCHECK_GT(process_interval_ms_, 0);
     if (observer_)
       observer_->OnReceiveBitrateChanged(GetSsrcs(), target_bitrate);
   }

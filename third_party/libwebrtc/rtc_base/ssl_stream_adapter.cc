@@ -91,10 +91,8 @@ bool IsGcmCryptoSuiteName(absl::string_view crypto_suite) {
 }
 
 std::unique_ptr<SSLStreamAdapter> SSLStreamAdapter::Create(
-    std::unique_ptr<StreamInterface> stream,
-    absl::AnyInvocable<void(SSLHandshakeError)> handshake_error) {
-  return std::make_unique<OpenSSLStreamAdapter>(std::move(stream),
-                                                std::move(handshake_error));
+    std::unique_ptr<StreamInterface> stream) {
+  return std::make_unique<OpenSSLStreamAdapter>(std::move(stream));
 }
 
 bool SSLStreamAdapter::GetSslCipherSuite(int* cipher_suite) {

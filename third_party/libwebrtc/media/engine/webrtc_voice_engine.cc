@@ -1262,43 +1262,16 @@ bool WebRtcVoiceSendChannel::SetOptions(const AudioOptions& options) {
   return true;
 }
 
-bool WebRtcVoiceSendChannel::SetSenderParameters(
+bool WebRtcVoiceSendChannel::SetSendParameters(
     const AudioSenderParameter& params) {
-  TRACE_EVENT0("webrtc", "WebRtcVoiceMediaChannel::SetSenderParameters");
+  TRACE_EVENT0("webrtc", "WebRtcVoiceMediaChannel::SetSendParameters");
   RTC_DCHECK_RUN_ON(worker_thread_);
-  RTC_LOG(LS_INFO) << "WebRtcVoiceMediaChannel::SetSenderParameters: "
+  RTC_LOG(LS_INFO) << "WebRtcVoiceMediaChannel::SetSendParameters: "
                    << params.ToString();
   // TODO(pthatcher): Refactor this to be more clean now that we have
   // all the information at once.
 
-  // Finding if the RtpParameters force a specific codec
-  absl::optional<Codec> force_codec;
-  if (send_streams_.size() == 1) {
-    // Since audio simulcast is not supported, currently, only PlanB
-    // has multiple tracks and we don't care about getting the
-    // functionality working there properly.
-    auto rtp_parameters = send_streams_.begin()->second->rtp_parameters();
-    if (rtp_parameters.encodings[0].codec) {
-      auto matched_codec =
-          absl::c_find_if(params.codecs, [&](auto negotiated_codec) {
-            return negotiated_codec.MatchesRtpCodec(
-                *rtp_parameters.encodings[0].codec);
-          });
-      if (matched_codec != params.codecs.end()) {
-        force_codec = *matched_codec;
-      } else {
-        // The requested codec has been negotiated away, we clear it from the
-        // parameters.
-        for (auto& encoding : rtp_parameters.encodings) {
-          encoding.codec.reset();
-        }
-        send_streams_.begin()->second->SetRtpParameters(rtp_parameters,
-                                                        nullptr);
-      }
-    }
-  }
-
-  if (!SetSendCodecs(params.codecs, force_codec)) {
+  if (!SetSendCodecs(params.codecs)) {
     return false;
   }
 
@@ -1342,18 +1315,17 @@ absl::optional<Codec> WebRtcVoiceSendChannel::GetSendCodec() const {
   return absl::nullopt;
 }
 
-// Utility function called from SetSenderParameters() to extract current send
+// Utility function called from SetSendParameters() to extract current send
 // codec settings from the given list of codecs (originally from SDP). Both send
 // and receive streams may be reconfigured based on the new settings.
 bool WebRtcVoiceSendChannel::SetSendCodecs(
-    const std::vector<Codec>& codecs,
-    absl::optional<Codec> preferred_codec) {
+    const std::vector<AudioCodec>& codecs) {
   RTC_DCHECK_RUN_ON(worker_thread_);
   dtmf_payload_type_ = absl::nullopt;
   dtmf_payload_freq_ = -1;
 
   // Validate supplied codecs list.
-  for (const Codec& codec : codecs) {
+  for (const AudioCodec& codec : codecs) {
     // TODO(solenberg): Validate more aspects of input - that payload types
     //                  don't overlap, remove redundant/unsupported codecs etc -
     //                  the same way it is done for RtpHeaderExtensions.
@@ -1367,8 +1339,8 @@ bool WebRtcVoiceSendChannel::SetSendCodecs(
   // Find PT of telephone-event codec with lowest clockrate, as a fallback, in
   // case we don't have a DTMF codec with a rate matching the send codec's, or
   // if this function returns early.
-  std::vector<Codec> dtmf_codecs;
-  for (const Codec& codec : codecs) {
+  std::vector<AudioCodec> dtmf_codecs;
+  for (const AudioCodec& codec : codecs) {
     if (IsCodec(codec, kDtmfCodecName)) {
       dtmf_codecs.push_back(codec);
       if (!dtmf_payload_type_ || codec.clockrate < dtmf_payload_freq_) {
@@ -1384,11 +1356,10 @@ bool WebRtcVoiceSendChannel::SetSendCodecs(
   webrtc::BitrateConstraints bitrate_config;
   absl::optional<webrtc::AudioCodecInfo> voice_codec_info;
   size_t send_codec_position = 0;
-  for (const Codec& voice_codec : codecs) {
+  for (const AudioCodec& voice_codec : codecs) {
     if (!(IsCodec(voice_codec, kCnCodecName) ||
           IsCodec(voice_codec, kDtmfCodecName) ||
-          IsCodec(voice_codec, kRedCodecName)) &&
-        (!preferred_codec || preferred_codec->Matches(voice_codec))) {
+          IsCodec(voice_codec, kRedCodecName))) {
       webrtc::SdpAudioFormat format(voice_codec.name, voice_codec.clockrate,
                                     voice_codec.channels, voice_codec.params);
 
@@ -1420,7 +1391,7 @@ bool WebRtcVoiceSendChannel::SetSendCodecs(
   if (voice_codec_info->allow_comfort_noise) {
     // Loop through the codecs list again to find the CN codec.
     // TODO(solenberg): Break out into a separate function?
-    for (const Codec& cn_codec : codecs) {
+    for (const AudioCodec& cn_codec : codecs) {
       if (IsCodec(cn_codec, kCnCodecName) &&
           cn_codec.clockrate == send_codec_spec->format.clockrate_hz &&
           cn_codec.channels == voice_codec_info->num_channels) {
@@ -1439,7 +1410,7 @@ bool WebRtcVoiceSendChannel::SetSendCodecs(
     }
 
     // Find the telephone-event PT exactly matching the preferred send codec.
-    for (const Codec& dtmf_codec : dtmf_codecs) {
+    for (const AudioCodec& dtmf_codec : dtmf_codecs) {
       if (dtmf_codec.clockrate == send_codec_spec->format.clockrate_hz) {
         dtmf_payload_type_ = dtmf_codec.id;
         dtmf_payload_freq_ = dtmf_codec.clockrate;
@@ -1450,15 +1421,15 @@ bool WebRtcVoiceSendChannel::SetSendCodecs(
 
   // Loop through the codecs to find the RED codec that matches opus
   // with respect to clockrate and number of channels.
-  // RED codec needs to be negotiated before the actual codec they
-  // reference.
-  for (size_t i = 0; i < send_codec_position; ++i) {
-    const Codec& red_codec = codecs[i];
-    if (IsCodec(red_codec, kRedCodecName) &&
+  size_t red_codec_position = 0;
+  for (const AudioCodec& red_codec : codecs) {
+    if (red_codec_position < send_codec_position &&
+        IsCodec(red_codec, kRedCodecName) &&
         CheckRedParameters(red_codec, *send_codec_spec)) {
       send_codec_spec->red_payload_type = red_codec.id;
       break;
     }
+    red_codec_position++;
   }
 
   if (send_codec_spec_ != send_codec_spec) {
@@ -1868,22 +1839,6 @@ webrtc::RTCError WebRtcVoiceSendChannel::SetRtpSendParameters(
         break;
     }
     SetPreferredDscp(new_dscp);
-
-    absl::optional<cricket::Codec> send_codec = GetSendCodec();
-    // TODO(orphis): Support mixed-codec simulcast
-    if (parameters.encodings[0].codec && send_codec &&
-        !send_codec->MatchesRtpCodec(*parameters.encodings[0].codec)) {
-      RTC_LOG(LS_ERROR) << "Trying to change codec to "
-                        << parameters.encodings[0].codec->name;
-      auto matched_codec =
-          absl::c_find_if(send_codecs_, [&](auto negotiated_codec) {
-            return negotiated_codec.MatchesRtpCodec(
-                *parameters.encodings[0].codec);
-          });
-      RTC_DCHECK(matched_codec != send_codecs_.end());
-
-      SetSendCodecs(send_codecs_, *matched_codec);
-    }
   }
 
   // TODO(minyue): The following legacy actions go into
@@ -2042,11 +1997,11 @@ WebRtcVoiceReceiveChannel::~WebRtcVoiceReceiveChannel() {
   }
 }
 
-bool WebRtcVoiceReceiveChannel::SetReceiverParameters(
+bool WebRtcVoiceReceiveChannel::SetRecvParameters(
     const AudioReceiverParameters& params) {
-  TRACE_EVENT0("webrtc", "WebRtcVoiceMediaChannel::SetReceiverParameters");
+  TRACE_EVENT0("webrtc", "WebRtcVoiceMediaChannel::SetRecvParameters");
   RTC_DCHECK_RUN_ON(worker_thread_);
-  RTC_LOG(LS_INFO) << "WebRtcVoiceMediaChannel::SetReceiverParameters: "
+  RTC_LOG(LS_INFO) << "WebRtcVoiceMediaChannel::SetRecvParameters: "
                    << params.ToString();
   // TODO(pthatcher): Refactor this to be more clean now that we have
   // all the information at once.
@@ -2069,7 +2024,7 @@ bool WebRtcVoiceReceiveChannel::SetReceiverParameters(
   return true;
 }
 
-webrtc::RtpParameters WebRtcVoiceReceiveChannel::GetRtpReceiverParameters(
+webrtc::RtpParameters WebRtcVoiceReceiveChannel::GetRtpReceiveParameters(
     uint32_t ssrc) const {
   RTC_DCHECK_RUN_ON(worker_thread_);
   webrtc::RtpParameters rtp_params;

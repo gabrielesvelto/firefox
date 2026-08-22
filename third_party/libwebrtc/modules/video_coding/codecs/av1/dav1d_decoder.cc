@@ -35,6 +35,7 @@ class Dav1dDecoder : public VideoDecoder {
 
   bool Configure(const Settings& settings) override;
   int32_t Decode(const EncodedImage& encoded_image,
+                 bool missing_frames,
                  int64_t render_time_ms) override;
   int32_t RegisterDecodeCompleteCallback(
       DecodedImageCallback* callback) override;
@@ -118,6 +119,7 @@ const char* Dav1dDecoder::ImplementationName() const {
 }
 
 int32_t Dav1dDecoder::Decode(const EncodedImage& encoded_image,
+                             bool /*missing_frames*/,
                              int64_t /*render_time_ms*/) {
   if (!context_ || decode_complete_callback_ == nullptr) {
     return WEBRTC_VIDEO_CODEC_UNINITIALIZED;

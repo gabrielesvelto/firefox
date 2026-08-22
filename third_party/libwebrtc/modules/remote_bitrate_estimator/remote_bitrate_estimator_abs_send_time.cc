@@ -44,6 +44,15 @@ constexpr int kExpectedNumberOfProbes = 3;
 constexpr double kTimestampToMs =
     1000.0 / static_cast<double>(1 << kInterArrivalShift);
 
+absl::optional<DataRate> OptionalRateFromOptionalBps(
+    absl::optional<int> bitrate_bps) {
+  if (bitrate_bps) {
+    return DataRate::BitsPerSec(*bitrate_bps);
+  } else {
+    return absl::nullopt;
+  }
+}
+
 template <typename K, typename V>
 std::vector<K> Keys(const std::map<K, V>& map) {
   std::vector<K> keys;
@@ -230,8 +239,8 @@ void RemoteBitrateEstimatorAbsSendTime::IncomingPacket(
   // here.
 
   // Check if incoming bitrate estimate is valid, and if it needs to be reset.
-  absl::optional<DataRate> incoming_bitrate =
-      incoming_bitrate_.Rate(arrival_time);
+  absl::optional<uint32_t> incoming_bitrate =
+      incoming_bitrate_.Rate(arrival_time.ms());
   if (incoming_bitrate) {
     incoming_bitrate_initialized_ = true;
   } else if (incoming_bitrate_initialized_) {
@@ -241,7 +250,7 @@ void RemoteBitrateEstimatorAbsSendTime::IncomingPacket(
     incoming_bitrate_.Reset();
     incoming_bitrate_initialized_ = false;
   }
-  incoming_bitrate_.Update(payload_size, arrival_time);
+  incoming_bitrate_.Update(payload_size.bytes(), arrival_time.ms());
 
   if (first_packet_time_.IsInfinite()) {
     first_packet_time_ = now;
@@ -303,10 +312,10 @@ void RemoteBitrateEstimatorAbsSendTime::IncomingPacket(
             remote_rate_.GetFeedbackInterval().ms()) {
       update_estimate = true;
     } else if (detector_.State() == BandwidthUsage::kBwOverusing) {
-      absl::optional<DataRate> incoming_rate =
-          incoming_bitrate_.Rate(arrival_time);
-      if (incoming_rate.has_value() &&
-          remote_rate_.TimeToReduceFurther(now, *incoming_rate)) {
+      absl::optional<uint32_t> incoming_rate =
+          incoming_bitrate_.Rate(arrival_time.ms());
+      if (incoming_rate && remote_rate_.TimeToReduceFurther(
+                               now, DataRate::BitsPerSec(*incoming_rate))) {
         update_estimate = true;
       }
     }
@@ -316,8 +325,9 @@ void RemoteBitrateEstimatorAbsSendTime::IncomingPacket(
     // The first overuse should immediately trigger a new estimate.
     // We also have to update the estimate immediately if we are overusing
     // and the target bitrate is too high compared to what we are receiving.
-    const RateControlInput input(detector_.State(),
-                                 incoming_bitrate_.Rate(arrival_time));
+    const RateControlInput input(
+        detector_.State(),
+        OptionalRateFromOptionalBps(incoming_bitrate_.Rate(arrival_time.ms())));
     target_bitrate = remote_rate_.Update(input, now);
     update_estimate = remote_rate_.ValidEstimate();
   }
@@ -335,7 +345,7 @@ TimeDelta RemoteBitrateEstimatorAbsSendTime::Process() {
 
 void RemoteBitrateEstimatorAbsSendTime::TimeoutStreams(Timestamp now) {
   for (auto it = ssrcs_.begin(); it != ssrcs_.end();) {
-    if (now - it->second > kStreamTimeOut) {
+    if (now - it->second > TimeDelta::Millis(kStreamTimeOutMs)) {
       ssrcs_.erase(it++);
     } else {
       ++it;

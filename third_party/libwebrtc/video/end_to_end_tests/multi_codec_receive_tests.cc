@@ -76,11 +76,11 @@ class FrameObserver : public test::RtpRtcpObserver,
 
  private:
   // Sends kFramesToObserve.
-  Action OnSendRtp(rtc::ArrayView<const uint8_t> packet) override {
+  Action OnSendRtp(const uint8_t* packet, size_t length) override {
     MutexLock lock(&mutex_);
 
     RtpPacket rtp_packet;
-    EXPECT_TRUE(rtp_packet.Parse(packet));
+    EXPECT_TRUE(rtp_packet.Parse(packet, length));
     EXPECT_EQ(rtp_packet.Ssrc(), test::VideoTestConstants::kVideoSendSsrcs[0]);
     if (rtp_packet.payload_size() == 0)
       return SEND_PACKET;  // Skip padding, may be sent after OnFrame is called.

@@ -229,13 +229,8 @@ class ForwardErrorCorrection {
   //                            list will be valid until the next call to
   //                            DecodeFec().
   //
-  struct DecodeFecResult {
-    // Number of recovered media packets using FEC.
-    size_t num_recovered_packets = 0;
-  };
-
-  DecodeFecResult DecodeFec(const ReceivedPacket& received_packet,
-                            RecoveredPacketList* recovered_packets);
+  void DecodeFec(const ReceivedPacket& received_packet,
+                 RecoveredPacketList* recovered_packets);
 
   // Get the number of generated FEC packets, given the number of media packets
   // and the protection factor.
@@ -307,7 +302,7 @@ class ForwardErrorCorrection {
 
   // Attempt to recover missing packets, using the internally stored
   // received FEC packets.
-  size_t AttemptRecovery(RecoveredPacketList* recovered_packets);
+  void AttemptRecovery(RecoveredPacketList* recovered_packets);
 
   // Initializes headers and payload before the XOR operation
   // that recovers a packet.

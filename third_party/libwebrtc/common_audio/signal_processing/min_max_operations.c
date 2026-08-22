@@ -25,7 +25,6 @@
  */
 
 #include <stdlib.h>
-#include <limits.h>
 
 #include "rtc_base/checks.h"
 #include "common_audio/signal_processing/include/signal_processing_library.h"
@@ -68,8 +67,7 @@ int32_t WebRtcSpl_MaxAbsValueW32C(const int32_t* vector, size_t length) {
   RTC_DCHECK_GT(length, 0);
 
   for (i = 0; i < length; i++) {
-    absolute =
-        (vector[i] != INT_MIN) ? abs((int)vector[i]) : INT_MAX + (uint32_t)1;
+    absolute = abs((int)vector[i]);
     if (absolute > maximum) {
       maximum = absolute;
     }

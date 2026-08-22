@@ -272,14 +272,15 @@ void VideoAnalyzer::PostEncodeOnFrame(size_t stream_id, uint32_t timestamp) {
   }
 }
 
-bool VideoAnalyzer::SendRtp(rtc::ArrayView<const uint8_t> packet,
+bool VideoAnalyzer::SendRtp(const uint8_t* packet,
+                            size_t length,
                             const PacketOptions& options) {
   RtpPacket rtp_packet;
-  rtp_packet.Parse(packet);
+  rtp_packet.Parse(packet, length);
 
   int64_t current_time = clock_->CurrentNtpInMilliseconds();
 
-  bool result = transport_->SendRtp(packet, options);
+  bool result = transport_->SendRtp(packet, length, options);
   {
     MutexLock lock(&lock_);
     if (rtp_timestamp_delta_ == 0 && rtp_packet.Ssrc() == ssrc_to_analyze_) {
@@ -305,8 +306,8 @@ bool VideoAnalyzer::SendRtp(rtc::ArrayView<const uint8_t> packet,
   return result;
 }
 
-bool VideoAnalyzer::SendRtcp(rtc::ArrayView<const uint8_t> packet) {
-  return transport_->SendRtcp(packet);
+bool VideoAnalyzer::SendRtcp(const uint8_t* packet, size_t length) {
+  return transport_->SendRtcp(packet, length);
 }
 
 void VideoAnalyzer::OnFrame(const VideoFrame& video_frame) {

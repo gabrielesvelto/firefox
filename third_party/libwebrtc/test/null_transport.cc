@@ -12,12 +12,13 @@
 namespace webrtc {
 namespace test {
 
-bool NullTransport::SendRtp(rtc::ArrayView<const uint8_t> packet,
+bool NullTransport::SendRtp(const uint8_t* packet,
+                            size_t length,
                             const PacketOptions& options) {
   return true;
 }
 
-bool NullTransport::SendRtcp(rtc::ArrayView<const uint8_t> packet) {
+bool NullTransport::SendRtcp(const uint8_t* packet, size_t length) {
   return true;
 }
 

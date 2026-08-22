@@ -140,12 +140,18 @@ public class TextureBufferImpl implements VideoFrame.TextureBuffer {
         Math.round(unscaledHeight * cropHeight / (float) height), scaleWidth, scaleHeight);
   }
 
-  @Override
+  /**
+   * Returns the width of the texture in memory. This should only be used for downscaling, and you
+   * should still respect the width from getWidth().
+   */
   public int getUnscaledWidth() {
     return unscaledWidth;
   }
 
-  @Override
+  /**
+   * Returns the height of the texture in memory. This should only be used for downscaling, and you
+   * should still respect the height from getHeight().
+   */
   public int getUnscaledHeight() {
     return unscaledHeight;
   }

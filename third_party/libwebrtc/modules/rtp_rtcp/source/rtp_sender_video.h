@@ -211,8 +211,7 @@ class RTPSenderVideo : public RTPVideoFrameSenderInterface {
       RTC_GUARDED_BY(send_checker_);
 
   // Current target playout delay.
-  absl::optional<VideoPlayoutDelay> current_playout_delay_
-      RTC_GUARDED_BY(send_checker_);
+  VideoPlayoutDelay current_playout_delay_ RTC_GUARDED_BY(send_checker_);
   // Flag indicating if we need to send `current_playout_delay_` in order
   // to guarantee it gets delivered.
   bool playout_delay_pending_;

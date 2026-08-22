@@ -151,12 +151,7 @@ void FlexfecReceiver::ProcessReceivedPacket(
   RTC_DCHECK_RUN_ON(&sequence_checker_);
 
   // Decode.
-  ForwardErrorCorrection::DecodeFecResult decode_result =
-      erasure_code_->DecodeFec(received_packet, &recovered_packets_);
-
-  if (decode_result.num_recovered_packets == 0) {
-    return;
-  }
+  erasure_code_->DecodeFec(received_packet, &recovered_packets_);
 
   // Return recovered packets through callback.
   for (const auto& recovered_packet : recovered_packets_) {

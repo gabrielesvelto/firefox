@@ -14,7 +14,6 @@
 #include <functional>
 #include <memory>
 
-#include "absl/functional/any_invocable.h"
 #include "rtc_base/checks.h"
 #include "rtc_base/socket_address.h"
 #include "rtc_base/system/rtc_export.h"
@@ -64,11 +63,11 @@ class RTC_EXPORT AsyncDnsResolverInterface {
 
   // Start address resolution of the hostname in `addr`.
   virtual void Start(const rtc::SocketAddress& addr,
-                     absl::AnyInvocable<void()> callback) = 0;
+                     std::function<void()> callback) = 0;
   // Start address resolution of the hostname in `addr` matching `family`.
   virtual void Start(const rtc::SocketAddress& addr,
                      int family,
-                     absl::AnyInvocable<void()> callback) = 0;
+                     std::function<void()> callback) = 0;
   virtual const AsyncDnsResolverResult& result() const = 0;
 };
 
@@ -84,7 +83,7 @@ class AsyncDnsResolverFactoryInterface {
   // The callback will be called on the sequence that the caller runs on.
   virtual std::unique_ptr<webrtc::AsyncDnsResolverInterface> CreateAndResolve(
       const rtc::SocketAddress& addr,
-      absl::AnyInvocable<void()> callback) = 0;
+      std::function<void()> callback) = 0;
   // Creates an AsyncDnsResolver and starts resolving the name to an address
   // matching the specified family. The callback will be called when resolution
   // is finished. The callback will be called on the sequence that the caller
@@ -92,7 +91,7 @@ class AsyncDnsResolverFactoryInterface {
   virtual std::unique_ptr<webrtc::AsyncDnsResolverInterface> CreateAndResolve(
       const rtc::SocketAddress& addr,
       int family,
-      absl::AnyInvocable<void()> callback) = 0;
+      std::function<void()> callback) = 0;
   // Creates an AsyncDnsResolver and does not start it.
   // For backwards compatibility, will be deprecated and removed.
   // One has to do a separate Start() call on the

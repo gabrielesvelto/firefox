@@ -64,8 +64,7 @@ struct IceTransportInit final {
     RTC_DCHECK(!async_resolver_factory_);
     async_dns_resolver_factory_ = async_dns_resolver_factory;
   }
-  [[deprecated("Use async_dns_resolver_factory")]] AsyncResolverFactory*
-  async_resolver_factory() {
+  AsyncResolverFactory* async_resolver_factory() {
     return async_resolver_factory_;
   }
   ABSL_DEPRECATED("bugs.webrtc.org/12598")

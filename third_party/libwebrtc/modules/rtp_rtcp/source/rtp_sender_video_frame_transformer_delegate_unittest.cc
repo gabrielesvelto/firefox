@@ -90,7 +90,8 @@ TEST_F(RtpSenderVideoFrameTransformerDelegateTest,
        RegisterTransformedFrameCallbackSinkOnInit) {
   auto delegate = rtc::make_ref_counted<RTPSenderVideoFrameTransformerDelegate>(
       &test_sender_, frame_transformer_,
-      /*ssrc=*/1111, time_controller_.CreateTaskQueueFactory().get());
+      /*ssrc=*/1111, /*csrcs=*/std::vector<uint32_t>(),
+      time_controller_.CreateTaskQueueFactory().get());
   EXPECT_CALL(*frame_transformer_,
               RegisterTransformedFrameSinkCallback(_, 1111));
   delegate->Init();
@@ -100,7 +101,8 @@ TEST_F(RtpSenderVideoFrameTransformerDelegateTest,
        UnregisterTransformedFrameSinkCallbackOnReset) {
   auto delegate = rtc::make_ref_counted<RTPSenderVideoFrameTransformerDelegate>(
       &test_sender_, frame_transformer_,
-      /*ssrc=*/1111, time_controller_.CreateTaskQueueFactory().get());
+      /*ssrc=*/1111, /*csrcs=*/std::vector<uint32_t>(),
+      time_controller_.CreateTaskQueueFactory().get());
   EXPECT_CALL(*frame_transformer_,
               UnregisterTransformedFrameSinkCallback(1111));
   delegate->Reset();
@@ -110,7 +112,8 @@ TEST_F(RtpSenderVideoFrameTransformerDelegateTest,
        TransformFrameCallsTransform) {
   auto delegate = rtc::make_ref_counted<RTPSenderVideoFrameTransformerDelegate>(
       &test_sender_, frame_transformer_,
-      /*ssrc=*/1111, time_controller_.CreateTaskQueueFactory().get());
+      /*ssrc=*/1111, /*csrcs=*/std::vector<uint32_t>(),
+      time_controller_.CreateTaskQueueFactory().get());
 
   EncodedImage encoded_image;
   EXPECT_CALL(*frame_transformer_, Transform);
@@ -124,7 +127,8 @@ TEST_F(RtpSenderVideoFrameTransformerDelegateTest,
        OnTransformedFrameCallsSenderSendVideo) {
   auto delegate = rtc::make_ref_counted<RTPSenderVideoFrameTransformerDelegate>(
       &test_sender_, frame_transformer_,
-      /*ssrc=*/1111, time_controller_.CreateTaskQueueFactory().get());
+      /*ssrc=*/1111, /*csrcs=*/std::vector<uint32_t>(),
+      time_controller_.CreateTaskQueueFactory().get());
 
   rtc::scoped_refptr<TransformedFrameCallback> callback;
   EXPECT_CALL(*frame_transformer_, RegisterTransformedFrameSinkCallback)
@@ -150,7 +154,8 @@ TEST_F(RtpSenderVideoFrameTransformerDelegateTest,
 TEST_F(RtpSenderVideoFrameTransformerDelegateTest, CloneSenderVideoFrame) {
   auto delegate = rtc::make_ref_counted<RTPSenderVideoFrameTransformerDelegate>(
       &test_sender_, frame_transformer_,
-      /*ssrc=*/1111, time_controller_.CreateTaskQueueFactory().get());
+      /*ssrc=*/1111, /*csrcs=*/std::vector<uint32_t>(),
+      time_controller_.CreateTaskQueueFactory().get());
 
   std::unique_ptr<TransformableFrameInterface> frame =
       GetTransformableFrame(delegate);
@@ -170,7 +175,8 @@ TEST_F(RtpSenderVideoFrameTransformerDelegateTest, CloneSenderVideoFrame) {
 TEST_F(RtpSenderVideoFrameTransformerDelegateTest, CloneKeyFrame) {
   auto delegate = rtc::make_ref_counted<RTPSenderVideoFrameTransformerDelegate>(
       &test_sender_, frame_transformer_,
-      /*ssrc=*/1111, time_controller_.CreateTaskQueueFactory().get());
+      /*ssrc=*/1111, /*csrcs=*/std::vector<uint32_t>(),
+      time_controller_.CreateTaskQueueFactory().get());
 
   std::unique_ptr<TransformableFrameInterface> frame =
       GetTransformableFrame(delegate, /*key_frame=*/true);
@@ -190,7 +196,8 @@ TEST_F(RtpSenderVideoFrameTransformerDelegateTest, CloneKeyFrame) {
 TEST_F(RtpSenderVideoFrameTransformerDelegateTest, MetadataAfterSetMetadata) {
   auto delegate = rtc::make_ref_counted<RTPSenderVideoFrameTransformerDelegate>(
       &test_sender_, frame_transformer_,
-      /*ssrc=*/1111, time_controller_.CreateTaskQueueFactory().get());
+      /*ssrc=*/1111, /*csrcs=*/std::vector<uint32_t>(),
+      time_controller_.CreateTaskQueueFactory().get());
 
   std::unique_ptr<TransformableFrameInterface> frame =
       GetTransformableFrame(delegate);
@@ -218,7 +225,8 @@ TEST_F(RtpSenderVideoFrameTransformerDelegateTest,
        ReceiverFrameConvertedToSenderFrame) {
   auto delegate = rtc::make_ref_counted<RTPSenderVideoFrameTransformerDelegate>(
       &test_sender_, frame_transformer_,
-      /*ssrc=*/1111, time_controller_.CreateTaskQueueFactory().get());
+      /*ssrc=*/1111, /*csrcs=*/std::vector<uint32_t>(),
+      time_controller_.CreateTaskQueueFactory().get());
 
   const uint8_t payload_type = 1;
   const uint32_t timestamp = 2;
@@ -266,7 +274,8 @@ TEST_F(RtpSenderVideoFrameTransformerDelegateTest,
 TEST_F(RtpSenderVideoFrameTransformerDelegateTest, SettingRTPTimestamp) {
   auto delegate = rtc::make_ref_counted<RTPSenderVideoFrameTransformerDelegate>(
       &test_sender_, frame_transformer_,
-      /*ssrc=*/1111, time_controller_.CreateTaskQueueFactory().get());
+      /*ssrc=*/1111, /*csrcs=*/std::vector<uint32_t>(),
+      time_controller_.CreateTaskQueueFactory().get());
 
   std::unique_ptr<TransformableFrameInterface> frame =
       GetTransformableFrame(delegate);
