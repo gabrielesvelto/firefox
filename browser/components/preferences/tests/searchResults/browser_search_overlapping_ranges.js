@@ -116,6 +116,11 @@ function searchableGroupCount(doc, paneName) {
 add_task(async function overlapping_subquery_does_not_show_whole_pane() {
   const PANE = DEFAULT_PANE;
 
+  // Backup is off by default on macOS on this branch.
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.backup.archive.enabled", true]],
+  });
+
   // A fresh, non-overlapping search shows a proper subset of the pane's groups.
   let doc = await openSearchWithQuery("backup");
   let freshVisible = visibleGroupIds(doc, PANE);
@@ -192,6 +197,7 @@ add_task(async function overlapping_subquery_does_not_show_whole_pane() {
 
   await waitForRangeCountStable(win);
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
+  await SpecialPowers.popPrefEnv();
 });
 
 // Bug 2045266: same overlap as above, driven through searchInput keystrokes
