@@ -66,11 +66,30 @@ add_task(async function test_command_palette_keyboard_navigation() {
       "ArrowDown keeps a command selected"
     );
 
-    // Enter completes the highlighted command with no mouse click
+    // Enter runs the highlighted command - it submits "/watch" to chat
+    let committed = null;
+    aiWindow.ownerDocument.addEventListener(
+      "smartbar-commit",
+      e => {
+        committed = {
+          action: e.detail.action,
+          value: e.detail.value,
+          submitType: e.detail.submitType,
+        };
+      },
+      { capture: true, once: true }
+    );
     EventUtils.synthesizeKey("KEY_Enter", {}, content);
     await ContentTaskUtils.waitForCondition(
-      () => smartbar.value === "/watch ",
-      "Enter completes the highlighted command"
+      () => committed,
+      "Enter submits the highlighted command to chat"
+    );
+    Assert.equal(committed.action, "chat", "Command is submitted to chat");
+    Assert.equal(committed.value, "/watch", "Command value is submitted");
+    Assert.equal(
+      committed.submitType,
+      "enter",
+      "Enter key records submitType 'enter'"
     );
   });
 
@@ -145,7 +164,7 @@ add_task(async function test_command_palette_filters_by_query() {
   await BrowserTestUtils.closeWindow(win);
 });
 
-add_task(async function test_command_selection_completes_input() {
+add_task(async function test_command_selection_submits_to_chat() {
   const { win, sidebarBrowser } = await openAIWindowWithSidebar();
 
   await typeInSmartbar(sidebarBrowser, "/");
@@ -156,14 +175,35 @@ add_task(async function test_command_selection_completes_input() {
     const smartbar = aiWindow.shadowRoot.querySelector("#ai-window-smartbar");
     const panelList = smartbar.querySelector("smartwindow-panel-list");
     const panel = panelList.shadowRoot.querySelector("panel-list");
+
+    let committed = null;
+    aiWindow.ownerDocument.addEventListener(
+      "smartbar-commit",
+      e => {
+        committed = {
+          action: e.detail.action,
+          value: e.detail.value,
+          submitType: e.detail.submitType,
+        };
+      },
+      { capture: true, once: true }
+    );
+
     const firstItem = panel.querySelector(
       "panel-item:not(.panel-section-header)"
     );
     firstItem.click();
 
     await ContentTaskUtils.waitForCondition(
-      () => smartbar.value === "/watch ",
-      "Selecting the command completes the input to '/watch '"
+      () => committed,
+      "Clicking the command submits it to chat"
+    );
+    Assert.equal(committed.action, "chat", "Command is submitted to chat");
+    Assert.equal(committed.value, "/watch", "Command value is submitted");
+    Assert.equal(
+      committed.submitType,
+      "button",
+      "Clicking a palette item records submitType 'button'"
     );
   });
 
@@ -217,35 +257,6 @@ add_task(async function test_modifier_keys_do_not_complete_command() {
         `${modifier}+Enter does not complete the command`
       );
     }
-  });
-
-  await BrowserTestUtils.closeWindow(win);
-});
-
-add_task(async function test_command_selection_is_undoable() {
-  const { win, sidebarBrowser } = await openAIWindowWithSidebar();
-
-  await typeInSmartbar(sidebarBrowser, "/wat");
-  await waitForPanelOpen(sidebarBrowser);
-
-  await SpecialPowers.spawn(sidebarBrowser, [], async () => {
-    const aiWindow = content.document.querySelector("ai-window");
-    const smartbar = aiWindow.shadowRoot.querySelector("#ai-window-smartbar");
-    const panelList = smartbar.querySelector("smartwindow-panel-list");
-    const panel = panelList.shadowRoot.querySelector("panel-list");
-
-    panel.querySelector("panel-item:not(.panel-section-header)").click();
-    await ContentTaskUtils.waitForCondition(
-      () => smartbar.value === "/watch ",
-      "Selecting the command completes the input to '/watch '"
-    );
-
-    smartbar.inputField.view.focus();
-    EventUtils.synthesizeKey("z", { accelKey: true }, content);
-    await ContentTaskUtils.waitForCondition(
-      () => !smartbar.value.startsWith("/watch"),
-      "Cmd+z undoes the command completion"
-    );
   });
 
   await BrowserTestUtils.closeWindow(win);

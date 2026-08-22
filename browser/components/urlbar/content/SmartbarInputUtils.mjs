@@ -558,16 +558,13 @@ function setupCommandsPlugin(editorElement, panelList) {
     }
   };
 
-  const completeCommand = id => {
+  // Selecting a command runs it immediately
+  const executeCommand = (id, submitType) => {
     if (!latestCommandData) {
       return;
     }
-    const commandText = `/${id} `;
-    const { view, range } = latestCommandData;
-    view.dispatch(view.state.tr.insertText(commandText, range.from, range.to));
-    view.focus();
-
     onExitPalette();
+    smartbarInput.submitChat(null, `/${id}`, submitType);
   };
 
   const handleItemSelected = e => {
@@ -578,7 +575,7 @@ function setupCommandsPlugin(editorElement, panelList) {
     ) {
       return;
     }
-    completeCommand(e.detail.id);
+    executeCommand(e.detail.id, "button");
   };
 
   const handlePanelKeyDown = e =>
@@ -601,7 +598,7 @@ function setupCommandsPlugin(editorElement, panelList) {
       Enter: () => {
         const selected = panelList.getSelectedItem();
         if (selected) {
-          completeCommand(selected.id);
+          executeCommand(selected.id, "enter");
         }
       },
       Escape: () => onExitPalette(),
