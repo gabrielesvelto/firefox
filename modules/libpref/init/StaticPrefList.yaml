@@ -8533,7 +8533,7 @@
 #ifdef XP_MACOSX
 - name: gfx.webrender.enable-client-storage
   type: bool
-  value: true
+  value: false
   mirror: once
 #endif
 
