@@ -15,6 +15,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   NormandyUtils: "resource://normandy/lib/NormandyUtils.sys.mjs",
   _ExperimentManager: "resource://nimbus/lib/ExperimentManager.sys.mjs",
+  RemoteSettingsExperimentLoader:
+    "resource://nimbus/lib/RemoteSettingsExperimentLoader.sys.mjs",
   _RemoteSettingsExperimentLoader:
     "resource://nimbus/lib/RemoteSettingsExperimentLoader.sys.mjs",
   sinon: "resource://testing-common/Sinon.sys.mjs",
@@ -191,23 +193,12 @@ export const ExperimentTestUtils = {
    * to its previous state.
    */
   disableSignatureVerification() {
-    const { remoteSettingsClients } = ExperimentAPI._rsLoader;
+    const client = lazy.RemoteSettingsExperimentLoader.remoteSettingsClient;
+    const originalValue = client.verifySignature;
 
-    const originalValues = Object.fromEntries(
-      Object.entries(remoteSettingsClients).map(([key, collection]) => [
-        key,
-        collection.verifySignature,
-      ])
-    );
-
-    for (const client of Object.values(remoteSettingsClients)) {
-      client.verifySignature = false;
-    }
-
+    client.verifySignature = false;
     return () => {
-      for (const [key, client] of Object.entries(remoteSettingsClients)) {
-        client.verifySignature = originalValues[key];
-      }
+      client.verifySignature = originalValue;
     };
   },
 };
