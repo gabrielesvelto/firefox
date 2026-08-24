@@ -4512,7 +4512,7 @@ bool BaseCompiler::emitTryTable() {
     return false;
   }
   for (const Stk& v : savedParams) {
-    MOZ_ASSERT(v.kind() < Stk::RegFirst || v.kind() > Stk::RegLast);
+    MOZ_ASSERT(v.kind() < Stk::RegisterI32 || v.kind() > Stk::RegisterRef);
     if (v.kind() == Stk::MemRef) {
       stackMapGenerator_.memRefsOnStk--;
     }
