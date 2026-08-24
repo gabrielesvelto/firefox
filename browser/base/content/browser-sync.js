@@ -1361,9 +1361,12 @@ var gSync = {
     PanelMultiView.getViewNode(
       document,
       "PanelUI-fxa-menu-sync-status-off-button"
-    ).addEventListener("click", e =>
-      this.openPrefsFromFxaMenu("sync_settings", e.currentTarget)
-    );
+    ).addEventListener("click", e => {
+      // We can't use the onCommand handler as we need to be able to pass in
+      // the event currentTarget.
+      this.openPrefsFromFxaMenu("sync_settings", e.currentTarget);
+      CustomizableUI.hidePanelForNode(e.currentTarget);
+    });
     PanelMultiView.getViewNode(
       document,
       "PanelUI-fxa-menu-secure-sync-subpanel"
