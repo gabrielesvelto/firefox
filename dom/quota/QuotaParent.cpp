@@ -166,7 +166,7 @@ bool Quota::VerifyPrincipalInfo(const PrincipalInfo& aPrincipalInfo) const {
   AssertIsOnBackgroundThread();
 
   return IsPrincipalInfoValid(aPrincipalInfo) &&
-         BackgroundParent::ValidatePrincipalInfo(Manager(), aPrincipalInfo);
+         BackgroundParent::ValidatePrincipalInfo(Manager(), aPrincipalInfo, {});
 }
 
 bool Quota::VerifyRequestParams(const RequestParams& aParams) const {
