@@ -34,7 +34,7 @@ class IPProtectionFeatureTest {
                     buildIPProtectionState(
                         accountStatus = AccountStatus.AwaitingAuthentication,
                         eligibilityStatus = EligibilityStatus.Eligible,
-                    )
+                    ),
                 )
 
             IPProtectionFeature(
