@@ -8262,7 +8262,7 @@ std::pair<uint64_t, uint64_t> QuotaManager::GetUsageAndLimitForEstimate(
             // reports its own origin usage against that limit.
             if (originInfo && originInfo->LockedPersisted()) {
               return std::pair(originInfo->LockedUsage(),
-                               mTemporaryStorageLimit);
+                               static_cast<uint64_t>(mTemporaryStorageLimit));
             }
           }
 
@@ -8654,7 +8654,7 @@ QuotaManager::GetOriginInfosExceedingGlobalLimit() const {
       },
       [temporaryStorageUsage = mTemporaryStorageUsage,
        temporaryStorageLimit = mTemporaryStorageLimit,
-       doomedUsage = uint64_t{0}](const auto& originInfo) mutable {
+       doomedUsage = int64_t{0}](const auto& originInfo) mutable {
         if (temporaryStorageUsage - doomedUsage <= temporaryStorageLimit) {
           return true;
         }

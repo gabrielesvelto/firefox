@@ -322,8 +322,8 @@ Maybe<bool> OriginInfo::LockedUpdateUsages(
   }
 
   AssertNoOverflow(quotaManager->mTemporaryStorageUsage, aDelta);
-  uint64_t newTemporaryStorageUsage =
-      quotaManager->mTemporaryStorageUsage + aDelta;
+  int64_t newTemporaryStorageUsage =
+      quotaManager->mTemporaryStorageUsage + AssertedCast<int64_t>(aDelta);
 
   if (newTemporaryStorageUsage <= quotaManager->mTemporaryStorageLimit) {
     mClientUsages[aClientType] = Some(newClientUsage);
@@ -356,8 +356,8 @@ bool OriginInfo::LockedUpdateUsagesForEviction(
   uint64_t newClientUsage = mClientUsages[aClientType].valueOr(0) + aDelta;
 
   AssertNoOverflow(quotaManager->mTemporaryStorageUsage, aDelta);
-  uint64_t newTemporaryStorageUsage =
-      quotaManager->mTemporaryStorageUsage + aDelta;
+  int64_t newTemporaryStorageUsage =
+      quotaManager->mTemporaryStorageUsage + AssertedCast<int64_t>(aDelta);
 
   uint64_t newGroupUsage = mGroupInfo->mUsage;
   if (!LockedPersisted()) {
@@ -389,7 +389,8 @@ bool OriginInfo::LockedUpdateUsagesForEviction(
   }
 
   AssertNoOverflow(quotaManager->mTemporaryStorageUsage, aDelta);
-  newTemporaryStorageUsage = quotaManager->mTemporaryStorageUsage + aDelta;
+  newTemporaryStorageUsage =
+      quotaManager->mTemporaryStorageUsage + AssertedCast<int64_t>(aDelta);
 
   NS_ASSERTION(newTemporaryStorageUsage <= quotaManager->mTemporaryStorageLimit,
                "How come?!");
