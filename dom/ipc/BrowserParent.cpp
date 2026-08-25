@@ -62,6 +62,7 @@
 #include "mozilla/net/CookieJarSettings.h"
 #include "mozilla/net/NeckoChild.h"
 #include "mozilla/widget/Screen.h"
+#include "mozilla/widget/WidgetLogging.h"
 #include "nsCOMPtr.h"
 #include "nsContentPermissionHelper.h"
 #include "nsContentUtils.h"
@@ -123,6 +124,7 @@
 #include "nsIAuthPromptCallback.h"
 #include "nsICancelable.h"
 #include "nsILoginManagerAuthPrompter.h"
+#include "nsIScriptSecurityManager.h"
 #include "nsISecureBrowserUI.h"
 #include "nsIXULRuntime.h"
 #include "nsNetCID.h"
@@ -932,17 +934,18 @@ mozilla::ipc::IPCResult BrowserParent::RecvDropLinks(
     // not been modified then it's safe to load those links using the
     // SystemPrincipal. If they have been modified by web content, then
     // we use a NullPrincipal which still allows to load web links.
-    bool loadUsingSystemPrincipal = true;
-    if (aLinks.Length() != mVerifyDropLinks.Length()) {
-      loadUsingSystemPrincipal = false;
-    }
-    for (uint32_t i = 0; i < aLinks.Length(); i++) {
-      if (loadUsingSystemPrincipal) {
+    const bool loadUsingSystemPrincipal = [&]() {
+      if (aLinks.Length() != mVerifyDropLinks.Length()) {
+        return false;
+      }
+      for (uint32_t i = 0; i < aLinks.Length(); i++) {
         if (!aLinks[i].Equals(mVerifyDropLinks[i])) {
-          loadUsingSystemPrincipal = false;
+          return false;
         }
       }
-    }
+      return true;
+    }();
+
     mVerifyDropLinks.Clear();
     nsCOMPtr<nsIPrincipal> triggeringPrincipal;
     if (loadUsingSystemPrincipal) {
@@ -1689,6 +1692,27 @@ bool BrowserParent::QueryDropLinksForVerification() {
     return false;
   }
 
+  nsCOMPtr<nsIPrincipal> triggeringPrincipal;
+  dragSession->GetTriggeringPrincipal(getter_AddRefs(triggeringPrincipal));
+
+  nsIScriptSecurityManager* secMan = nullptr;
+  if (triggeringPrincipal) {
+    if (!(secMan = nsContentUtils::GetSecurityManager())) {
+      NS_WARNING("No ScriptSecurityManager for links verification");
+      return false;
+    }
+  } else {
+    RefPtr<WindowContext> sourceWC = dragSession->GetSourceWindowContext();
+    RefPtr<WindowContext> sourceTopWC =
+        dragSession->GetSourceTopWindowContext();
+    if (sourceWC || sourceTopWC) {
+      NS_WARNING(
+          "How can we have a source window context while no triggering "
+          "principal?");
+      return false;
+    }
+  }
+
   // No more than one drop event can happen simultaneously; reset the link
   // verification array and store all links that are being dragged.
   mVerifyDropLinks.Clear();
@@ -1707,6 +1731,22 @@ bool BrowserParent::QueryDropLinksForVerification() {
       NS_WARNING("Failed to query url for verification");
       break;
     }
+
+    if (triggeringPrincipal) {
+      MOZ_ASSERT(secMan);
+      if (NS_FAILED(secMan->CheckLoadURIStrWithPrincipal(
+              triggeringPrincipal, NS_ConvertUTF16toUTF8(tmp),
+              nsIScriptSecurityManager::STANDARD |
+                  nsIScriptSecurityManager::DISALLOW_INHERIT_PRINCIPAL))) {
+        MOZ_LOG_FMT(sWidgetDragServiceLog, mozilla::LogLevel::Debug,
+                    "[{}] {} | dragSession: {} | Bad URI {} from {}",
+                    fmt::ptr(this), __FUNCTION__, fmt::ptr(dragSession.get()),
+                    NS_ConvertUTF16toUTF8(tmp).get(), triggeringPrincipal);
+        mVerifyDropLinks.Clear();
+        return true;
+      }
+    }
+
     mVerifyDropLinks.AppendElement(tmp);
 
     rv = item->GetName(tmp);
@@ -3970,9 +4010,7 @@ mozilla::ipc::IPCResult BrowserParent::RecvInvokeDragSession(
     return IPC_OK();
   }
 
-  // XXX: Can we remove AllowNullPtr here?
-  if (!Manager()->ValidatePrincipal(aPrincipal,
-                                    {ValidatePrincipalOptions::AllowNullPtr})) {
+  if (!Manager()->ValidatePrincipal(aPrincipal, {})) {
     return ContentParent::PrincipalValidationIpcFail(aPrincipal, this,
                                                      __func__);
   }
