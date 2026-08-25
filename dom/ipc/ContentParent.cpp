@@ -7619,7 +7619,8 @@ mozilla::ipc::IPCResult ContentParent::RecvNotifyOnHistoryReload(
   bool canReload = false;
   Maybe<NotNull<RefPtr<nsDocShellLoadState>>> loadState;
   Maybe<bool> reloadActiveEntry;
-  if (!aContext.IsNullOrDiscarded()) {
+  if (!aContext.IsNullOrDiscarded() &&
+      aContext.get_canonical()->IsOwnedByProcess(ChildID())) {
     aContext.get_canonical()->NotifyOnHistoryReload(
         aForceReload, canReload, loadState, reloadActiveEntry);
   }
