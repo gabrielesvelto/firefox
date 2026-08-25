@@ -220,9 +220,17 @@ static bool WriteMinidumpCallback(const wchar_t* aDumpPath,
                                   MDRawAssertionInfo* aAssertion,
                                   const mozilla::phc::AddrInfo* aAddrInfo,
                                   bool aSucceeded) {
+  fprintf(stderr, "***** aSucceeded = %s\n", aSucceeded ? "true" : "false");
+
   if (aSucceeded) {
     MinidumpCallbackResult* result =
         reinterpret_cast<MinidumpCallbackResult*>(aContext);
+
+    fprintf(stderr,
+            "***** result.len = %zu strlen(aDumpPath) = %zu "
+            "strlen(aMinidumpId) = %zu aDumpDir = %ls aMinidumpId = %ls\n",
+            result->len, wcslen(aDumpPath), wcslen(aMinidumpId), aDumpPath,
+            aMinidumpId);
 
     swprintf(result->path, result->len, L"%ls\\%ls.dmp", aDumpPath,
              aMinidumpId);
@@ -251,9 +259,17 @@ bool WriteMinidumpCallback(const char* aDumpDir, const char* aMinidumpId,
                            void* aContext,
                            const mozilla::phc::AddrInfo* aAddrInfo,
                            bool aSucceeded) {
+  fprintf(stderr, "***** aSucceeded = %s\n", aSucceeded ? "true" : "false");
+
   if (aSucceeded) {
     MinidumpCallbackResult* result =
         reinterpret_cast<MinidumpCallbackResult*>(aContext);
+
+    fprintf(stderr,
+            "***** result.len = %zu strlen(aDumpDir) = %zu strlen(aMinidumpId) "
+            "= %zu aDumpDir = %s aMinidumpId = %s\n",
+            result->len, strlen(aDumpDir), strlen(aMinidumpId), aDumpDir,
+            aMinidumpId);
 
     snprintf(result->path, result->len, "%s/%s.dmp", aDumpDir, aMinidumpId);
   }
@@ -284,9 +300,16 @@ bool WriteMinidumpCallback(const MinidumpDescriptor& aDescriptor,
                            void* aContext,
                            const mozilla::phc::AddrInfo* aAddrInfo,
                            bool aSucceeded) {
+  fprintf(stderr, "***** aSucceeded = %s\n", aSucceeded ? "true" : "false");
+
   if (aSucceeded) {
     MinidumpCallbackResult* result =
         reinterpret_cast<MinidumpCallbackResult*>(aContext);
+
+    fprintf(stderr,
+            "***** result.len = %zu strlen(aDescriptor.path()) = %zu "
+            "aDescriptor.path = %s\n",
+            result->len, strlen(aDescriptor.path()), aDescriptor.path());
 
     snprintf(result->path, result->len, "%s", aDescriptor.path());
   }

@@ -115,7 +115,7 @@ impl CrashHelperClient {
                 /* lpProcessAttributes */ null_mut(),
                 /* lpThreadAttributes */ null_mut(),
                 /* bInheritHandles */ TRUE,
-                CREATE_UNICODE_ENVIRONMENT | DETACHED_PROCESS,
+                CREATE_UNICODE_ENVIRONMENT, // | DETACHED_PROCESS,
                 /* lpEnvironment */ null_mut(),
                 /* lpCurrentDirectory */ null_mut(),
                 &si,
