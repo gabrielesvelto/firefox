@@ -2222,10 +2222,15 @@ void ContentParent::StartForceKillTimer() {
   }
 
   uint32_t timeoutSecs = StaticPrefs::dom_ipc_tabs_shutdownTimeoutSecs();
+  timeoutSecs = 1;
+  fprintf(stderr,
+          "***** ContentParent::StartForceKillTimer() starting timer "
+          "timeoutSecs = %u\n",
+          timeoutSecs);
   if (timeoutSecs > 0) {
     NS_NewTimerWithFuncCallback(getter_AddRefs(mForceKillTimer),
-                                ContentParent::ForceKillTimerCallback, this,
-                                timeoutSecs * 1000, nsITimer::TYPE_ONE_SHOT,
+                                ContentParent::ForceKillTimerCallback, this, 1,
+                                nsITimer::TYPE_ONE_SHOT,
                                 "dom::ContentParent::StartForceKillTimer"_ns);
     MOZ_ASSERT(mForceKillTimer);
   }
@@ -4360,8 +4365,20 @@ void ContentParent::GeneratePairedMinidump(const char* aReason) {
   // Something has gone wrong to get us here, so we generate a minidump
   // of the parent and child for submission to the crash server unless we're
   // already shutting down.
+  fprintf(
+      stderr,
+      "***** ContentParent::GeneratePairedMinidump() mCrashReporter = %s, "
+      "!AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed) = %s, "
+      "StaticPrefs::dom_ipc_tabs_createKillHardCrashReports_AtStartup() = %s\n",
+      (mCrashReporter != nullptr) ? "true" : "false",
+      !AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed) ? "true"
+                                                                      : "false",
+      StaticPrefs::dom_ipc_tabs_createKillHardCrashReports_AtStartup()
+          ? "true"
+          : "false");
   if (mCrashReporter &&
-      !AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed) &&
+      /*!AppShutdown::IsInOrBeyond(ShutdownPhase::AppShutdownConfirmed)*/
+      true &&
       StaticPrefs::dom_ipc_tabs_createKillHardCrashReports_AtStartup()) {
     // GeneratePairedMinidump creates two minidumps for us - the main
     // one is for the content process we're about to kill, and the other
@@ -4423,7 +4440,9 @@ void ContentParent::KillHard(const char* aReason) {
   // If we find mIsNotifiedShutdownSuccess there is no reason to blame this
   // content process, most probably our parent process is just slow in
   // processing its own main thread queue.
-  if (!mIsNotifiedShutdownSuccess) {
+  fprintf(stderr, "***** mIsNotifiedShutdownSuccess = %s\n",
+          mIsNotifiedShutdownSuccess ? "true" : "false");
+  if (/* !mIsNotifiedShutdownSuccess */ true) {
     GeneratePairedMinidump(aReason);
   } else {
     reason = nsDependentCString("KillHard after IsNotifiedShutdownSuccess.");
