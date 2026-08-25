@@ -164,7 +164,7 @@ class IPProtectionFeature(
         }
     }
 
-    private suspend fun registerAndInit() = withContext(Dispatchers.Main) {
+    private suspend fun registerAndInit() = withContext(mainDispatcher) {
         handler = engine.registerIPProtectionDelegate(
             object : IPProtectionDelegate {
                 override fun onStateChanged(info: IPProtectionHandler.StateInfo) {
@@ -208,11 +208,11 @@ class IPProtectionFeature(
         }
     }
 
-    private suspend fun uninit() = withContext(Dispatchers.Main) {
+    private suspend fun uninit() = withContext(mainDispatcher) {
         handler?.uninit()
     }
 
-    private suspend fun observeToggle() = withContext(Dispatchers.Main) {
+    private suspend fun observeToggle() = withContext(mainDispatcher) {
         // Dedupe over the nullable so `true -> null -> true` reads as two edges, not one.
         store.flow()
             .map { it.activate }
