@@ -7641,6 +7641,11 @@ mozilla::ipc::IPCResult ContentParent::RecvHistoryCommit(
       return IPC_FAIL(
           this, "Could not get canonical. aContext.get_canonical() fails.");
     }
+
+    if (!canonical->IsOwnedByProcess(ChildID())) {
+      return IPC_OK();
+    }
+
     canonical->SessionHistoryCommit(aLoadID, aChangeID, aLoadType,
                                     aCloneEntryChildren, aChannelExpired,
                                     aCacheKey);
@@ -7706,6 +7711,10 @@ mozilla::ipc::IPCResult ContentParent::RecvSessionHistoryEntryTitle(
     return IPC_OK();
   }
 
+  if (!aContext.get_canonical()->IsOwnedByProcess(ChildID())) {
+    return IPC_OK();
+  }
+
   SessionHistoryEntry* entry =
       aContext.get_canonical()->GetActiveSessionHistoryEntry();
   if (entry) {
@@ -7718,6 +7727,10 @@ mozilla::ipc::IPCResult
 ContentParent::RecvSessionHistoryEntryScrollRestorationIsManual(
     const MaybeDiscarded<BrowsingContext>& aContext, const bool& aIsManual) {
   if (aContext.IsNullOrDiscarded()) {
+    return IPC_OK();
+  }
+
+  if (!aContext.get_canonical()->IsOwnedByProcess(ChildID())) {
     return IPC_OK();
   }
 
@@ -7736,6 +7749,10 @@ mozilla::ipc::IPCResult ContentParent::RecvSessionHistoryEntryScrollPosition(
     return IPC_OK();
   }
 
+  if (!aContext.get_canonical()->IsOwnedByProcess(ChildID())) {
+    return IPC_OK();
+  }
+
   SessionHistoryEntry* entry =
       aContext.get_canonical()->GetActiveSessionHistoryEntry();
   if (entry) {
@@ -7748,6 +7765,10 @@ mozilla::ipc::IPCResult
 ContentParent::RecvSessionHistoryEntryStoreWindowNameInContiguousEntries(
     const MaybeDiscarded<BrowsingContext>& aContext, const nsAString& aName) {
   if (aContext.IsNullOrDiscarded()) {
+    return IPC_OK();
+  }
+
+  if (!aContext.get_canonical()->IsOwnedByProcess(ChildID())) {
     return IPC_OK();
   }
 
@@ -7774,6 +7795,10 @@ mozilla::ipc::IPCResult ContentParent::RecvSessionHistoryEntryCacheKey(
     return IPC_OK();
   }
 
+  if (!aContext.get_canonical()->IsOwnedByProcess(ChildID())) {
+    return IPC_OK();
+  }
+
   SessionHistoryEntry* entry =
       aContext.get_canonical()->GetActiveSessionHistoryEntry();
   if (entry) {
@@ -7790,7 +7815,7 @@ mozilla::ipc::IPCResult ContentParent::RecvSessionHistoryEntryWireframe(
   }
 
   BrowsingContext* bc = aContext.GetMaybeDiscarded();
-  if (!bc) {
+  if (!bc || !bc->Canonical()->IsOwnedByProcess(ChildID())) {
     return IPC_OK();
   }
 
@@ -7824,6 +7849,10 @@ mozilla::ipc::IPCResult ContentParent::RecvSynchronizeNavigationAPIState(
     const MaybeDiscarded<BrowsingContext>& aContext,
     NotNull<nsStructuredCloneContainer*> aState) {
   if (aContext.IsNullOrDiscarded()) {
+    return IPC_OK();
+  }
+
+  if (!aContext.get_canonical()->IsOwnedByProcess(ChildID())) {
     return IPC_OK();
   }
 
@@ -7914,7 +7943,7 @@ mozilla::ipc::IPCResult ContentParent::RecvHistoryReload(
     const uint32_t aReloadFlags) {
   if (!aContext.IsNullOrDiscarded()) {
     RefPtr<CanonicalBrowsingContext> canonical = aContext.get_canonical();
-    if (!canonical->Top()->IsKnownInSubTree(ChildID())) {
+    if (!canonical->IsOwnedByProcess(ChildID())) {
       return IPC_OK();
     }
 
