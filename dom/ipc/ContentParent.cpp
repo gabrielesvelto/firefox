@@ -4667,7 +4667,7 @@ mozilla::ipc::IPCResult ContentParent::RecvAccumulateMixedContentHSTS(
 }
 
 mozilla::ipc::IPCResult ContentParent::RecvLoadURIExternal(
-    nsIURI* uri, nsIPrincipal* aTriggeringPrincipal,
+    NotNull<nsIURI*> uri, NotNull<nsIPrincipal*> aTriggeringPrincipal,
     nsIPrincipal* aRedirectPrincipal,
     const MaybeDiscarded<BrowsingContext>& aContext,
     bool aWasExternallyTriggered, bool aHasValidUserGestureActivation,
@@ -4676,14 +4676,21 @@ mozilla::ipc::IPCResult ContentParent::RecvLoadURIExternal(
     return IPC_OK();
   }
 
+  if (!ValidatePrincipal(aTriggeringPrincipal)) {
+    LogAndAssertFailedPrincipalValidationInfo(aTriggeringPrincipal, __func__);
+    return IPC_FAIL(this, "aTriggeringPrincipal invalid");
+  }
+
+  if (!ValidatePrincipal(aRedirectPrincipal,
+                         {ValidatePrincipalOptions::AllowNullPtr})) {
+    LogAndAssertFailedPrincipalValidationInfo(aRedirectPrincipal, __func__);
+    return IPC_FAIL(this, "aRedirectPrincipal invalid");
+  }
+
   nsCOMPtr<nsIExternalProtocolService> extProtService(
       do_GetService(NS_EXTERNALPROTOCOLSERVICE_CONTRACTID));
   if (!extProtService) {
     return IPC_OK();
-  }
-
-  if (!uri) {
-    return IPC_FAIL(this, "uri must not be null.");
   }
 
   BrowsingContext* bc = aContext.get();
