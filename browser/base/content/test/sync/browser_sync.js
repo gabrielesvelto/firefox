@@ -747,6 +747,13 @@ add_task(async function test_app_menu_fxa_disabled() {
   menuButton.click();
   await BrowserTestUtils.waitForEvent(newWin.PanelUI.mainView, "ViewShown");
 
+  ok(
+    BrowserTestUtils.isHidden(
+      PanelMultiView.getViewNode(newWin.document, "appMenu-fxa-sign-in-promo")
+    ),
+    "sign-in promo is hidden when Mozilla accounts are disabled"
+  );
+
   [...newWin.document.querySelectorAll(".sync-ui-item")].forEach(
     e => (e.hidden = false)
   );
