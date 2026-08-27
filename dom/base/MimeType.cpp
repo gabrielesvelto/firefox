@@ -252,7 +252,13 @@ TMimeType<char_type>::SplitMimetype(const nsTSubstring<char_type>& aMimeType) {
   for (size_t i = 0; i < aMimeType.Length(); i++) {
     char_type c = aMimeType[i];
 
-    if (c == '\"' && (i == 0 || aMimeType[i - 1] != '\\')) {
+    // https://fetch.spec.whatwg.org/#collect-an-http-quoted-string : a
+    // backslash only escapes inside a quoted string, and it consumes the code
+    // point that follows it, so an escaped backslash does not escape the next
+    // character.
+    if (inQuotes && c == '\\') {
+      ++i;
+    } else if (c == '"') {
       inQuotes = !inQuotes;
     } else if (c == ',' && !inQuotes) {
       mimeTypeParts.AppendElement(Substring(aMimeType, start, i - start));
