@@ -110,8 +110,10 @@ template <typename char_type>
       ++pos;
     }
 
-    // Might as well check for base64 now
-    if (*pos != '=') {
+    // Might as well check for base64 now. Note that the loop above may have
+    // stopped because it reached the end of the input, in which case there is
+    // no code point to look at.
+    if (pos == end || *pos != '=') {
       // trim leading and trailing spaces
       while (namePos < pos && NS_IsHTTPWhitespace(*namePos)) {
         ++namePos;
