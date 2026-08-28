@@ -328,19 +328,17 @@ void gfxFontconfigFontEntry::GetUserFontFeatures(FcPattern* aPattern) {
 }
 
 gfxFontconfigFontEntry::gfxFontconfigFontEntry(const nsACString& aFaceName,
-                                               FcPattern* aFontPattern,
-                                               bool aIgnoreFcCharmap)
+                                               FcPattern* aFontPattern)
     : gfxFT2FontEntryBase(aFaceName),
       mFontPattern(aFontPattern),
-      mFTFaceInitialized(false),
-      mIgnoreFcCharmap(aIgnoreFcCharmap) {
+      mFTFaceInitialized(false) {
   GetFontProperties(aFontPattern, &mWeightRange, &mWidthRange, &mStyleRange);
   GetUserFontFeatures(mFontPattern);
 }
 
 gfxFontEntry* gfxFontconfigFontEntry::Clone() const {
   MOZ_ASSERT(!IsUserFont(), "we can only clone installed fonts!");
-  return new gfxFontconfigFontEntry(Name(), mFontPattern, mIgnoreFcCharmap);
+  return new gfxFontconfigFontEntry(Name(), mFontPattern);
 }
 
 static already_AddRefed<FcPattern> CreatePatternForFace(FT_Face aFace) {
@@ -404,8 +402,7 @@ gfxFontconfigFontEntry::gfxFontconfigFontEntry(const nsACString& aFaceName,
     : gfxFT2FontEntryBase(aFaceName),
       mFontPattern(CreatePatternForFace(aFace->GetFace())),
       mFTFace(aFace.forget().take()),
-      mFTFaceInitialized(true),
-      mIgnoreFcCharmap(true) {
+      mFTFaceInitialized(true) {
   mWeightRange = aWeight;
   mStyleRange = aStyle;
   mWidthRange = aWidth;
@@ -424,19 +421,6 @@ gfxFontconfigFontEntry::gfxFontconfigFontEntry(const nsACString& aFaceName,
   mStyleRange = aStyle;
   mWidthRange = aWidth;
   mIsLocalUserFont = true;
-
-  // The proper setting of mIgnoreFcCharmap is tricky for fonts loaded
-  // via src:local()...
-  // If the local font happens to come from the application fontset,
-  // we want to set it to true so that color/svg fonts will work even
-  // if the default glyphs are blank; but if the local font is a non-
-  // sfnt face (e.g. legacy type 1) then we need to set it to false
-  // because our cmap-reading code will fail and we depend on FT+Fc to
-  // determine the coverage.
-  // We set the flag here, but may flip it the first time TestCharacterMap
-  // is called, at which point we'll look to see whether a 'cmap' is
-  // actually present in the font.
-  mIgnoreFcCharmap = true;
 
   GetUserFontFeatures(mFontPattern);
 }
@@ -556,7 +540,7 @@ nsresult gfxFontconfigFontEntry::ReadCMAP(FontInfoData* aFontInfoData) {
   }
 
   RefPtr<gfxCharacterMap> charmap;
-  nsresult rv;
+  nsresult rv = NS_ERROR_NOT_AVAILABLE;
 
   uint32_t uvsOffset = 0;
   if (aFontInfoData &&
@@ -573,7 +557,69 @@ nsresult gfxFontconfigFontEntry::ReadCMAP(FontInfoData* aFontInfoData) {
           hb_blob_get_data(cmapTable, &cmapLen));
       rv = gfxFontUtils::ReadCMAP(cmapData, cmapLen, *charmap, uvsOffset);
     } else {
-      rv = NS_ERROR_NOT_AVAILABLE;
+      // Read the FcCharSet and store as a gfxCharacterMap, so that we can take
+      // advantage of moving it to the shared font list.
+      FcCharSet* charset = nullptr;
+      if (FcPatternGetCharSet(mFontPattern, FC_CHARSET, 0, &charset) !=
+              FcResultTypeMismatch &&
+          charset) {
+        charmap = new gfxCharacterMap(64);
+        FcChar32 next = 0;
+        FcChar32 map[FC_CHARSET_MAP_SIZE];
+        bool inRange = false;
+        uint32_t rangeStart = 0;
+        uint32_t codepoint = 0;
+        auto StartRange = [&]() {
+          // If not already within a range, start one at current codepoint.
+          if (!inRange) {
+            rangeStart = codepoint;
+            inRange = true;
+          }
+        };
+        auto FinishRange = [&]() {
+          // If currently within a range, end it at current codepoint - 1.
+          if (inRange) {
+            if (codepoint == rangeStart + 1) {
+              charmap->set(rangeStart);
+            } else {
+              charmap->SetRange(rangeStart, codepoint - 1);
+            }
+            inRange = false;
+          }
+        };
+        for (FcChar32 base = FcCharSetFirstPage(charset, map, &next);
+             base != FC_CHARSET_DONE;
+             base = FcCharSetNextPage(charset, map, &next)) {
+          if (base != codepoint) {
+            // FcCharSet map ranges were not contiguous: force a gap.
+            FinishRange();
+          }
+          codepoint = base;
+          for (const uint32_t i : IntegerRange(FC_CHARSET_MAP_SIZE)) {
+            if (!map[i]) {
+              FinishRange();
+              codepoint += 32;
+              continue;
+            }
+            if (map[i] == 0xffffffff) {
+              StartRange();
+              codepoint += 32;
+              continue;
+            }
+            for (uint32_t bit = 0x00000001; bit; bit <<= 1) {
+              if (map[i] & bit) {
+                StartRange();
+              } else {
+                FinishRange();
+              }
+              ++codepoint;
+            }
+          }
+        }
+        FinishRange();
+        charmap->Compact();
+        rv = NS_OK;
+      }
     }
   }
   mUVSOffset.exchange(uvsOffset);
@@ -611,32 +657,6 @@ nsresult gfxFontconfigFontEntry::ReadCMAP(FontInfoData* aFontInfoData) {
   }
 
   return rv;
-}
-
-static bool HasChar(FcPattern* aFont, FcChar32 aCh) {
-  FcCharSet* charset = nullptr;
-  FcPatternGetCharSet(aFont, FC_CHARSET, 0, &charset);
-  return charset && FcCharSetHasChar(charset, aCh);
-}
-
-bool gfxFontconfigFontEntry::TestCharacterMap(uint32_t aCh) {
-  // For user fonts, or for fonts bundled with the app (which might include
-  // color/svg glyphs where the default glyphs may be blank, and thus confuse
-  // fontconfig/freetype's char map checking), we instead check the cmap
-  // directly for character coverage.
-  if (mIgnoreFcCharmap) {
-    // If it does not actually have a cmap, switch our strategy to use
-    // fontconfig's charmap after all (except for data fonts, which must
-    // always have a cmap to have passed OTS validation).
-    if (!mIsDataUserFont && !HasFontTable(TRUETYPE_TAG('c', 'm', 'a', 'p'))) {
-      mIgnoreFcCharmap = false;
-      // ...and continue with HasChar() below.
-    } else {
-      return gfxFontEntry::TestCharacterMap(aCh);
-    }
-  }
-  // otherwise (for system fonts), use the charmap in the pattern
-  return HasChar(mFontPattern, aCh);
 }
 
 bool gfxFontconfigFontEntry::HasFontTableInternal(uint32_t aTableTag) {
@@ -1253,7 +1273,7 @@ void gfxFontconfigFontFamily::FindStyleVariationsLocked(
     const nsAutoCString& faceName = !psname.IsEmpty() ? psname : fullname;
 
     gfxFontconfigFontEntry* fontEntry =
-        new gfxFontconfigFontEntry(faceName, face, mContainsAppFonts);
+        new gfxFontconfigFontEntry(faceName, face);
 
     if (gfxPlatform::HasVariationFontSupport()) {
       fontEntry->SetupVariationRanges();
@@ -2256,7 +2276,7 @@ already_AddRefed<gfxFontEntry> gfxFcPlatformFontList::CreateFontEntry(
     fontlist::Face* aFace, const fontlist::Family* aFamily) {
   nsAutoCString desc(aFace->mDescriptor.AsString(SharedFontList()));
   FcPattern* pattern = FcNameParse((const FcChar8*)desc.get());
-  RefPtr fe = MakeRefPtr<gfxFontconfigFontEntry>(desc, pattern, true);
+  RefPtr fe = MakeRefPtr<gfxFontconfigFontEntry>(desc, pattern);
   FcPatternDestroy(pattern);
   fe->InitializeFrom(aFace, aFamily);
   return fe.forget();

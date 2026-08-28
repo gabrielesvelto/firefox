@@ -818,7 +818,7 @@ class gfxFontEntry {
       FontInfoData* aFontInfoData, uint32_t& aUVSOffset);
 
   // helper for HasCharacter(), which is what client code should call
-  virtual bool TestCharacterMap(uint32_t aCh) MOZ_EXCLUDES(mLock);
+  bool TestCharacterMap(uint32_t aCh) MOZ_EXCLUDES(mLock);
 
   // Try to set mShmemCharacterMap, based on the char map in mShmemFace;
   // return true if successful, false if it remains null (maybe the parent
