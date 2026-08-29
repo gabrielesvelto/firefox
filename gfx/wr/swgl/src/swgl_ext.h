@@ -1007,7 +1007,7 @@ template <typename S0>
 static inline bool validYUVFormat(S0 sampler0) {
   switch (sampler0->format) {
     case TextureFormat::RGBA8:
-    case TextureFormat::YUY2:
+    case TextureFormat::YUV422:
       return true;
     default:
       return false;
