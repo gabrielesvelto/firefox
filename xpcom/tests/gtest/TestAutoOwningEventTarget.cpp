@@ -87,7 +87,7 @@ TEST(TestAutoOwningEventTarget, TaskQueue)
   ASSERT_NS_SUCCEEDED(rv);
 
   auto taskQueue = TaskQueue::Create(threadPool.forget(), "TestTaskQueue",
-                                     TailDispatchPolicy::NoTailDispatch);
+                                     /* aSupportsTailDispatch */ false);
 
   nsAutoOwningEventTarget autoOwningEventTarget;
 

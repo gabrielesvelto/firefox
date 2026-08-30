@@ -28,7 +28,7 @@ constexpr uint32_t kChannels = 2;
 class MockTestGraph : public MediaTrackGraphImpl {
  public:
   explicit MockTestGraph(TrackRate aRate)
-      : MediaTrackGraphImpl(0, aRate, nullptr, AbstractThread::GetCurrent()) {
+      : MediaTrackGraphImpl(0, aRate, nullptr, NS_GetCurrentThread()) {
     ON_CALL(*this, OnGraphThread).WillByDefault(Return(true));
   }
 

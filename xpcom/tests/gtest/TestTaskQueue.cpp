@@ -26,15 +26,15 @@ using testing::StrEq;
 
 TEST(TaskQueue, EventOrder)
 {
-  RefPtr<TaskQueue> tq1 = TaskQueue::Create(
-      GetMediaThreadPool(MediaThreadType::SUPERVISOR), "TestTaskQueue tq1",
-      TailDispatchPolicy::ConsistentOrdering);
-  RefPtr<TaskQueue> tq2 = TaskQueue::Create(
-      GetMediaThreadPool(MediaThreadType::SUPERVISOR), "TestTaskQueue tq2",
-      TailDispatchPolicy::ConsistentOrdering);
-  RefPtr<TaskQueue> tq3 = TaskQueue::Create(
-      GetMediaThreadPool(MediaThreadType::SUPERVISOR), "TestTaskQueue tq3",
-      TailDispatchPolicy::ConsistentOrdering);
+  RefPtr<TaskQueue> tq1 =
+      TaskQueue::Create(GetMediaThreadPool(MediaThreadType::SUPERVISOR),
+                        "TestTaskQueue tq1", true);
+  RefPtr<TaskQueue> tq2 =
+      TaskQueue::Create(GetMediaThreadPool(MediaThreadType::SUPERVISOR),
+                        "TestTaskQueue tq2", true);
+  RefPtr<TaskQueue> tq3 =
+      TaskQueue::Create(GetMediaThreadPool(MediaThreadType::SUPERVISOR),
+                        "TestTaskQueue tq3", true);
 
   bool errored = false;
   int counter = 0;
@@ -100,8 +100,7 @@ TEST(TaskQueue, GetCurrentSerialEventTarget)
 {
   RefPtr<TaskQueue> tq1 =
       TaskQueue::Create(GetMediaThreadPool(MediaThreadType::SUPERVISOR),
-                        "TestTaskQueue GetCurrentSerialEventTarget",
-                        TailDispatchPolicy::NoTailDispatch);
+                        "TestTaskQueue GetCurrentSerialEventTarget", false);
   (void)tq1->Dispatch(NS_NewRunnableFunction(
       "TestTaskQueue::TestCurrentSerialEventTarget::TestBody", [tq1]() {
         nsCOMPtr<nsISerialEventTarget> thread = GetCurrentSerialEventTarget();
@@ -113,10 +112,9 @@ TEST(TaskQueue, GetCurrentSerialEventTarget)
 
 TEST(TaskQueue, DirectTaskGetCurrentSerialEventTarget)
 {
-  RefPtr<TaskQueue> tq1 =
-      TaskQueue::Create(GetMediaThreadPool(MediaThreadType::SUPERVISOR),
-                        "TestTaskQueue DirectTaskGetCurrentSerialEventTarget",
-                        TailDispatchPolicy::ConsistentOrdering);
+  RefPtr<TaskQueue> tq1 = TaskQueue::Create(
+      GetMediaThreadPool(MediaThreadType::SUPERVISOR),
+      "TestTaskQueue DirectTaskGetCurrentSerialEventTarget", true);
   (void)tq1->Dispatch(NS_NewRunnableFunction(
       "TestTaskQueue::DirectTaskGetCurrentSerialEventTarget::TestBody", [&]() {
         AbstractThread::DispatchDirectTask(NS_NewRunnableFunction(
@@ -328,9 +326,9 @@ TEST(TaskQueue, ObserverTransactional)
 
 TEST(TaskQueue, ObserverDirectTask)
 {
-  RefPtr<TaskQueue> taskQueue = TaskQueue::Create(
-      do_AddRef(AbstractThread::MainThread()), "Testing TaskQueue",
-      TailDispatchPolicy::ConsistentOrdering);
+  RefPtr<TaskQueue> taskQueue =
+      TaskQueue::Create(do_AddRef(AbstractThread::MainThread()),
+                        "Testing TaskQueue", /*aSupportsTailDispatch=*/true);
   TaskQueue* tq = taskQueue;
   ObserverCheckpoint checkpoint;
 

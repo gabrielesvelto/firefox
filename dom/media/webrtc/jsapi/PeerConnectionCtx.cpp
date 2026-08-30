@@ -497,13 +497,14 @@ void PeerConnectionCtx::AddPeerConnection(const std::string& aKey,
     audioStateConfig.audio_device_module =
         new webrtc::RefCountedObject<FakeAudioDeviceModule>();
 
+    constexpr bool supportTailDispatch = true;
     // This task queue is passed into libwebrtc by means of
     // webrtc::TaskQueueBase::GetCurrent() while running on it.
     // WebrtcCallWrapper guarantees that it outlives its webrtc::Call instance.
     // Outside of libwebrtc it works as a regular TaskQueue.
     auto callWorkerThread = CreateWebrtcTaskQueueWrapper(
         GetMediaThreadPool(MediaThreadType::WEBRTC_CALL_THREAD),
-        "CallWorker"_ns, TailDispatchPolicy::ConsistentOrdering);
+        "CallWorker"_ns, supportTailDispatch);
 
     auto trials = MakeUnique<MozTrialsConfig>();
 

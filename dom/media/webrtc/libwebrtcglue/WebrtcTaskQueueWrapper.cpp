@@ -225,12 +225,11 @@ namespace mozilla {
 
 std::unique_ptr<webrtc::TaskQueueBase, webrtc::TaskQueueDeleter>
 CreateWebrtcTaskQueue(already_AddRefed<nsIEventTarget> aTarget,
-                      const nsACString& aName,
-                      TailDispatchPolicy aTailDispatchPolicy) {
+                      const nsACString& aName, bool aSupportsTailDispatch) {
   using Wrapper = WebrtcTaskQueueWrapper<DeletionPolicy::Blocking>;
   const auto& flat = PromiseFlatCString(aName);
   auto tq = TaskQueue::Create(std::move(aTarget), "WebrtcTaskQueue",
-                              aTailDispatchPolicy);
+                              aSupportsTailDispatch);
   auto wrapper = MakeUnique<Wrapper>(std::move(tq), flat);
   auto observer = MakeRefPtr<Wrapper::TaskQueueObserver>(wrapper.get());
   wrapper->mTaskQueue->SetObserver(observer);
@@ -240,10 +239,10 @@ CreateWebrtcTaskQueue(already_AddRefed<nsIEventTarget> aTarget,
 
 RefPtr<TaskQueue> CreateWebrtcTaskQueueWrapper(
     already_AddRefed<nsIEventTarget> aTarget, const nsLiteralCString& aName,
-    TailDispatchPolicy aTailDispatchPolicy) {
+    bool aSupportsTailDispatch) {
   using Wrapper = WebrtcTaskQueueWrapper<DeletionPolicy::NonBlocking>;
   auto tq = TaskQueue::Create(std::move(aTarget), StaticString(aName),
-                              aTailDispatchPolicy);
+                              aSupportsTailDispatch);
   auto wrapper = MakeUnique<Wrapper>(tq.get(), aName);
   auto observer = MakeRefPtr<Wrapper::TaskQueueObserver>(std::move(wrapper));
   tq->SetObserver(observer);
@@ -261,11 +260,12 @@ UniquePtr<webrtc::TaskQueueFactory> CreateWebrtcTaskQueueFactory() {
       // until they've run, and that doesn't play nice with tail dispatching
       // since there will never be a tail. DeletionPolicy::Blocking because this
       // is for libwebrtc use and that's what they expect.
+      constexpr bool supportTailDispatch = false;
       // XXX Do something with aPriority
       return CreateWebrtcTaskQueue(
           GetMediaThreadPool(MediaThreadType::WEBRTC_WORKER),
           nsDependentCSubstring(aName.data(), aName.size()),
-          TailDispatchPolicy::NoTailDispatch);
+          supportTailDispatch);
     }
   };
 

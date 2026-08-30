@@ -73,8 +73,7 @@ class TaskQueue final : public AbstractThread,
 
   static RefPtr<TaskQueue> Create(already_AddRefed<nsIEventTarget> aTarget,
                                   StaticString aName,
-                                  enum TailDispatchPolicy aTailDispatchPolicy =
-                                      TailDispatchPolicy::NoTailDispatch);
+                                  bool aSupportsTailDispatch = false);
 
   TaskDispatcher& TailDispatcher() override;
 
@@ -165,7 +164,7 @@ class TaskQueue final : public AbstractThread,
 
  private:
   TaskQueue(already_AddRefed<nsIEventTarget> aTarget, const char* aName,
-            enum TailDispatchPolicy aPolicy);
+            bool aSupportsTailDispatch);
 
   virtual ~TaskQueue();
 
@@ -222,7 +221,8 @@ class TaskQueue final : public AbstractThread,
       // NB: We don't hold the lock to aQueue here. Don't do anything that
       // might require it.
       MOZ_ASSERT(!mQueue->mTailDispatcher);
-      mTaskDispatcher.emplace(aQueue, aQueue->mTailDispatcherPolicy);
+      mTaskDispatcher.emplace(aQueue,
+                              /* aIsTailDispatcher = */ true);
       mQueue->mTailDispatcher = mTaskDispatcher.ptr();
 
       mLastCurrentThread = sCurrentThreadTLS.get();
