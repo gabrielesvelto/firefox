@@ -417,7 +417,8 @@ nsresult NotificationParent::Show(Maybe<IPCImage>&& aIcon) {
     nsTArray<RefPtr<nsIAlertAction>> actions;
     MOZ_ASSERT(options.actions().Length() <= kMaxActions);
     for (const auto& action : options.actions()) {
-      actions.AppendElement(new AlertAction(action.name(), action.title()));
+      actions.AppendElement(
+          new AlertAction(action.name(), action.title(), action.navigate()));
     }
     alert->SetActions(actions);
   }
