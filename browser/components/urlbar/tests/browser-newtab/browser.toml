@@ -17,6 +17,8 @@ skip-if = ["debug"]
 
 ["browser_escape.js"]
 
+["browser_mousedown.js"]
+
 ["browser_pickResult.js"]
 
 ["browser_placeholder.js"]

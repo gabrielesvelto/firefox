@@ -5649,8 +5649,8 @@ ${
       case this: {
         this._mousedownOnUrlbarDescendant = true;
         if (
-          event.composedTarget != this.inputField &&
-          event.composedTarget != this._inputContainer
+          event.target != this.inputField &&
+          event.target != this._inputContainer
         ) {
           break;
         }
@@ -5661,7 +5661,7 @@ ${
         // Keep the focus status, since the attribute may be changed
         // upon calling this.focus().
         const hasFocus = this.hasAttribute("focused");
-        if (event.composedTarget != this.inputField) {
+        if (event.target != this.inputField) {
           this.focus();
         }
 
