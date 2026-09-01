@@ -134,21 +134,6 @@
     "dark": "{Colors$color/gray/55}",
     "forcedColors": "{HCM Theme$SelectedItemText}"
   },
-  "button/background/color": {
-    "light": "transparent",
-    "dark": "transparent",
-    "forcedColors": "{HCM Theme$ButtonFace}"
-  },
-  "button/background/color/hover": {
-    "light": "{Colors$color/violet-desaturated/20}",
-    "dark": "{Colors$color/violet-desaturated/50}",
-    "forcedColors": "{HCM Theme$SelectedItemText}"
-  },
-  "button/background/color/active": {
-    "light": "{Colors$color/violet-desaturated/30}",
-    "dark": "{Colors$color/violet-desaturated/40}",
-    "forcedColors": "{HCM Theme$SelectedItemText}"
-  },
   "button/background/color/disabled": {
     "light": "{Theme$button/background/color}",
     "dark": "{Theme$button/background/color}",
@@ -417,6 +402,21 @@
   "button/text/color/selected": {
     "light": "{Theme$button/text/color}",
     "dark": "{Theme$button/text/color}",
+    "forcedColors": "{HCM Theme$SelectedItemText}"
+  },
+  "button/background/color": {
+    "light": "transparent",
+    "dark": "transparent",
+    "forcedColors": "{HCM Theme$ButtonFace}"
+  },
+  "button/background/color/hover": {
+    "light": "{Colors$color/violet-desaturated/20}",
+    "dark": "{Colors$color/violet-desaturated/50}",
+    "forcedColors": "{HCM Theme$SelectedItemText}"
+  },
+  "button/background/color/active": {
+    "light": "{Colors$color/violet-desaturated/30}",
+    "dark": "{Colors$color/violet-desaturated/40}",
     "forcedColors": "{HCM Theme$SelectedItemText}"
   },
   "button/background/color/menu/active": {
