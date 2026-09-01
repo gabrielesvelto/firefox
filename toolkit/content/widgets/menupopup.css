@@ -8,8 +8,8 @@
 }
 
 :host(.in-menulist) arrowscrollbox::part(scrollbox) {
-  overflow: auto;
-  overscroll-behavior: none;
+  /* A menulist scrolls with a scrollbar, not with the scroll buttons. */
+  scrollbar-width: auto;
   margin: 0;
   padding: 0;
   border: 0;
