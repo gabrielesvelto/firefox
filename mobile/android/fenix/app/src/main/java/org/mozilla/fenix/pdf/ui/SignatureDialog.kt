@@ -126,7 +126,7 @@ private fun SignatureHeader(onCloseClick: () -> Unit) {
         Text(
             text = stringResource(id = R.string.pdf_tools_signature_title),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = FirefoxTheme.typography.headline6,
+            style = FirefoxTheme.typography.headline7,
             modifier = Modifier.semantics { heading() },
         )
 
