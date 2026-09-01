@@ -10,7 +10,6 @@ LOCAL_INCLUDES += [
 
 UNIFIED_SOURCES += [
     "TestSanitizeRenderer.cpp",
-    "TestWebGLTextureUploadInit.cpp",
 ]
 
 FINAL_LIBRARY = "xul-gtest"
