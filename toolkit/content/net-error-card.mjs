@@ -809,7 +809,6 @@ export class NetErrorCard extends MozLitElement {
         ? html` <moz-button
             id="exception-button"
             data-l10n-id="fp-certerror-override-exception-button-2"
-            data-l10n-attrs="accesskey"
             data-l10n-args=${JSON.stringify({ hostname: this.hostname })}
             data-telemetry-id="exception_button"
             @click=${this.handleProceedToUrlClick}
@@ -902,7 +901,6 @@ export class NetErrorCard extends MozLitElement {
     return html`<moz-button
       type="primary"
       data-l10n-id="fp-certerror-return-to-previous-page-recommended-button-2"
-      data-l10n-attrs="accesskey"
       data-telemetry-id="return_button_adv"
       id="returnButton"
       @click=${this.handleGoBackClick}
@@ -914,7 +912,6 @@ export class NetErrorCard extends MozLitElement {
       id="tryAgainButton"
       type="primary"
       data-l10n-id="neterror-try-again-button-2"
-      data-l10n-attrs="accesskey"
       data-telemetry-id="try_again_button"
       @click=${this.handleTryAgain}
     ></moz-button>`;
@@ -1012,7 +1009,6 @@ export class NetErrorCard extends MozLitElement {
       type="primary"
       iconSrc="chrome://global/skin/icons/search-glass.svg"
       data-l10n-id="neterror-search-cta-search-button"
-      data-l10n-attrs="accesskey"
       @click=${this.handleSearchCTAClick}
     ></moz-button>`;
   }
@@ -1022,7 +1018,6 @@ export class NetErrorCard extends MozLitElement {
       id="reloadButton"
       iconSrc="chrome://global/skin/icons/reload.svg"
       data-l10n-id="neterror-search-cta-reload-button"
-      data-l10n-attrs="accesskey"
       data-telemetry-id="try_again_button"
       @click=${this.handleReloadClick}
     ></moz-button>`;
