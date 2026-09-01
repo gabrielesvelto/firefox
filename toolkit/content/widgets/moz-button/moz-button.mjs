@@ -264,7 +264,7 @@ export default class MozButton extends MozLitElement {
     ariaPressed: { type: String, mapped: true },
     iconSrc: { type: String },
     hasVisibleLabel: { type: Boolean, state: true },
-    accessKey: { type: String, mapped: true },
+    accessKey: { type: String, mapped: true, fluent: true },
     attention: { type: Boolean },
     iconPosition: { type: String, reflect: true },
     menuId: { type: String, reflect: true },
