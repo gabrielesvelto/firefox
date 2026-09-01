@@ -1650,6 +1650,12 @@ class _SessionStore {
       return;
     }
 
+    // Do not track ASWebAuthenticationSession windows since these are ephemeral
+    // auth flows.
+    if (aWindow.document.documentElement.hasAttribute("aswebauth")) {
+      return;
+    }
+
     // Register the window.
     this.#onLoad(aWindow);
 
