@@ -7767,11 +7767,6 @@
 #endif
   mirror: always
 
-- name: gfx.e10s.font-list.shared
-  type: bool
-  value: true
-  mirror: once
-
 # Do we fire a notification about missing fonts, so the front-end can decide
 # whether to try and do something about it (e.g. download additional fonts)?
 - name: gfx.missing_fonts.notify
