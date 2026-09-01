@@ -2785,6 +2785,10 @@ export const tokensTable = {
       name: "--urlbar-box-text-color-hover",
     },
     {
+      value: "var(--urlbar-box-text-color)",
+      name: "--urlbar-box-text-color-active",
+    },
+    {
       value: {
         light: "rgb(91, 91, 102)",
         dark: "rgb(191, 191, 201)",
@@ -5567,6 +5571,7 @@ export const variableLookupTable = {
   },
   "urlbar-box-text-color": "inherit",
   "urlbar-box-text-color-hover": "var(--urlbar-box-text-color)",
+  "urlbar-box-text-color-active": "var(--urlbar-box-text-color)",
   "urlbar-icon-fill-opacity": {
     default: "0.72",
     nativeTheme: "0.9",
