@@ -204,6 +204,8 @@ var gDebuggingEnabled = false;
 /**
  * Keeps track of the state of open and closed windows, tabs and tab groups,
  * and restores them across sessions.
+ *
+ * @alias SessionStore
  */
 class _SessionStore {
   QueryInterface = ChromeUtils.generateQI([
@@ -326,9 +328,13 @@ class _SessionStore {
   // states for all recently closed windows
   #closedWindows = [];
 
-  /** @type {SavedTabGroupStateData[]} states for all saved+closed tab groups */
-  #savedGroups = [];
+  #savedGroups = /** @type {SavedTabGroupStateData[]} */ ([]);
 
+  /**
+   * States for all saved and closed tab groups.
+   *
+   * @type {SavedTabGroupStateData[]}
+   */
   get savedGroups() {
     return this.#savedGroups;
   }
@@ -375,12 +381,7 @@ class _SessionStore {
    *   The unique ID of the item that closed.
    */
 
-  /**
-   * An in-order stack of close actions for tabs and windows.
-   *
-   * @type {CloseAction[]}
-   */
-  #lastClosedActions = [];
+  #lastClosedActions = /** @type {CloseAction[]} */ ([]);
 
   /**
    * Removes an object from the #lastClosedActions list
@@ -420,6 +421,11 @@ class _SessionStore {
     }
   }
 
+  /**
+   * An in-order stack of close actions for tabs and windows.
+   *
+   * @type {CloseAction[]}
+   */
   get lastClosedActions() {
     return [...this.#lastClosedActions];
   }
