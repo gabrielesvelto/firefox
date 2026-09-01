@@ -34,4 +34,6 @@ support-files = [
   "../../../search/test/browser/telemetry/serp.css",
 ]
 
+["browser_topLayer.js"]
+
 ["browser_viewBounds.js"]
