@@ -1333,6 +1333,7 @@ export const tokensTable = {
       value: "var(--border-color-interactive)",
       name: "--segmented-control-border-color",
     },
+    { value: "var(--button-border-color)", name: "--select-border-color" },
     {
       value: "var(--button-border-color-hover)",
       name: "--select-border-color-hover",
@@ -2858,7 +2859,10 @@ export const tokensTable = {
       value: "var(--border-width) solid var(--segmented-control-border-color)",
       name: "--segmented-control-border",
     },
-    { value: "var(--button-border)", name: "--select-border" },
+    {
+      value: "var(--border-width) solid var(--select-border-color)",
+      name: "--select-border",
+    },
   ],
   uncategorized: [
     { value: "center", name: "--button-content-alignment" },
@@ -5149,7 +5153,8 @@ export const variableLookupTable = {
   "select-background-color": "var(--button-background-color)",
   "select-background-color-hover": "var(--button-background-color-hover)",
   "select-background-color-disabled": "var(--button-background-color-disabled)",
-  "select-border": "var(--button-border)",
+  "select-border": "var(--border-width) solid var(--select-border-color)",
+  "select-border-color": "var(--button-border-color)",
   "select-border-color-hover": "var(--button-border-color-hover)",
   "select-border-color-disabled": "var(--button-border-color-disabled)",
   "select-border-radius": "var(--button-border-radius)",
