@@ -118,6 +118,9 @@
       --color-accent-primary-active: color-mix(in srgb, black 20%, var(--color-accent-primary));
       --color-accent-primary-selected: SelectedItem;
 
+      /** input **/
+      --input-text-background-color: Field;
+
       /** panel **/
       --panel-background-color: Field;
       --panel-border-color: var(--border-color-deemphasized);
@@ -243,6 +246,9 @@
         --color-accent-primary-hover: light-dark(var(--color-violet-60), var(--color-violet-20));
         --color-accent-primary-active: light-dark(var(--color-violet-70), var(--color-violet-10));
         --color-accent-primary-selected: var(--button-background-color-primary-active);
+
+        /** input **/
+        --input-text-background-color: var(--background-color-box);
 
         /** panel **/
         --panel-background-color: var(--popup-background-color);

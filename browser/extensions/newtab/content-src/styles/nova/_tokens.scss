@@ -261,6 +261,9 @@
 
   /** input **/
   --input-search-border-radius: var(--border-radius-circle);
+  --input-search-icon-size: var(--icon-size-small);
+  --input-text-background-color: var(--background-color-box);
+  --input-text-background-color-disabled: var(--button-background-color-ghost-disabled);
 
   /** page **/
   --page-main-content-width: 664px;

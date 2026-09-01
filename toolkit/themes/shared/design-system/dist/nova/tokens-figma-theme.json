@@ -484,6 +484,16 @@
     "dark": "{Colors$color/red/20}",
     "forcedColors": "{Theme$icon/color}"
   },
+  "input/text/background/color": {
+    "light": "{Theme$background/color/box}",
+    "dark": "{Theme$background/color/box}",
+    "forcedColors": "{Theme$background/color/box}"
+  },
+  "input/text/background/color/disabled": {
+    "light": "{Theme$button/background/color/ghost/disabled}",
+    "dark": "{Theme$button/background/color/ghost/disabled}",
+    "forcedColors": "{Theme$button/background/color/ghost/disabled}"
+  },
   "panel/background/color": {
     "light": "{Theme$popup/background/color}",
     "dark": "{Theme$popup/background/color}",

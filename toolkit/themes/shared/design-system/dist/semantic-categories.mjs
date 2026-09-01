@@ -3456,6 +3456,7 @@ export const tokensTable = {
     { value: "32px", name: "--icon-size-xlarge" },
     { value: "var(--size-item-xlarge)", name: "--icon-size-xxlarge" },
     { value: "var(--icon-size-xsmall)", name: "--input-text-icon-size" },
+    { value: "var(--input-text-icon-size)", name: "--input-search-icon-size" },
     { value: "var(--icon-size)", name: "--box-icon-size" },
     { value: "var(--icon-size-xsmall)", name: "--breadcrumb-icon-size" },
     { value: "var(--icon-size)", name: "--message-bar-icon-size" },
@@ -4512,6 +4513,7 @@ export const variableLookupTable = {
   "input-text-min-height": "var(--button-min-height)",
   "input-text-opacity-disabled": "var(--button-opacity-disabled)",
   "input-search-border-radius": { default: "var(--input-text-border-radius)" },
+  "input-search-icon-size": "var(--input-text-icon-size)",
   "input-width": "var(--size-item-small)",
   "link-color": {
     forcedColors: "LinkText",

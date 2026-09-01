@@ -1389,6 +1389,19 @@
         "Smart Light (WIP)": "{color/gray/50}"
       }
     },
+    "input": {
+      "text": {
+        "background": {
+          "color": {
+            "Light": "{background/color/box}",
+            "Dark": "{background/color/box}",
+            "disabled": {
+              "Value": "{button/background/color/ghost/disabled}"
+            }
+          }
+        }
+      }
+    },
     "link": {
       "color": {
         "Light": "{color/accent/primary}",
@@ -3994,6 +4007,13 @@
       }
     },
     "input": {
+      "search": {
+        "icon": {
+          "size": {
+            "Value": "{icon/size/small}"
+          }
+        }
+      },
       "text": {
         "min": {
           "height": {
