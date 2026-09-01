@@ -397,7 +397,7 @@ export class SuggestProvider extends SuggestFeature {
    *   The result the command acted on.
    */
   handleShowLessFrequently(controller, result) {
-    controller.view.acknowledgeFeedback(result);
+    controller.view.acknowledgeFeedback(result.id);
     this.incrementShowLessFrequentlyCount();
     if (!this.canShowLessFrequently) {
       controller.view.updateResultMenuCommands(

@@ -429,7 +429,7 @@ export class WeatherSuggestions extends SuggestProvider {
         // engagement event. As with all commands, it will be recorded with an
         // `engagement_type` value that is the command's name, in this case
         // `inaccurate_location`.
-        controller.view.acknowledgeFeedback(result);
+        controller.view.acknowledgeFeedback(result.id);
         break;
       case RESULT_MENU_COMMAND.SHOW_LESS_FREQUENTLY:
         this.handleShowLessFrequently(controller, result);
