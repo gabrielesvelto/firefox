@@ -1126,9 +1126,9 @@ random == 445004-1.html 445004-1-ref.html # bug 472268
 == 445142-1c.html 445142-1-ref.html
 == 445142-2a.html 445142-2-ref.html
 == 445142-2b.html 445142-2-ref.html
-skip-if(winWidget&&isCoverageBuild) fails-if(!useDrawSnapshot) == 446100-1a.html about:blank
-fuzzy-if(winWidget,177-178,127-127) fails-if(!useDrawSnapshot) == 446100-1b.html about:blank
-fuzzy-if(winWidget,171-172,192-192) fails-if(!winWidget||!useDrawSnapshot) == 446100-1c.html about:blank
+fails-if(!useDrawSnapshot) == 446100-1a.html about:blank
+fails-if(!useDrawSnapshot) == 446100-1b.html about:blank
+fails-if(!useDrawSnapshot) == 446100-1c.html about:blank
 fails-if(!useDrawSnapshot) == 446100-1d.html about:blank
 fails-if(!useDrawSnapshot) == 446100-1e.html about:blank
 == 446100-1f.html about:blank
