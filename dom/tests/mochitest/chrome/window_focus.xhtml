@@ -1154,7 +1154,8 @@ function modalWindowClosed()
   is(fm.activeWindow, window, "modal window closed activeWindow");
   is(fm.focusedElement, getById("n2"), "modal window closed focusedElement");
 
-  window.openDialog("window_frameset.xhtml", "_blank", "chrome", framesetWindowLoaded);
+  window.arguments[0].framesetWindowLoaded = framesetWindowLoaded;
+  window.arguments[0].open("focus_frameset.html", "_blank", "width=400,height=400,toolbar=no");
 }
 
 function framesetWindowLoaded(framesetWindow)
@@ -1247,7 +1248,7 @@ function framesetWindowLoaded(framesetWindow)
   else {
     gOldExpectedWindow = null;
     gNewExpectedWindow = null;
-    getTopWindow(framesetWindow).close();
+    framesetWindow.close();
     SimpleTest.waitForFocus(doWindowNoRootTest);
   }
 }
@@ -1333,7 +1334,7 @@ function switchWindowTest(otherWindow, framesetWindow)
     gOldExpectedWindow = null;
     gNewExpectedWindow = null;
     otherWindow.close();
-    getTopWindow(framesetWindow).close();
+    framesetWindow.close();
 
     SimpleTest.waitForFocus(doWindowNoRootTest);
   }

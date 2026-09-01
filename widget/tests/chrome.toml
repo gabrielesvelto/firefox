@@ -166,10 +166,7 @@ support-files = [
 ]
 
 ["test_ime_state_others_in_parent.html"]
-support-files = [
-  "window_imestate_iframes.html",
-  "window_imestate_iframes.xhtml",
-]
+support-files = ["window_imestate_iframes.html"]
 
 ["test_input_events_on_deactive_window.xhtml"]
 support-files = ["file_input_events_on_deactive_window.html"]

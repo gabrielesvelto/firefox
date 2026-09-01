@@ -12,10 +12,10 @@ const gAudioPage =
 // Given a window, check if it meets all requirements
 // of the taskbar tab chrome UI
 function checkWindowChrome(win, userContextId) {
-  let docElement = win.document.documentElement;
+  let document = win.document.documentElement;
 
   ok(
-    docElement.hasAttribute("taskbartab"),
+    document.hasAttribute("taskbartab"),
     "The window HTML should have a taskbartab attribute"
   );
 
@@ -26,18 +26,14 @@ function checkWindowChrome(win, userContextId) {
     "The tab bar should be collapsed"
   );
 
-  ok(
-    !docElement.hasAttribute("popup-window"),
-    "Taskbar tabs keep the navigation toolbar"
+  is(
+    document.getAttribute("chromehidden"),
+    "menubar directories extrachrome ",
+    "The correct chrome hidden attributes should be populated"
   );
 
-  for (let id of ["toolbar-menubar", "PersonalToolbar"]) {
-    is(
-      win.getComputedStyle(win.document.getElementById(id)).display,
-      "none",
-      `${id} should not be visible`
-    );
-  }
+  ok(!win.menubar.visible, "menubar barprop should not be visible");
+  ok(!win.personalbar.visible, "personalbar barprop should not be visible");
 
   let starButton = win.document.querySelector("#star-button-box");
   is(
@@ -47,12 +43,12 @@ function checkWindowChrome(win, userContextId) {
   );
 
   ok(
-    !docElement.hasAttribute("fxatoolbarmenu"),
+    !document.hasAttribute("fxatoolbarmenu"),
     "Firefox accounts menu should not be displayed"
   );
 
   ok(
-    docElement.hasAttribute("fxadisabled"),
+    document.hasAttribute("fxadisabled"),
     "fxadisabled attribute should exist"
   );
 

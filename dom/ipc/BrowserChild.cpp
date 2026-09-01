@@ -516,6 +516,13 @@ nsresult BrowserChild::Init(mozIDOMWindowProxy* aParent,
   nsCOMPtr<EventTarget> chromeHandler = window->GetChromeEventHandler();
   docShell->SetChromeEventHandler(chromeHandler);
 
+  // Window scrollbar flags only affect top level remote frames, not fission
+  // frames.
+  if (mIsTopLevel) {
+    nsContentUtils::SetScrollbarsVisibility(
+        docShell, !!(mChromeFlags & nsIWebBrowserChrome::CHROME_SCROLLBARS));
+  }
+
   nsWeakPtr weakPtrThis = do_GetWeakReference(
       static_cast<nsIBrowserChild*>(this));  // for capture by the lambda
   ContentReceivedInputBlockCallback callback(
@@ -1127,7 +1134,8 @@ mozilla::ipc::IPCResult BrowserChild::RecvInitRendering(
 mozilla::ipc::IPCResult BrowserChild::RecvScrollbarPreferenceChanged(
     ScrollbarPreference aPreference) {
   MOZ_ASSERT(!mIsTopLevel,
-             "Top-level windows use the default scrollbar preference");
+             "Scrollbar visibility should be derived from chrome flags for "
+             "top-level windows");
   if (nsCOMPtr<nsIDocShell> docShell = do_GetInterface(WebNavigation())) {
     nsDocShell::Cast(docShell)->SetScrollbarPreference(aPreference);
   }

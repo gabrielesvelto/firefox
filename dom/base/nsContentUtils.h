@@ -3246,6 +3246,8 @@ class nsContentUtils {
    */
   static bool IsSpecificAboutPage(JSObject* aGlobal, const char* aUri);
 
+  static void SetScrollbarsVisibility(nsIDocShell* aDocShell, bool aVisible);
+
   /*
    * Try to find the docshell corresponding to the given event target.
    */

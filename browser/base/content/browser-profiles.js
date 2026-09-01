@@ -353,7 +353,7 @@ var gProfiles = {
       toOpenWindowByType(
         "about:profilemanager",
         "about:profilemanager",
-        "chrome,resizable,toolbar,centerscreen"
+        "chrome,extrachrome,menubar,resizable,scrollbars,status,toolbar,centerscreen"
       );
     });
   },

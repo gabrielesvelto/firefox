@@ -1284,7 +1284,7 @@ id<GeckoViewWindow> GeckoViewOpenWindow(NSString* aId,
   iosView->mEventDispatcher->Attach(aDispatcher);
   iosView->mInitData.AssignUnderGetRule((CFDictionaryRef)aInitData);
 
-  nsAutoCString chromeFlags("chrome,dialog=0,remote,resizable");
+  nsAutoCString chromeFlags("chrome,dialog=0,remote,resizable,scrollbars");
   if (aPrivateMode) {
     chromeFlags += ",private";
   }
