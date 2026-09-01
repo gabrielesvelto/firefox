@@ -1805,11 +1805,12 @@ static bool IsAccessKeyTarget(Element* aElement, nsAString& aKey) {
     return false;
   }
 
-  if (!aElement->IsXULElement()) {
+  if (!aElement->IsXULElement() &&
+      !nsContentUtils::IsChromeDoc(aElement->OwnerDoc())) {
     return true;
   }
 
-  // For XUL we do visibility checks.
+  // For XUL and chrome docs we do visibility checks.
   nsIFrame* frame = aElement->GetPrimaryFrame();
   if (!frame) {
     return false;
