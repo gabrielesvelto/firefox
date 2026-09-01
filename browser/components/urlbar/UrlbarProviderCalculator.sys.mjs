@@ -175,6 +175,11 @@ export class UrlbarProviderCalculator extends UrlbarProvider {
     };
   }
 
+  /**
+   * @param {UrlbarQueryContext} queryContext
+   * @param {UrlbarParentController} controller
+   * @param {object} details
+   */
   onEngagement(queryContext, controller, details) {
     if (details.selType === "tail150") {
       controller.view.startTail150();

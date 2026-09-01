@@ -137,6 +137,11 @@ export class UrlbarProviderClipboard extends UrlbarProvider {
     addCallback(this, result);
   }
 
+  /**
+   * @param {UrlbarQueryContext} queryContext
+   * @param {UrlbarParentController} controller
+   * @param {object} details
+   */
   onEngagement(queryContext, controller, details) {
     this.#previousClipboard.impressionsLeft = 0; // User has picked the suggested clipboard result
     // Handle commands.
@@ -151,6 +156,12 @@ export class UrlbarProviderClipboard extends UrlbarProvider {
     this.#previousClipboard.impressionsLeft--;
   }
 
+  /**
+   *
+   * @param {UrlbarParentController["view"]} view
+   * @param {UrlbarResult} result
+   * @param {string} selType
+   */
   #handlePossibleCommand(view, result, selType) {
     switch (selType) {
       case RESULT_MENU_COMMANDS.DISMISS:
