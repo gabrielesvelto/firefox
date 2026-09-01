@@ -457,7 +457,7 @@ class DefaultTabManagerController(
             val excludedTabIds = if (isNormal) getExcludedNormalTabIds() else emptySet()
 
             tabsUseCases.removeTabs(excludedTabIds = excludedTabIds, ids = tabs.map { it.id })
-            showUndoSnackbarForTab(isPrivate)
+            showUndoSnackbarForMultipleTabs(isPrivate, tabs.size)
         } else {
             handleRemoveAllTabs(
                 isHomepageAsNewTabEnabled = settings.enableHomepageAsNewTab,
