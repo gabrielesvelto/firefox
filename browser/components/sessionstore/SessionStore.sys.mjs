@@ -216,7 +216,10 @@ class _SessionStore {
   // A counter to be used to generate a unique ID for each closed tab or window.
   #nextClosedId = 0;
 
-  // this is used for testing purposes
+  /**
+   * Resets the counter used to hand out closed tab and window IDs.
+   * Only for testing purposes.
+   */
   resetNextClosedId() {
     this.#nextClosedId = 0;
   }
@@ -344,6 +347,14 @@ class _SessionStore {
   // when a user closes all regular Firefox windows but the session is not over
   #shouldRestoreLastSession = false;
 
+  /**
+   * Whether the previous session should be restored the next time a browser
+   * window that is neither private nor a taskbar tab opens. Set when the last
+   * such window closes while a taskbar tab keeps Firefox running and the
+   * user's startup setting asks for the session to come back.
+   *
+   * @type {boolean}
+   */
   get shouldRestoreLastSession() {
     return this.#shouldRestoreLastSession;
   }
@@ -413,12 +424,21 @@ class _SessionStore {
     return [...this.#lastClosedActions];
   }
 
-  // this should only be used by one caller (currently restoreLastClosedTabOrWindowOrSession in browser.js)
+  /**
+   * Removes and returns the most recent close action. This should only be used
+   * by one caller (currently restoreLastClosedTabOrWindowOrSession in
+   * browser.js).
+   *
+   * @returns {CloseAction|undefined}
+   *          The most recent close action, if there is one.
+   */
   popLastClosedAction() {
     return this.#lastClosedActions.pop();
   }
 
-  // for testing purposes
+  /**
+   * Empties the list of close actions. Only for testing purposes.
+   */
   resetLastClosedActions() {
     this.#lastClosedActions = [];
   }
@@ -429,6 +449,11 @@ class _SessionStore {
 
   #log = null;
 
+  /**
+   * The session store's logger, or null before initialization.
+   *
+   * @type {Log.Logger|null}
+   */
   get logger() {
     return this.#log;
   }
@@ -453,6 +478,11 @@ class _SessionStore {
   // A promise resolved once all windows are restored.
   #deferredAllWindowsRestored = Promise.withResolvers();
 
+  /**
+   * A promise fulfilled once all windows have been restored.
+   *
+   * @type {Promise<void>}
+   */
   get promiseAllWindowsRestored() {
     return this.#deferredAllWindowsRestored.promise;
   }
@@ -471,12 +501,17 @@ class _SessionStore {
     return this.#deferredInitialized.promise;
   }
 
+  /**
+   * Whether the previous session can still be restored. Assigning false
+   * discards it; assigning true has no effect.
+   *
+   * @type {boolean}
+   */
   get canRestoreLastSession() {
     return LastSession.canRestore;
   }
 
   set canRestoreLastSession(val) {
-    // Cheat a bit; only allow false.
     if (!val) {
       LastSession.clear();
     }
@@ -1131,6 +1166,22 @@ class _SessionStore {
     Services.obs.notifyObservers(browser, NOTIFY_BROWSER_SHUTDOWN_FLUSH);
   }
 
+  /**
+   * Applies a tab data update reported by a tab listener.
+   *
+   * @param {MozBrowser|null} browser
+   *        The browser the update is for, if it is still around.
+   * @param {BrowsingContext} browsingContext
+   *        The browsing context the update was collected from.
+   * @param {object} permanentKey
+   *        The permanent key of the browser, used when browser is null.
+   * @param {object} update
+   *        The collected tab data, tagged with the epoch it belongs to.
+   * @param {boolean} [forStorage]
+   *        Whether the update is collected in order to save the session, in
+   *        which case a non-web-controlled page that is still loading is
+   *        collected as well.
+   */
   updateSessionStoreFromTablistener(
     browser,
     browsingContext,
@@ -3194,6 +3245,11 @@ class _SessionStore {
 
   /* ........ nsISessionStore API .............. */
 
+  /**
+   * @returns {string}
+   *          The current session state as a JSON string, without the previous
+   *          session's state and without any deferred initial state.
+   */
   getBrowserState() {
     let state = this.getCurrentState();
 
@@ -3306,6 +3362,17 @@ class _SessionStore {
     );
   }
 
+  /**
+   * Restores the given state into a window.
+   *
+   * @param {Window} aWindow
+   *        The window to restore into.
+   * @param {object|string} aState
+   *        The window state, as an object or a JSON string.
+   * @param {boolean} aOverwrite
+   *        Whether to overwrite the window's existing tabs.
+   * @throws {Components.Exception} If the window is not tracked.
+   */
   setWindowState(aWindow, aState, aOverwrite) {
     if (!aWindow.__SSi) {
       throw Components.Exception(
@@ -3320,6 +3387,16 @@ class _SessionStore {
     this.#notifyOfClosedObjectsChange();
   }
 
+  /**
+   * Collects the current state of a tab.
+   *
+   * @param {MozTabbrowserTab} aTab
+   *        The tab to collect.
+   * @returns {string}
+   *          The tab state as a JSON string.
+   * @throws {Components.Exception} If the tab is invalid or its window is not
+   *         tracked.
+   */
   getTabState(aTab) {
     if (!aTab || !aTab.documentGlobal) {
       throw Components.Exception("Need a valid tab", Cr.NS_ERROR_INVALID_ARG);
@@ -3336,6 +3413,17 @@ class _SessionStore {
     return JSON.stringify(tabState);
   }
 
+  /**
+   * Restores the given state into a tab.
+   *
+   * @param {MozTabbrowserTab} aTab
+   *        The tab to restore into.
+   * @param {TabStateData|string} aState
+   *        The tab state, as an object or a JSON string. It may be incomplete,
+   *        in which case the rest is filled in while restoring.
+   * @throws {Components.Exception} If the state is invalid or the tab's window
+   *         is not tracked.
+   */
   setTabState(aTab, aState) {
     // Remove the tab state from the cache.
     // Note that we cannot simply replace the contents of the cache
@@ -3384,11 +3472,23 @@ class _SessionStore {
     this.#notifyOfClosedObjectsChange();
   }
 
-  // Return whether a tab is restoring.
+  /**
+   * @param {MozTabbrowserTab} aTab
+   *        The tab to check.
+   * @returns {boolean}
+   *          Whether the tab is restoring.
+   */
   isTabRestoring(aTab) {
     return TAB_STATE_FOR_BROWSER.has(aTab.linkedBrowser);
   }
 
+  /**
+   * @param {Window|MozBrowser|MozTabbrowserTab} obj
+   *        A tracked window, a browser, or a tab.
+   * @returns {object|undefined}
+   *          The window's session data, the browser's restoring state, or the
+   *          tab's custom values.
+   */
   getInternalObjectState(obj) {
     if (obj.__SSi) {
       return this.#windows[obj.__SSi];
@@ -3454,6 +3554,29 @@ class _SessionStore {
     return resultWindow;
   }
 
+  /**
+   * Duplicates a tab, including its session history, into a window.
+   *
+   * @param {Window} aWindow
+   *        The window to open the duplicate in.
+   * @param {MozTabbrowserTab} aTab
+   *        The tab to duplicate.
+   * @param {number} [aDelta]
+   *        How far to move within the duplicated session history, relative to
+   *        the original tab's current entry.
+   * @param {boolean} [aRestoreImmediately]
+   *        Whether to restore the duplicate's content right away.
+   * @param {object} [options]
+   *        Options for the new tab.
+   * @param {boolean} [options.inBackground]
+   *        Whether to leave the duplicate unselected.
+   * @param {number} [options.tabIndex]
+   *        Where to insert the duplicate in the tab strip.
+   * @returns {MozTabbrowserTab}
+   *          The duplicated tab.
+   * @throws {Components.Exception} If the tab is invalid, its window is not
+   *         tracked, or the target window has no gBrowser.
+   */
   duplicateTab(
     aWindow,
     aTab,
@@ -3619,6 +3742,13 @@ class _SessionStore {
     throw (Components.returnCode = Cr.NS_ERROR_INVALID_ARG);
   }
 
+  /**
+   * Resets the count of tabs that were last closed together in a window.
+   *
+   * @param {Window} aWindow
+   *        Window reference
+   * @throws {nsresult} NS_ERROR_INVALID_ARG if the window is not tracked.
+   */
   resetLastClosedTabCount(aWindow) {
     if ("__SSi" in aWindow) {
       this.#windows[aWindow.__SSi]._lastClosedTabGroupCount = -1;
@@ -4342,6 +4472,10 @@ class _SessionStore {
     );
   }
 
+  /**
+   * @returns {number}
+   *          The number of closed windows that can be reopened.
+   */
   getClosedWindowCount() {
     return this.#closedWindows.length;
   }
@@ -4374,6 +4508,13 @@ class _SessionStore {
     closedWinData.groups = Cu.cloneInto(abbreviatedGroups, {});
   }
 
+  /**
+   * Marks a window so that its tabs are left out when the previous session is
+   * restored at startup.
+   *
+   * @param {Window} aWindow
+   *        Window reference
+   */
   maybeDontRestoreTabs(aWindow) {
     // Don't restore the tabs if we restore the session at startup
     this.#windows[aWindow.__SSi]._maybeDontRestoreTabs = true;
@@ -4387,6 +4528,17 @@ class _SessionStore {
     );
   }
 
+  /**
+   * Reopens a closed window. Any saved tab groups it contains are turned back
+   * into open tab groups.
+   *
+   * @param {number} aIndex
+   *        The index of the window in the closed windows list, where 0 is the
+   *        most recently closed one.
+   * @returns {Window}
+   *          The reopened window.
+   * @throws {Components.Exception} If the index doesn't match a closed window.
+   */
   undoCloseWindow(aIndex) {
     if (!(aIndex in this.#closedWindows)) {
       throw Components.Exception(
@@ -4424,6 +4576,14 @@ class _SessionStore {
     return window;
   }
 
+  /**
+   * Drops a closed window from the list of windows that can be reopened.
+   *
+   * @param {number} [aIndex]
+   *        The index of the window in the closed windows list. Defaults to the
+   *        most recently closed one.
+   * @throws {Components.Exception} If the index doesn't match a closed window.
+   */
   forgetClosedWindow(aIndex) {
     // default to the most-recently closed window
     aIndex = aIndex || 0;
@@ -4443,6 +4603,15 @@ class _SessionStore {
     this.#notifyOfClosedObjectsChange();
   }
 
+  /**
+   * @param {Window} aWindow
+   *        A tracked or recently closed window.
+   * @param {string} aKey
+   *        The key the value is stored under.
+   * @returns {string}
+   *          The stored value, or the empty string if there is none.
+   * @throws {Components.Exception} If the window is not tracked.
+   */
   getCustomWindowValue(aWindow, aKey) {
     if ("__SSi" in aWindow) {
       let data = this.#windows[aWindow.__SSi].extData || {};
@@ -4460,6 +4629,18 @@ class _SessionStore {
     );
   }
 
+  /**
+   * Stores a value on a window, to be saved with the session.
+   *
+   * @param {Window} aWindow
+   *        Window reference
+   * @param {string} aKey
+   *        The key to store the value under.
+   * @param {string} aStringValue
+   *        The value to store.
+   * @throws {TypeError} If the value is not a string.
+   * @throws {Components.Exception} If the window is not tracked.
+   */
   setCustomWindowValue(aWindow, aKey, aStringValue) {
     if (typeof aStringValue != "string") {
       throw new TypeError("setCustomWindowValue only accepts string values");
@@ -4478,6 +4659,14 @@ class _SessionStore {
     this.#saveStateDelayed(aWindow);
   }
 
+  /**
+   * Removes a value stored on a window.
+   *
+   * @param {Window} aWindow
+   *        Window reference
+   * @param {string} aKey
+   *        The key the value is stored under.
+   */
   deleteCustomWindowValue(aWindow, aKey) {
     if (
       aWindow.__SSi &&
@@ -4489,10 +4678,29 @@ class _SessionStore {
     this.#saveStateDelayed(aWindow);
   }
 
+  /**
+   * @param {MozTabbrowserTab} aTab
+   *        Tab reference
+   * @param {string} aKey
+   *        The key the value is stored under.
+   * @returns {string}
+   *          The stored value, or the empty string if there is none.
+   */
   getCustomTabValue(aTab, aKey) {
     return (TAB_CUSTOM_VALUES.get(aTab) || {})[aKey] || "";
   }
 
+  /**
+   * Stores a value on a tab, to be saved with the session.
+   *
+   * @param {MozTabbrowserTab} aTab
+   *        Tab reference
+   * @param {string} aKey
+   *        The key to store the value under.
+   * @param {string} aStringValue
+   *        The value to store.
+   * @throws {TypeError} If the value is not a string.
+   */
   setCustomTabValue(aTab, aKey, aStringValue) {
     if (typeof aStringValue != "string") {
       throw new TypeError("setCustomTabValue only accepts string values");
@@ -4508,6 +4716,14 @@ class _SessionStore {
     this.#saveStateDelayed(aTab.documentGlobal);
   }
 
+  /**
+   * Removes a value stored on a tab.
+   *
+   * @param {MozTabbrowserTab} aTab
+   *        Tab reference
+   * @param {string} aKey
+   *        The key the value is stored under.
+   */
   deleteCustomTabValue(aTab, aKey) {
     let state = TAB_CUSTOM_VALUES.get(aTab);
     if (state && aKey in state) {
@@ -4540,10 +4756,25 @@ class _SessionStore {
     return (TAB_LAZY_STATES.get(aTab) || {})[aKey];
   }
 
+  /**
+   * @param {string} aKey
+   *        The key the value is stored under.
+   * @returns {string}
+   *          The stored value, or the empty string if there is none.
+   */
   getCustomGlobalValue(aKey) {
     return this.#globalState.get(aKey);
   }
 
+  /**
+   * Stores a value in the session's global state.
+   *
+   * @param {string} aKey
+   *        The key to store the value under.
+   * @param {string} aStringValue
+   *        The value to store.
+   * @throws {TypeError} If the value is not a string.
+   */
   setCustomGlobalValue(aKey, aStringValue) {
     if (typeof aStringValue != "string") {
       throw new TypeError("setCustomGlobalValue only accepts string values");
@@ -4553,6 +4784,12 @@ class _SessionStore {
     this.#saveStateDelayed();
   }
 
+  /**
+   * Removes a value from the session's global state.
+   *
+   * @param {string} aKey
+   *        The key the value is stored under.
+   */
   deleteCustomGlobalValue(aKey) {
     this.#globalState.delete(aKey);
     this.#saveStateDelayed();
