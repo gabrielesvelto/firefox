@@ -721,8 +721,6 @@ class TextInputDelegateTest : BaseSessionTest() {
     }
 
     // Test setSelection
-    @Ignore
-    // Disable for frequent timeout for selection event.
     @WithDisplay(width = 512, height = 512)
     // Child process updates require having a display.
     @Test
@@ -927,7 +925,7 @@ class TextInputDelegateTest : BaseSessionTest() {
 
     @WithDisplay(width = 512, height = 512)
     // Child process updates require having a display.
-    @Ignore("Failing frequently, see: https://bugzilla.mozilla.org/show_bug.cgi?id=1741790")
+    @Ignore("Forward selection is lost on the Java side, see bug 2067617")
     @Test
     fun inputConnection_selectionByArrowKey() {
         setupContent("")
