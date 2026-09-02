@@ -3,8 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /*
- * A variant-like class abstracting operations on a Parser with a given
- * ParseHandler but unspecified character type.
+ * SpiderMonkey's Parser has two character types: `char16_t` and
+ * `mozilla::Utf8Unit`. EitherParser uses a variant to abstract over the two
+ * Parser with those character types, allowing ModuleBuilder to operate on
+ * either Parser type without needing to know which one it is.
  */
 
 #ifndef frontend_EitherParser_h
