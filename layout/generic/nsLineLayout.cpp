@@ -2803,7 +2803,6 @@ void nsLineLayout::VerticalAlignFrames(PerSpanData* psd) {
         }
         minBCoord -= trimAmount;
         maxBCoord -= trimAmount;
-        *psd->mBaseline -= trimAmount;
       }
 
       if (shouldApplyTrimEnd) {
