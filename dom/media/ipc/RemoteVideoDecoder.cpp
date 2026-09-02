@@ -256,18 +256,10 @@ MediaResult RemoteVideoDecoderParent::ProcessDecodedData(
     IntSize size;
     bool needStorage = false;
 
-    YUVColorSpace yuvColorSpace = gfx::YUVColorSpace::Default;
+    YUVColorSpace YUVColorSpace = gfx::YUVColorSpace::Default;
     ColorSpace2 colorPrimaries = gfx::ColorSpace2::UNKNOWN;
     TransferFunction transferFunction = gfx::TransferFunction::BT709;
     ColorRange colorRange = gfx::ColorRange::LIMITED;
-
-    PlanarYCbCrImage* image = video->mImage->AsPlanarYCbCrImage();
-    if (const PlanarYCbCrData* imageData = image ? image->GetData() : nullptr) {
-      yuvColorSpace = imageData->mYUVColorSpace;
-      colorPrimaries = imageData->mColorPrimaries;
-      transferFunction = imageData->mTransferFunction;
-      colorRange = imageData->mColorRange;
-    }
 
     if (mKnowsCompositor) {
       texture = video->mImage->GetTextureClient(mKnowsCompositor);
@@ -294,11 +286,16 @@ MediaResult RemoteVideoDecoderParent::ProcessDecodedData(
     // copying frames via shmem.
     if (!IsSurfaceDescriptorValid(sd)) {
       needStorage = false;
+      PlanarYCbCrImage* image = video->mImage->AsPlanarYCbCrImage();
       if (!image) {
         return MediaResult(NS_ERROR_UNEXPECTED,
                            "Expected Planar YCbCr image in "
                            "RemoteVideoDecoderParent::ProcessDecodedData");
       }
+      YUVColorSpace = image->GetData()->mYUVColorSpace;
+      colorPrimaries = image->GetData()->mColorPrimaries;
+      transferFunction = image->GetData()->mTransferFunction;
+      colorRange = image->GetData()->mColorRange;
 
       SurfaceDescriptorBuffer sdBuffer;
       nsresult rv = image->BuildSurfaceDescriptorBuffer(
@@ -338,7 +335,7 @@ MediaResult RemoteVideoDecoderParent::ProcessDecodedData(
                 : (XRE_IsRDDProcess()
                        ? VideoBridgeSource::RddProcess
                        : VideoBridgeSource::MFMediaEngineCDMProcess),
-            size, video->mImage->GetColorDepth(), sd, yuvColorSpace,
+            size, video->mImage->GetColorDepth(), sd, YUVColorSpace,
             colorPrimaries, transferFunction, colorRange),
         video->mFrameID);
 
