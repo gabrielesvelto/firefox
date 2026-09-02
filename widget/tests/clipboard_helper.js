@@ -259,7 +259,7 @@ function getClipboardDataSnapshot(
         aFormats,
         aClipboardType,
         null,
-        SpecialPowers.wrap(document).nodePrincipal,
+        SpecialPowers.Services.scriptSecurityManager.getSystemPrincipal(),
         {
           QueryInterface: SpecialPowers.ChromeUtils.generateQI([
             "nsIClipboardGetDataSnapshotCallback",

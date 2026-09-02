@@ -41,7 +41,7 @@ clipboardTypes.forEach(function (type) {
         ["text/html"],
         type,
         null,
-        SpecialPowers.wrap(document).nodePrincipal,
+        SpecialPowers.Services.scriptSecurityManager.getSystemPrincipal(),
         {
           QueryInterface: SpecialPowers.ChromeUtils.generateQI([
             "nsIClipboardGetDataSnapshotCallback",
