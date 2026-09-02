@@ -152,6 +152,12 @@ add_task(async function accelClickSearchesInANewTab() {
 });
 
 add_task(async function tabReachesTheSwitcher() {
+  // Outside the toolbar, this pref is what puts the button in the tab order
+  // while the input has focus.
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.urlbar.searchModeSwitcher.skipTabStop", true]],
+  });
+
   let tab = await NewtabSearchbarTestUtils.openNewTabPage();
 
   await NewtabSearchbarTestUtils.spawn(tab.linkedBrowser, [], async () => {
