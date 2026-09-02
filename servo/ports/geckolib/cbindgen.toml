@@ -253,6 +253,7 @@ include = [
   "MasonryItemOrder",
   "TextUnderlinePosition",
   "TextTransform",
+  "TextTransformCase",
   "TextJustify",
   "TextOverflow",
   "TextIndent",

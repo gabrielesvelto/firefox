@@ -160,7 +160,8 @@ use style::values::specified::intersection_observer::IntersectionObserverMargin;
 use style::values::specified::position::PositionTryFallbacksItem;
 use style::values::specified::source_size_list::SourceSizeList;
 use style::values::specified::svg_path::PathCommand;
-use style::values::specified::{LengthUnit, NoCalcLength, NoCalcNumber};
+use style::values::specified::text::TextTransformCase;
+use style::values::specified::{LengthUnit, NoCalcLength, NoCalcNumber, TextTransform};
 use style::values::{specified, AtomIdent, CustomIdent, KeyframesName};
 use style::{custom_properties, driver};
 use style_traits::{CssWriter, ParseError, ParsingMode, SpecifiedValueInfo, ToCss};
@@ -11802,4 +11803,9 @@ pub unsafe extern "C" fn Servo_GetComputationSteps(
             },
         }
     }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn Servo_TextTransform_Case(text_transform: TextTransform) -> TextTransformCase {
+    text_transform.case()
 }
