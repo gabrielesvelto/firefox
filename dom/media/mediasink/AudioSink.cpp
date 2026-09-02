@@ -459,7 +459,7 @@ uint32_t AudioSink::PopFrames(AudioDataValue* aBuffer, uint32_t aFrames,
   if (samplesRead != samplesToPop) {
     if (Ended()) {
       SINK_LOG("Last PopFrames -- Source ended.");
-    } else if (mStoppedForSeek) {
+    } else if (IsIntentionallySilent()) {
       SINK_LOG_V("Stopped for a seek, outputting silence.");
     } else {
       NS_WARNING("Underrun when popping samples from audiosink ring buffer.");
