@@ -203,8 +203,7 @@ const gSelects = {
    <html><head><style>
      select { scrollbar-width: thin; scrollbar-color: red blue }
    </style></head><body><select id='one'>
-     <option>One</option>
-     <option style="font-family: sans-serif">Two</option>
+     ${"<option>Option</option>".repeat(100)}
    </select></body></html>
 `,
   DEFAULT_DARKMODE: `
@@ -796,8 +795,13 @@ add_task(async function test_scrollbar_props() {
   is(popupStyle.getPropertyValue("--content-select-scrollbar-width"), "thin");
   is(popupStyle.scrollbarColor, "rgb(255, 0, 0) rgb(0, 0, 255)");
 
-  let scrollBoxStyle = getComputedStyle(selectPopup.scrollBox.scrollbox);
-  is(scrollBoxStyle.overflow, "auto", "Should be the scrollable box");
+  let arrowScrollBox = selectPopup.scrollBox;
+  if (!arrowScrollBox.overflowing) {
+    await BrowserTestUtils.waitForEvent(arrowScrollBox, "overflow");
+  }
+
+  let scrollBoxStyle = getComputedStyle(arrowScrollBox.scrollbox);
+  is(scrollBoxStyle.overflowY, "auto", "Should be the scrollable box");
   is(scrollBoxStyle.scrollbarWidth, "thin");
   is(scrollBoxStyle.scrollbarColor, "rgb(255, 0, 0) rgb(0, 0, 255)");
 
