@@ -71,9 +71,9 @@ class AudioSink : private AudioStream::DataSource {
 
   // Reuse this sink and its still-running stream across a seek instead of
   // destroying and recreating them. PrepareForReuse detaches the audio-queue
-  // listeners while the stream keeps running; ResetForReuse rebases the sink
-  // and its clock to |aStartTime| in place, drops the stale pre-seek audio, and
-  // returns a fresh ended promise.
+  // listeners and drops the stale pre-seek audio; ResetForReuse rebases the
+  // sink and its clock to |aStartTime| in place and returns a fresh ended
+  // promise.
   void PrepareForReuse();
   RefPtr<MediaSink::EndedPromise> ResetForReuse(
       const PlaybackParams& aParams, const media::TimeUnit& aStartTime);
@@ -166,6 +166,10 @@ class AudioSink : private AudioStream::DataSource {
   Atomic<int64_t> mDiscardUpToSampleCount{0};
   int64_t mTotalSamplesPushed = 0;
   int64_t mTotalSamplesPopped = 0;
+
+  // True if the sink is stopped for a seek that keeps its stream running.
+  // Written on the owner thread, read on the audio callback thread.
+  Atomic<bool> mStoppedForSeek{false};
 
   const RefPtr<AbstractThread> mOwnerThread;
 
