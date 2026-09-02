@@ -3425,9 +3425,11 @@ bool BacktrackingAllocator::computeRequirement(LiveBundle* bundle,
     }
 
     // Search uses for requirements.
-    for (UsePositionIterator iter = range->usesBegin(); iter; iter++) {
-      LUse::Policy policy = iter->usePolicy();
-      if (policy == LUse::FIXED) {
+    if (range->numFixedUses() > 0) {
+      for (UsePositionIterator iter = range->usesBegin(); iter; iter++) {
+        if (iter->usePolicy() != LUse::FIXED) {
+          continue;
+        }
         AnyRegister required = GetFixedRegister(reg.def(), iter->use());
 
         JitSpewIfEnabled(JitSpew_RegAlloc, "  Requirement %s, due to use at %u",
@@ -3439,25 +3441,31 @@ bool BacktrackingAllocator::computeRequirement(LiveBundle* bundle,
         if (!requirement->merge(Requirement(LAllocation(required)))) {
           return false;
         }
-      } else if (policy == LUse::REGISTER) {
-        if (!requirement->merge(Requirement(Requirement::REGISTER))) {
-          return false;
-        }
-      } else if (policy == LUse::ANY) {
-        // ANY differs from KEEPALIVE by actively preferring a register.
-        if (!hint->merge(Requirement(Requirement::REGISTER))) {
-          return false;
-        }
       }
+    }
+    if (range->numRegisterUses() > 0) {
+      if (!requirement->merge(Requirement(Requirement::REGISTER))) {
+        return false;
+      }
+    }
+    if (range->numAnyUses() > 0) {
+      // ANY differs from KEEPALIVE by actively preferring a register.
+      if (!hint->merge(Requirement(Requirement::REGISTER))) {
+        return false;
+      }
+    }
 
-      // The only case of STACK use policies is individual stack results using
-      // their containing stack result area, which is given a fixed allocation
-      // above.
-      MOZ_ASSERT_IF(policy == LUse::STACK,
+#ifdef DEBUG
+    // The only case of STACK use policies is individual stack results using
+    // their containing stack result area, which is given a fixed allocation
+    // above.
+    for (UsePositionIterator iter = range->usesBegin(); iter; iter++) {
+      MOZ_ASSERT_IF(iter->usePolicy() == LUse::STACK,
                     requirement->kind() == Requirement::FIXED);
-      MOZ_ASSERT_IF(policy == LUse::STACK,
+      MOZ_ASSERT_IF(iter->usePolicy() == LUse::STACK,
                     requirement->allocation().isStackArea());
     }
+#endif
   }
 
   return true;
