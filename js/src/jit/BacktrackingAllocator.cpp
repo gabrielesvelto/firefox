@@ -779,35 +779,31 @@ void SpillSet::setAllocation(LAllocation alloc) {
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-static size_t SpillWeightFromUsePolicy(LUse::Policy policy) {
-  switch (policy) {
-    case LUse::ANY:
-      return 1000;
-
-    case LUse::REGISTER:
-    case LUse::FIXED:
-      return 2000;
-
-    default:
-      return 0;
-  }
-}
-
 inline void LiveRange::noteAddedUse(UsePosition* use) {
   LUse::Policy policy = use->usePolicy();
-  usesSpillWeight_ += SpillWeightFromUsePolicy(policy);
   if (policy == LUse::FIXED) {
     ++numFixedUses_;
+  } else if (policy == LUse::REGISTER) {
+    ++numRegisterUses_;
+  } else if (policy == LUse::ANY) {
+    ++numAnyUses_;
   }
 }
 
 inline void LiveRange::noteRemovedUse(UsePosition* use) {
   LUse::Policy policy = use->usePolicy();
-  usesSpillWeight_ -= SpillWeightFromUsePolicy(policy);
   if (policy == LUse::FIXED) {
+    MOZ_ASSERT(numFixedUses_ > 0);
     --numFixedUses_;
+  } else if (policy == LUse::REGISTER) {
+    MOZ_ASSERT(numRegisterUses_ > 0);
+    --numRegisterUses_;
+  } else if (policy == LUse::ANY) {
+    MOZ_ASSERT(numAnyUses_ > 0);
+    --numAnyUses_;
   }
-  MOZ_ASSERT_IF(!hasUses(), !usesSpillWeight_ && !numFixedUses_);
+  MOZ_ASSERT_IF(!hasUses(),
+                !numFixedUses_ && !numRegisterUses_ && !numAnyUses_);
 }
 
 void LiveRange::addUse(UsePosition* use) {
@@ -894,10 +890,12 @@ void LiveRange::moveAllUsesToTheEndOf(LiveRange* other) {
   other->uses_.extendBack(std::move(uses_));
   MOZ_ASSERT(!hasUses());
 
-  other->usesSpillWeight_ += usesSpillWeight_;
   other->numFixedUses_ += numFixedUses_;
-  usesSpillWeight_ = 0;
+  other->numRegisterUses_ += numRegisterUses_;
+  other->numAnyUses_ += numAnyUses_;
   numFixedUses_ = 0;
+  numRegisterUses_ = 0;
+  numAnyUses_ = 0;
 }
 
 bool LiveRange::contains(LiveRange* other) const {
@@ -1571,7 +1569,9 @@ size_t BacktrackingAllocator::computeSpillWeight(LiveBundle* bundle) {
       }
     }
 
-    usesTotal += range->usesSpillWeight();
+    usesTotal +=
+        size_t(2000) * (range->numFixedUses() + range->numRegisterUses()) +
+        size_t(1000) * range->numAnyUses();
     if (range->numFixedUses() > 0) {
       fixed = true;
     }
