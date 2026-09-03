@@ -4,6 +4,14 @@
 
 #include "nsExceptionHandler.h"
 
+#if defined(XP_WIN)
+#  include <processthreadsapi.h>  // for GetCurrentThreadId()
+#elif defined(XP_LINUX)
+#  include "third_party/lss/linux_syscall_support.h"  // For sys_gettid()
+#elif defined(XP_DARWIN)
+#  include <mach/mach.h>  // For mach_thread_self()
+#endif
+
 namespace CrashReporter {
 
 void AnnotateOOMAllocationSize(size_t size) {}
@@ -247,7 +255,17 @@ DWORD WINAPI WerNotifyProc(LPVOID aParameter) { return 0; }
 
 #endif  // defined(XP_WIN)
 
-ThreadId CurrentThreadId() { return -1; }
+ThreadId CurrentThreadId() {
+#if defined(XP_WIN)
+  return ::GetCurrentThreadId();
+#elif defined(XP_LINUX)
+  return sys_gettid();
+#elif defined(XP_DARWIN)
+  return mach_thread_self();
+#else
+  return -1;  // Just a dummy value on unsupported platforms.
+#endif
+}
 
 bool TakeMinidump(nsIFile** aResult, bool aMoveToPending) { return false; }
 

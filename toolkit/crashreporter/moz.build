@@ -136,6 +136,10 @@ if CONFIG["MOZ_CRASHREPORTER"]:
     if CONFIG["CC_TYPE"] in ("clang", "gcc"):
         CXXFLAGS += ["-Wno-error=stack-protector"]
 else:
+    LOCAL_INCLUDES += [
+        "google-breakpad/src",
+    ]
+
     UNIFIED_SOURCES += [
         "nsDummyExceptionHandler.cpp",
     ]
