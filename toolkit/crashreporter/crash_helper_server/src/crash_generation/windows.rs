@@ -75,7 +75,7 @@ impl CrashGenerator {
             let process_id = BreakpadProcessId { pid, handle };
 
             self.finalize_crash_report(
-                process_id,
+                process_id.get_native(),
                 None,
                 &path,
                 super::MinidumpOrigin::WindowsErrorReporting,
@@ -111,7 +111,7 @@ impl CrashGenerator {
             .as_hyphenated()
             .encode_lower(&mut Uuid::encode_buffer())
             .to_string();
-        let path = PathBuf::from(self.minidump_path.clone()).join(uuid + ".dmp");
+        let path = self.minidump_path.clone().join(uuid + ".dmp");
         let file = File::create(&path).map_err(|_| ())?;
         Ok((file, path))
     }

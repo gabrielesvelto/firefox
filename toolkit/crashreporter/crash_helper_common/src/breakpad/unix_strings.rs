@@ -26,6 +26,14 @@ impl BreakpadString for OsString {
         Ok(OsString::from_vec(bytes))
     }
 
+    fn len(&self) -> usize {
+        self.clone()
+            .into_vec()
+            .into_iter()
+            .chain(std::iter::once(0))
+            .count()
+    }
+
     unsafe fn from_ptr(ptr: *const BreakpadChar) -> OsString {
         let chars = array_from_c_char_string(ptr);
         OsString::from_vec(chars)
