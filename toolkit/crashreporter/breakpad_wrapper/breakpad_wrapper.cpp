@@ -11,6 +11,8 @@
 #  include <sys/ucontext.h>
 #  include "linux/crash_generation/client_info.h"
 #  include "linux/crash_generation/crash_generation_server.h"
+#  include "linux/handler/exception_handler.h"
+#  include "linux/handler/minidump_descriptor.h"
 #  include "mozilla/toolkit/crashreporter/rust_minidump_writer_linux_ffi_generated.h"
 using breakpad_char = char;
 using breakpad_string = std::string;
@@ -19,6 +21,7 @@ using breakpad_pid = pid_t;
 #elif defined(XP_WIN)
 #  include "windows/crash_generation/client_info.h"
 #  include "windows/crash_generation/crash_generation_server.h"
+#  include "windows/handler/exception_handler.h"
 using breakpad_char = wchar_t;
 using breakpad_string = std::wstring;
 using breakpad_init_type = wchar_t*;
@@ -29,6 +32,7 @@ using ExtraCrashData = void;
 #  include <unistd.h>
 #  include "mac/crash_generation/client_info.h"
 #  include "mac/crash_generation/crash_generation_server.h"
+#  include "mac/handler/exception_handler.h"
 using breakpad_char = char;
 using breakpad_string = std::string;
 using breakpad_init_type = const char*;
@@ -54,6 +58,7 @@ constinit mozilla::phc::AddrInfo gAddrInfo;
 
 using google_breakpad::ClientInfo;
 using google_breakpad::CrashGenerationServer;
+using google_breakpad::ExceptionHandler;
 
 // These structs and the callback below must be kept in sync with the
 // corresponding Rust code in crash_helper_server/src/crash_generation.rs.
@@ -201,3 +206,126 @@ extern "C" void CrashGenerationServer_set_path(
   CrashGenerationServer* server = static_cast<CrashGenerationServer*>(aServer);
   server->SetPath(aMinidumpPath);
 }
+
+struct MinidumpCallbackResult {
+  breakpad_char* path;
+  const size_t len;
+};
+
+#ifdef XP_WIN
+
+static bool WriteMinidumpCallback(const wchar_t* aDumpPath,
+                                  const wchar_t* aMinidumpId, void* aContext,
+                                  EXCEPTION_POINTERS* aExInfo,
+                                  MDRawAssertionInfo* aAssertion,
+                                  const mozilla::phc::AddrInfo* aAddrInfo,
+                                  bool aSucceeded) {
+  if (aSucceeded) {
+    MinidumpCallbackResult* result =
+        reinterpret_cast<MinidumpCallbackResult*>(aContext);
+
+    wcsncpy(result->path, aDumpPath, result->len);
+    wcsncat(result->path, L"\\", result->len);
+    wcsncat(result->path, aMinidumpId, result->len);
+    wcsncat(result->path, L".dmp", result->len);
+    // Whatever was written must be null terminated.
+    result->path[result->len - 1] = 0;
+  }
+
+  return aSucceeded;
+}
+
+extern "C" bool WriteMinidumpForProcess(GeckoChildID aID, HANDLE aProcess,
+                                        DWORD aThread,
+                                        const breakpad_char* aDumpPath,
+                                        breakpad_char* aResultPath,
+                                        size_t aResultPathLen) {
+  MinidumpCallbackResult result{aResultPath, aResultPathLen};
+  breakpad_string dump_path(aDumpPath);
+
+  bool res = ExceptionHandler::WriteMinidumpForChild(
+      aProcess, aThread, dump_path, WriteMinidumpCallback, &result);
+
+  return res;
+}
+
+#elif defined(XP_DARWIN)
+
+bool WriteMinidumpCallback(const char* aDumpDir, const char* aMinidumpId,
+                           void* aContext,
+                           const mozilla::phc::AddrInfo* aAddrInfo,
+                           bool aSucceeded) {
+  if (aSucceeded) {
+    MinidumpCallbackResult* result =
+        reinterpret_cast<MinidumpCallbackResult*>(aContext);
+
+    strncpy(result->path, aDumpDir, result->len);
+    strncat(result->path, "/", result->len);
+    strncat(result->path, aMinidumpId, result->len);
+    strncat(result->path, ".dmp", result->len);
+    // Whatever was written must be null terminated.
+    result->path[result->len - 1] = 0;
+  }
+
+  return aSucceeded;
+}
+
+extern "C" bool WriteMinidumpForProcess(GeckoChildID aID, mach_port_t aProcess,
+                                        mach_port_t aThread,
+                                        const breakpad_char* aDumpPath,
+                                        breakpad_char* aResultPath,
+                                        size_t aResultPathLen) {
+  MinidumpCallbackResult result{aResultPath, aResultPathLen};
+  breakpad_string dump_path(aDumpPath);
+
+  // Fully qualified to avoid conflicts with OS header `MachineExceptions.h`.
+  bool res = google_breakpad::ExceptionHandler::WriteMinidumpForChild(
+      aProcess, aThread, dump_path, WriteMinidumpCallback, &result);
+
+  return res;
+}
+
+#elif defined(XP_LINUX)
+
+using google_breakpad::MinidumpDescriptor;
+
+bool WriteMinidumpCallback(const MinidumpDescriptor& aDescriptor,
+                           void* aContext,
+                           const mozilla::phc::AddrInfo* aAddrInfo,
+                           bool aSucceeded) {
+  if (aSucceeded) {
+    MinidumpCallbackResult* result =
+        reinterpret_cast<MinidumpCallbackResult*>(aContext);
+
+    strncpy(result->path, aDescriptor.path(), result->len);
+    // Whatever was written must be null terminated.
+    result->path[result->len - 1] = 0;
+  }
+
+  return aSucceeded;
+}
+
+extern "C" bool WriteMinidumpForProcess(GeckoChildID aId, pid_t aProcess,
+                                        pid_t aThread,
+                                        RustAuxvCallback aAuxvCallback,
+                                        const breakpad_char* aDumpPath,
+                                        breakpad_char* aResultPath,
+                                        size_t aResultPathLen) {
+  MinidumpCallbackResult result{aResultPath, aResultPathLen};
+  DirectAuxvDumpInfo auxv_info = {};
+  DirectAuxvDumpInfo* auxv_info_ptr = &auxv_info;
+
+  if (!getAuxvDumpInfo(aAuxvCallback, aId, auxv_info_ptr)) {
+    auxv_info_ptr = nullptr;
+  }
+
+  breakpad_string dump_path(aDumpPath);
+
+  bool res = ExceptionHandler::WriteMinidumpForChild(
+      aProcess, aThread, auxv_info_ptr, dump_path, WriteMinidumpCallback,
+      &result);
+
+  return res;
+}
+
+#endif
