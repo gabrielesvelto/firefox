@@ -237,7 +237,25 @@ impl IPCServer {
                     connector.send_message(reply)?;
                 }
                 messages::Kind::GenerateMinidump => {
-                    todo!("Implement all messages");
+                    let message = messages::GenerateMinidump::decode(data, ancillary_data)?;
+                    let crash_report = self.find_connection(message.id).and_then(|connection| {
+                        if let Some(process) = &connection.process {
+                            self.generator.lock().unwrap().generate_minidump(
+                                message.id,
+                                &process.handle,
+                                &message.target_thread,
+                            )
+                        } else {
+                            None
+                        }
+                    });
+
+                    let reply = crash_report
+                        .map_or(messages::MinidumpReply::new(OsString::new(), None), |cr| {
+                            messages::MinidumpReply::new(cr.path, cr.error)
+                        });
+
+                    connector.send_message(reply)?;
                 }
                 messages::Kind::RegisterChildProcess => {
                     let message = messages::RegisterChildProcess::decode(data, ancillary_data)?;
@@ -349,5 +367,11 @@ impl IPCServer {
         }
 
         None
+    }
+
+    fn find_connection(&self, id: GeckoChildId) -> Option<&IPCConnection> {
+        self.connections
+            .values()
+            .find(|&connection| connection.id.is_some_and(|value| value == id))
     }
 }

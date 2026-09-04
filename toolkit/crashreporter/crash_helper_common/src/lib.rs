@@ -60,6 +60,15 @@ pub trait BreakpadString {
     /// the `BreakpadString::serialize()` function.
     fn deserialize(bytes: Vec<u8>) -> Result<OsString, MessageError>;
 
+    /// Return the number of characters in this string excluding the null
+    /// terminator.
+    fn len(&self) -> usize;
+
+    /// Returns true if the string is empty.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Create an OsString from a C nul-terminated string.
     ///
     /// # Safety
