@@ -59,34 +59,17 @@ class CrashReporterHost {
 
   // Generate a paired minidump. This does not take the crash report, as
   // GenerateCrashReport does. After this, FinalizeCrashReport may be called.
-  //
-  // This calls TakeCrashedChildMinidump and FinalizeCrashReport.
   bool GenerateMinidumpAndPair(GeckoChildProcessHost* aChildProcessHost,
                                const nsACString& aPairName) {
-    auto childHandle = base::kInvalidProcessHandle;
-    const auto cleanup = MakeScopeExit([&]() {
-      if (childHandle && childHandle != base::kInvalidProcessHandle) {
-        base::CloseProcessHandle(childHandle);
-      }
-    });
-#ifdef XP_MACOSX
-    childHandle = aChildProcessHost->GetChildTask();
-#else
-    if (!base::OpenPrivilegedProcessHandle(
-            aChildProcessHost->GetChildProcessId(), &childHandle)) {
-      NS_WARNING("Failed to open child process handle.");
-      return false;
-    }
-#endif
-
+    AnnotationTable annotations;
     nsCOMPtr<nsIFile> targetDump;
-    if (!CrashReporter::CreateMinidumpsAndPair(childHandle, GetRawThreadId(),
-                                               aPairName, mExtraAnnotations,
-                                               getter_AddRefs(targetDump))) {
+    if (!CrashReporter::CreateMinidumpsAndPair(
+            aChildProcessHost->GetChildID(), GetRawThreadId(), aPairName,
+            annotations, getter_AddRefs(targetDump))) {
       return false;
     }
 
-    return CrashReporter::GetIDFromMinidump(targetDump, mDumpID);
+    return AdoptMinidump(targetDump, annotations);
   }
 
   void AddAnnotationBool(CrashReporter::Annotation aKey, bool aValue);
