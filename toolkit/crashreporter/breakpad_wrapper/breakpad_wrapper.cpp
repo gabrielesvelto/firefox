@@ -4,6 +4,8 @@
 
 #include <string>
 
+#include "mozilla/ProcessType.h"
+
 #if defined(XP_LINUX)
 #  include <sys/signalfd.h>
 #  include <sys/ucontext.h>
@@ -99,9 +101,9 @@ void onClientDumpRequestCallback(void* context, const ClientInfo& client_info,
 }
 
 #if defined(XP_LINUX)
-bool getAuxvDumpInfo(RustAuxvCallback callback, breakpad_pid aPid,
+bool getAuxvDumpInfo(RustAuxvCallback callback, GeckoChildID aId,
                      DirectAuxvDumpInfo* aAuxvInfo) {
-  return callback(aPid, aAuxvInfo);
+  return callback(aId, aAuxvInfo);
 }
 #endif  // defined(XP_LINUX)
 
@@ -170,8 +172,8 @@ extern "C" void* CrashGenerationServer_init(breakpad_init_type aBreakpadData,
 
   CrashGenerationServer* server = new CrashGenerationServer(
       breakpadData,
-      [aAuxvCallback](pid_t aPid, DirectAuxvDumpInfo* aAuxvInfo) {
-        return getAuxvDumpInfo(aAuxvCallback, aPid, aAuxvInfo);
+      [aAuxvCallback](GeckoChildID aId, DirectAuxvDumpInfo* aAuxvInfo) {
+        return getAuxvDumpInfo(aAuxvCallback, aId, aAuxvInfo);
       },
       [aContext](void* dump_context, const ClientInfo& aClientInfo,
                  const breakpad_string& aFilePath) {
