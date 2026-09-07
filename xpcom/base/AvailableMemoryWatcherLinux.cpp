@@ -11,6 +11,7 @@
 #include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/TimeStamp.h"
 #include "nsAppRunner.h"
+#include "nsExceptionHandler.h"
 #include "nsIAvailableMemoryWatcherTestingLinux.h"
 #include "nsIObserverService.h"
 #include "nsISupports.h"
