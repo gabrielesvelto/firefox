@@ -179,7 +179,6 @@ ${
           <!-- In the addressbar, there will be an input with id="urlbar-scheme" here. -->
           <input class="urlbar-input textbox-input"
                  role="combobox"
-                 dir="auto"
                  aria-autocomplete="both"
                  inputmode="mozAwesomebar"
                  preserveundohistory=""
@@ -406,6 +405,10 @@ ${
 
     if (this.#isAddressbar) {
       this.inputField.id = "urlbar-input";
+      // A URL is inherently LTR, so the value's own direction lays the field
+      // out. Elsewhere the field holds free-form text and takes the locale's
+      // direction like any other text input.
+      this.inputField.dir = "auto";
 
       let schemeField = document.createElement("input");
       schemeField.id = "urlbar-scheme";
