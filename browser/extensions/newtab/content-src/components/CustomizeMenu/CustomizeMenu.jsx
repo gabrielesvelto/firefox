@@ -3,6 +3,10 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { ContentSection } from "content-src/components/CustomizeMenu/ContentSection/ContentSection";
+import {
+  PANEL_HIDDEN,
+  notifyThemePickersOnTransition,
+} from "content-src/lib/theme-picker-shown";
 import { connect } from "react-redux";
 import React from "react";
 
@@ -68,6 +72,13 @@ export class _CustomizeMenu extends React.PureComponent {
       loadThemePickerElements();
     }
     this.disableLockedControls();
+    // A panel that is already showing when it mounts never sees an update for
+    // that, so start from hidden here to notify its picker too.
+    notifyThemePickersOnTransition(
+      this.dialogRef.current,
+      PANEL_HIDDEN,
+      () => this.props
+    );
   }
 
   componentDidUpdate(prevProps) {
@@ -80,6 +91,11 @@ export class _CustomizeMenu extends React.PureComponent {
       }
     }
     this.disableLockedControls();
+    notifyThemePickersOnTransition(
+      this.dialogRef.current,
+      prevProps,
+      () => this.props
+    );
   }
 
   /**

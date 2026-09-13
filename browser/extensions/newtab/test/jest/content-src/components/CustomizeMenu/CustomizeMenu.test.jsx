@@ -1,5 +1,5 @@
 import React from "react";
-import { render, act } from "@testing-library/react";
+import { render, act, waitFor } from "@testing-library/react";
 import { WrapWithProvider } from "test/jest/test-utils";
 import { _CustomizeMenu as CustomizeMenu } from "content-src/components/CustomizeMenu/CustomizeMenu";
 
@@ -39,6 +39,8 @@ const DEFAULT_PROPS = {
   showSectionsMgmtPanel: false,
   toggleWidgetsManagementPanel: jest.fn(),
   showWidgetsManagementPanel: false,
+  toggleThemesPanel: jest.fn(),
+  showThemesPanel: false,
   closeSubpanels: jest.fn(),
   Prefs: { values: {} },
 };
@@ -46,6 +48,11 @@ const DEFAULT_PROPS = {
 const NOVA_PROPS = {
   ...DEFAULT_PROPS,
   Prefs: { values: { "nova.enabled": true } },
+};
+
+const BROWSER_NOVA_PROPS = {
+  ...DEFAULT_PROPS,
+  Prefs: { values: { browserNovaEnabled: true } },
 };
 
 describe("<CustomizeMenu>", () => {
@@ -116,11 +123,7 @@ describe("<CustomizeMenu>", () => {
   it("threads browserNovaEnabled from Prefs.values to ContentSection (renders the theme-picker)", () => {
     const { container } = render(
       <WrapWithProvider>
-        <CustomizeMenu
-          {...DEFAULT_PROPS}
-          showing={true}
-          Prefs={{ values: { browserNovaEnabled: true } }}
-        />
+        <CustomizeMenu {...BROWSER_NOVA_PROPS} showing={true} />
       </WrapWithProvider>
     );
     expect(container.querySelector("theme-picker")).toBeInTheDocument();
@@ -168,5 +171,127 @@ describe("<CustomizeMenu>", () => {
     expect(container.querySelector(".customize-menu-content")).not.toHaveClass(
       "subpanel-open"
     );
+  });
+
+  describe("theme picker shown()", () => {
+    const shownLayouts = [];
+    beforeAll(() => {
+      // Custom elements stay registered for the rest of this file. The stub
+      // exposes `layout` as a property, as the lit element does, so React
+      // sets it as a property rather than an attribute.
+      customElements.define(
+        "theme-picker",
+        class extends HTMLElement {
+          get layout() {
+            return this._layout ?? this.getAttribute("layout");
+          }
+          set layout(value) {
+            this._layout = value;
+          }
+          shown() {
+            shownLayouts.push(this.layout);
+          }
+        }
+      );
+    });
+    beforeEach(() => {
+      shownLayouts.length = 0;
+      HTMLDialogElement.prototype.showModal = jest.fn();
+      HTMLDialogElement.prototype.close = jest.fn();
+    });
+
+    it("notifies the compact picker when the panel opens", async () => {
+      const { rerender } = render(
+        <WrapWithProvider>
+          <CustomizeMenu {...BROWSER_NOVA_PROPS} showing={false} />
+        </WrapWithProvider>
+      );
+      rerender(
+        <WrapWithProvider>
+          <CustomizeMenu {...BROWSER_NOVA_PROPS} showing={true} />
+        </WrapWithProvider>
+      );
+      await waitFor(() => expect(shownLayouts).toEqual(["compact"]));
+      await act(async () => {});
+      expect(shownLayouts).toEqual(["compact"]);
+    });
+
+    it("notifies the compact picker when mounted already showing", async () => {
+      render(
+        <WrapWithProvider>
+          <CustomizeMenu {...BROWSER_NOVA_PROPS} showing={true} />
+        </WrapWithProvider>
+      );
+      await waitFor(() => expect(shownLayouts).toEqual(["compact"]));
+      await act(async () => {});
+      expect(shownLayouts).toEqual(["compact"]);
+    });
+
+    it("notifies the full picker when the themes subpanel opens", async () => {
+      const { rerender } = render(
+        <WrapWithProvider>
+          <CustomizeMenu {...BROWSER_NOVA_PROPS} showing={true} />
+        </WrapWithProvider>
+      );
+      await waitFor(() => expect(shownLayouts).toEqual(["compact"]));
+      await act(async () => {});
+      expect(shownLayouts).toEqual(["compact"]);
+      rerender(
+        <WrapWithProvider>
+          <CustomizeMenu
+            {...BROWSER_NOVA_PROPS}
+            showing={true}
+            showThemesPanel={true}
+          />
+        </WrapWithProvider>
+      );
+      await waitFor(() => expect(shownLayouts).toEqual(["compact", "full"]));
+      await act(async () => {});
+      expect(shownLayouts).toEqual(["compact", "full"]);
+    });
+
+    it("notifies the compact picker again when a subpanel closes back to the root", async () => {
+      const { rerender } = render(
+        <WrapWithProvider>
+          <CustomizeMenu
+            {...BROWSER_NOVA_PROPS}
+            showing={true}
+            showThemesPanel={true}
+          />
+        </WrapWithProvider>
+      );
+      await waitFor(() => expect(shownLayouts).toEqual(["full"]));
+      rerender(
+        <WrapWithProvider>
+          <CustomizeMenu
+            {...BROWSER_NOVA_PROPS}
+            showing={true}
+            showThemesPanel={false}
+          />
+        </WrapWithProvider>
+      );
+      await waitFor(() => expect(shownLayouts).toEqual(["full", "compact"]));
+      await act(async () => {});
+      expect(shownLayouts).toEqual(["full", "compact"]);
+    });
+
+    it("notifies nothing when the panel opens straight into a subpanel", async () => {
+      const { rerender } = render(
+        <WrapWithProvider>
+          <CustomizeMenu {...BROWSER_NOVA_PROPS} showing={false} />
+        </WrapWithProvider>
+      );
+      rerender(
+        <WrapWithProvider>
+          <CustomizeMenu
+            {...BROWSER_NOVA_PROPS}
+            showing={true}
+            showWidgetsManagementPanel={true}
+          />
+        </WrapWithProvider>
+      );
+      await act(async () => {});
+      expect(shownLayouts).toEqual([]);
+    });
   });
 });

@@ -283,7 +283,11 @@ describe("<CustomizeMenu>", () => {
     );
     const instance = wrapper.find("_CustomizeMenu").instance();
     const mockShowModal = sandbox.stub();
-    instance.dialogRef.current = { open: false, showModal: mockShowModal };
+    instance.dialogRef.current = {
+      open: false,
+      showModal: mockShowModal,
+      querySelectorAll: () => [],
+    };
 
     // Simulate the transition: prevProps.showing was false, now it's true
     instance.componentDidUpdate({ ...DEFAULT_PROPS, showing: false });
