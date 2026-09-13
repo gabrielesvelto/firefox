@@ -487,35 +487,41 @@
           "themepickershown carries no telemetry detail."
         );
       });
-      add_task(
-        async function testDirectControllerRecordsShownOncePerDocument() {
-          useController(ThemePickerDirectController);
-          let picker = await renderThemePicker({
-            layout: "compact",
-            installsource: "test-source",
-          });
-          let secondPicker = document.createElement("theme-picker");
-          secondPicker.layout = "full";
-          secondPicker.setAttribute("installsource", "second-source");
-          document.getElementById("content").append(secondPicker);
-          await waitForCondition(
-            () => secondPicker.themes.length,
-            "The second theme picker is populated with themes."
-          );
-          await secondPicker.updateComplete;
-          await Services.fog.testFlushAllChildren();
-          Services.fog.testResetFOG();
+      add_task(async function testDirectControllerRecordsShownForEveryCall() {
+        useController(ThemePickerDirectController);
+        let picker = await renderThemePicker({
+          layout: "compact",
+          installsource: "test-source",
+        });
+        let secondPicker = document.createElement("theme-picker");
+        secondPicker.layout = "full";
+        secondPicker.setAttribute("installsource", "second-source");
+        document.getElementById("content").append(secondPicker);
+        await waitForCondition(
+          () => secondPicker.themes.length,
+          "The second theme picker is populated with themes."
+        );
+        await secondPicker.updateComplete;
+        await Services.fog.testFlushAllChildren();
+        Services.fog.testResetFOG();
 
-          picker.shown();
-          secondPicker.shown();
+        picker.shown();
+        picker.shown();
+        secondPicker.shown();
 
-          await Services.fog.testFlushAllChildren();
-          let events = Glean.themePicker.shown.testGetValue();
-          is(events?.length, 1, "theme_picker.shown is recorded once.");
-          is(events?.[0].extra.source, "test-source", "Source is recorded.");
-          is(events?.[0].extra.layout, "compact", "Layout is recorded.");
-        }
-      );
+        await Services.fog.testFlushAllChildren();
+        let events = Glean.themePicker.shown.testGetValue();
+        is(events?.length, 3, "theme_picker.shown is recorded for every call.");
+        SimpleTest.isDeeply(
+          events?.map(event => event.extra),
+          [
+            { source: "test-source", layout: "compact" },
+            { source: "test-source", layout: "compact" },
+            { source: "second-source", layout: "full" },
+          ],
+          "Shown events retain every call's source and layout."
+        );
+      });
 
       // Selecting a theme delegates to the themes manager and reflects the
       // resulting active theme. The manager's install/enable behavior (which
