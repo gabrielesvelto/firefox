@@ -3,6 +3,7 @@ import { render, act, waitFor } from "@testing-library/react";
 import { WrapWithProvider } from "test/jest/test-utils";
 import { _CustomizeMenu as CustomizeMenu } from "content-src/components/CustomizeMenu/CustomizeMenu";
 import { CUSTOMIZE_SUBPANELS } from "content-src/lib/constants";
+import { actionCreators as ac } from "common/Actions.mjs";
 
 const DEFAULT_PROPS = {
   dispatch: jest.fn(),
@@ -197,6 +198,67 @@ describe("<CustomizeMenu>", () => {
     );
     expect(container.querySelector(".customize-menu-content")).toHaveClass(
       "subpanel-open"
+    );
+  });
+
+  it("records the panel and subpanel opening", () => {
+    const dispatch = jest.fn();
+    HTMLDialogElement.prototype.showModal = jest.fn();
+    HTMLDialogElement.prototype.close = jest.fn();
+    const props = { ...DEFAULT_PROPS, dispatch, activeSubpanel: null };
+    const { rerender } = render(
+      <WrapWithProvider>
+        <CustomizeMenu {...props} showing={false} />
+      </WrapWithProvider>
+    );
+    rerender(
+      <WrapWithProvider>
+        <CustomizeMenu {...props} showing={true} />
+      </WrapWithProvider>
+    );
+    expect(dispatch).toHaveBeenCalledWith(
+      ac.UserEvent({ event: "SHOW_PERSONALIZE" })
+    );
+    rerender(
+      <WrapWithProvider>
+        <CustomizeMenu
+          {...props}
+          showing={true}
+          activeSubpanel={CUSTOMIZE_SUBPANELS.THEMES}
+        />
+      </WrapWithProvider>
+    );
+    expect(dispatch).toHaveBeenCalledWith(
+      ac.UserEvent({
+        event: "SHOW_PERSONALIZE_SUBPANEL",
+        source: CUSTOMIZE_SUBPANELS.THEMES,
+      })
+    );
+    expect(dispatch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not record a panel open on a mount that is already showing with a subpanel active", () => {
+    const dispatch = jest.fn();
+    HTMLDialogElement.prototype.showModal = jest.fn();
+    HTMLDialogElement.prototype.close = jest.fn();
+    render(
+      <WrapWithProvider>
+        <CustomizeMenu
+          {...DEFAULT_PROPS}
+          dispatch={dispatch}
+          showing={true}
+          activeSubpanel={CUSTOMIZE_SUBPANELS.WIDGETS}
+        />
+      </WrapWithProvider>
+    );
+    expect(dispatch).not.toHaveBeenCalledWith(
+      ac.UserEvent({ event: "SHOW_PERSONALIZE" })
+    );
+    expect(dispatch).not.toHaveBeenCalledWith(
+      ac.UserEvent({
+        event: "SHOW_PERSONALIZE_SUBPANEL",
+        source: CUSTOMIZE_SUBPANELS.WIDGETS,
+      })
     );
   });
 

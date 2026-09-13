@@ -22,6 +22,7 @@ function ThemesManagementPanel({ togglePanel, showPanel }) {
   };
 
   const openAboutAddonsThemes = () => {
+    dispatch(ac.UserEvent({ event: "EXPLORE_MORE_THEMES_CLICK" }));
     dispatch(ac.OnlyToMain({ type: at.OPEN_ABOUT_ADDONS_THEMES }));
   };
 

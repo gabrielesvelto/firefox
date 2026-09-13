@@ -579,7 +579,6 @@ export class BaseContent extends React.PureComponent {
 
   openCustomizationMenu() {
     this.props.dispatch({ type: at.SHOW_PERSONALIZE });
-    this.props.dispatch(ac.UserEvent({ event: "SHOW_PERSONALIZE" }));
   }
 
   closeCustomizationMenu() {

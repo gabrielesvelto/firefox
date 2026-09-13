@@ -1,5 +1,5 @@
 import { render, fireEvent } from "@testing-library/react";
-import { actionTypes as at } from "common/Actions.mjs";
+import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { ThemesManagementPanel } from "content-src/components/CustomizeMenu/ThemesManagementPanel/ThemesManagementPanel";
 import { WrapWithProvider } from "test/jest/test-utils";
 
@@ -56,7 +56,7 @@ describe("<ThemesManagementPanel>", () => {
     );
   });
 
-  it("dispatches OPEN_ABOUT_ADDONS_THEMES when 'Explore more themes' is clicked", () => {
+  it("dispatches OPEN_ABOUT_ADDONS_THEMES and the click user event when 'Explore more themes' is clicked", () => {
     const { container } = render(
       <WrapWithProvider>
         <ThemesManagementPanel {...DEFAULT_PROPS} showPanel={true} />
@@ -65,6 +65,9 @@ describe("<ThemesManagementPanel>", () => {
     fireEvent.click(container.querySelector("button.external-link"));
     expect(mockDispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: at.OPEN_ABOUT_ADDONS_THEMES })
+    );
+    expect(mockDispatch).toHaveBeenCalledWith(
+      ac.UserEvent({ event: "EXPLORE_MORE_THEMES_CLICK" })
     );
   });
 });

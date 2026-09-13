@@ -196,7 +196,7 @@ describe("<BaseContent>", () => {
     ).toBeInTheDocument();
   });
 
-  it("should dispatch a user event when the customize menu is opened or closed", () => {
+  it("dispatches SHOW_PERSONALIZE on open and HIDE_PERSONALIZE with its user event on close", () => {
     const dispatch = jest.fn();
     const ref = React.createRef();
     renderBaseContent(
@@ -209,9 +209,6 @@ describe("<BaseContent>", () => {
     );
     ref.current.openCustomizationMenu();
     expect(dispatch).toHaveBeenCalledWith({ type: at.SHOW_PERSONALIZE });
-    expect(dispatch).toHaveBeenCalledWith(
-      ac.UserEvent({ event: "SHOW_PERSONALIZE" })
-    );
     ref.current.closeCustomizationMenu();
     expect(dispatch).toHaveBeenCalledWith({ type: at.HIDE_PERSONALIZE });
     expect(dispatch).toHaveBeenCalledWith(

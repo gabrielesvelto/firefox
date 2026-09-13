@@ -146,7 +146,6 @@ function CardWebNotifications({ link }) {
 
   const openSettings = () => {
     dispatch({ type: at.SHOW_PERSONALIZE });
-    dispatch(ac.UserEvent({ event: "SHOW_PERSONALIZE" }));
   };
 
   const activate = notification =>

@@ -8,6 +8,7 @@ import {
   PANEL_HIDDEN,
   notifyThemePickersOnTransition,
 } from "content-src/lib/theme-picker-shown";
+import { recordCustomizePanelTransitions } from "content-src/lib/customize-panel-telemetry";
 import { connect } from "react-redux";
 import React from "react";
 
@@ -89,6 +90,7 @@ export class _CustomizeMenu extends React.PureComponent {
       prevProps,
       () => this.props
     );
+    recordCustomizePanelTransitions(this.props.dispatch, prevProps, this.props);
   }
 
   /**
