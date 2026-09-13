@@ -274,27 +274,27 @@ ScriptLoader::~ScriptLoader() {
     FireScriptAvailable(NS_ERROR_ABORT, mParserBlockingRequest);
   }
 
-  for (ScriptLoadRequest* req = mXSLTRequests.getFirst(); req;
+  for (RefPtr<ScriptLoadRequest> req = mXSLTRequests.getFirst(); req;
        req = req->getNext()) {
     FireScriptAvailable(NS_ERROR_ABORT, req);
   }
 
-  for (ScriptLoadRequest* req = mDeferRequests.getFirst(); req;
+  for (RefPtr<ScriptLoadRequest> req = mDeferRequests.getFirst(); req;
        req = req->getNext()) {
     FireScriptAvailable(NS_ERROR_ABORT, req);
   }
 
-  for (ScriptLoadRequest* req = mLoadingAsyncRequests.getFirst(); req;
+  for (RefPtr<ScriptLoadRequest> req = mLoadingAsyncRequests.getFirst(); req;
        req = req->getNext()) {
     FireScriptAvailable(NS_ERROR_ABORT, req);
   }
 
-  for (ScriptLoadRequest* req = mLoadedAsyncRequests.getFirst(); req;
+  for (RefPtr<ScriptLoadRequest> req = mLoadedAsyncRequests.getFirst(); req;
        req = req->getNext()) {
     FireScriptAvailable(NS_ERROR_ABORT, req);
   }
 
-  for (ScriptLoadRequest* req =
+  for (RefPtr<ScriptLoadRequest> req =
            mNonAsyncExternalScriptInsertedRequests.getFirst();
        req; req = req->getNext()) {
     FireScriptAvailable(NS_ERROR_ABORT, req);
