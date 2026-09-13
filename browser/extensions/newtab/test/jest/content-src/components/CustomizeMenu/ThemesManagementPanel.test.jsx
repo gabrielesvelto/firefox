@@ -11,7 +11,6 @@ jest.mock("react-redux", () => ({
 
 const DEFAULT_PROPS = {
   togglePanel: () => {},
-  onSubpanelToggle: () => {},
 };
 
 describe("<ThemesManagementPanel>", () => {

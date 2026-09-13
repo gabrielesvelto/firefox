@@ -3,6 +3,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import { ContentSection } from "content-src/components/CustomizeMenu/ContentSection/ContentSection";
+import { CUSTOMIZE_SUBPANELS } from "content-src/lib/constants";
 import {
   PANEL_HIDDEN,
   notifyThemePickersOnTransition,
@@ -51,20 +52,12 @@ export class _CustomizeMenu extends React.PureComponent {
     super(props);
     this.onEntered = this.onEntered.bind(this);
     this.onExited = this.onExited.bind(this);
-    this.onSubpanelToggle = this.onSubpanelToggle.bind(this);
     this.onCancel = this.onCancel.bind(this);
     this.onDialogClick = this.onDialogClick.bind(this);
     this.personalizeButtonRef = React.createRef();
     this.dialogRef = React.createRef();
     this.closeButtonRef = React.createRef();
     this._hadLockedPrefs = false;
-    this.state = {
-      subpanelOpen: false,
-    };
-  }
-
-  onSubpanelToggle(isOpen) {
-    this.setState({ subpanelOpen: isOpen });
   }
 
   componentDidMount() {
@@ -142,8 +135,6 @@ export class _CustomizeMenu extends React.PureComponent {
       this.dialogRef.current.close();
     }
     this.props.closeSubpanels();
-    // Reset local state in case a subpanel does not report that it closed.
-    this.setState({ subpanelOpen: false });
     if (this.personalizeButtonRef.current) {
       this.personalizeButtonRef.current.focus();
     }
@@ -160,6 +151,7 @@ export class _CustomizeMenu extends React.PureComponent {
     const novaEnabled = this.props.Prefs.values[PREF_NOVA_ENABLED];
     // Browser-wide Nova gate for the theme picker (distinct from novaEnabled).
     const { browserNovaEnabled, lockedPrefs } = this.props.Prefs.values;
+    const { activeSubpanel } = this.props;
 
     return (
       <span>
@@ -222,7 +214,7 @@ export class _CustomizeMenu extends React.PureComponent {
             onClick={this.onDialogClick}
           >
             <div
-              className={`customize-menu-content${this.state.subpanelOpen ? " subpanel-open" : ""}`}
+              className={`customize-menu-content${activeSubpanel ? " subpanel-open" : ""}`}
             >
               <div className="close-button-wrapper">
                 <moz-button
@@ -267,14 +259,17 @@ export class _CustomizeMenu extends React.PureComponent {
                   this.props.mayHaveRecentSearchesWidget
                 }
                 dispatch={this.props.dispatch}
-                onSubpanelToggle={this.onSubpanelToggle}
                 toggleSectionsMgmtPanel={this.props.toggleSectionsMgmtPanel}
-                showSectionsMgmtPanel={this.props.showSectionsMgmtPanel}
+                showSectionsMgmtPanel={
+                  activeSubpanel === CUSTOMIZE_SUBPANELS.SECTIONS
+                }
                 novaEnabled={novaEnabled}
                 browserNovaEnabled={browserNovaEnabled}
                 toggleThemesPanel={this.props.toggleThemesPanel}
-                showThemesPanel={this.props.showThemesPanel}
-                showWallpapersPanel={this.props.showWallpapersPanel}
+                showThemesPanel={activeSubpanel === CUSTOMIZE_SUBPANELS.THEMES}
+                showWallpapersPanel={
+                  activeSubpanel === CUSTOMIZE_SUBPANELS.WALLPAPERS
+                }
                 wallpapersPanelCategory={this.props.wallpapersPanelCategory}
                 openWallpapersPanel={this.props.openWallpapersPanel}
                 closeWallpapersPanel={this.props.closeWallpapersPanel}
@@ -282,7 +277,7 @@ export class _CustomizeMenu extends React.PureComponent {
                   this.props.toggleWidgetsManagementPanel
                 }
                 showWidgetsManagementPanel={
-                  this.props.showWidgetsManagementPanel
+                  activeSubpanel === CUSTOMIZE_SUBPANELS.WIDGETS
                 }
                 widgetsEnabled={this.props.widgetsEnabled}
                 lockedPrefs={lockedPrefs}

@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+import { CUSTOMIZE_SUBPANELS } from "./constants.mjs";
+
 const THEME_PICKER_TAG = "theme-picker";
 
 // Stands in for the previous props when CustomizeMenu mounts.
@@ -12,19 +14,13 @@ export const PANEL_HIDDEN = Object.freeze({ showing: false });
 const latestRequest = new WeakMap();
 
 export function isRootPanelVisible(props) {
-  return Boolean(
-    props.showing &&
-    !(
-      props.showSectionsMgmtPanel ||
-      props.showWidgetsManagementPanel ||
-      props.showThemesPanel ||
-      props.showWallpapersPanel
-    )
-  );
+  return Boolean(props.showing && !props.activeSubpanel);
 }
 
 export function isThemesPanelVisible(props) {
-  return Boolean(props.showing && props.showThemesPanel);
+  return Boolean(
+    props.showing && props.activeSubpanel === CUSTOMIZE_SUBPANELS.THEMES
+  );
 }
 
 const PICKERS = [

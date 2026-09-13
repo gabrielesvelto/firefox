@@ -9,16 +9,17 @@ import {
   notifyThemePickerShown,
   notifyThemePickersOnTransition,
 } from "content-src/lib/theme-picker-shown";
+import { CUSTOMIZE_SUBPANELS } from "content-src/lib/constants";
 
 const ROOT_VISIBLE = {
   showing: true,
-  showSectionsMgmtPanel: false,
-  showWidgetsManagementPanel: false,
-  showThemesPanel: false,
-  showWallpapersPanel: false,
+  activeSubpanel: null,
 };
 const HIDDEN = { ...ROOT_VISIBLE, showing: false };
-const THEMES_VISIBLE = { ...ROOT_VISIBLE, showThemesPanel: true };
+const THEMES_VISIBLE = {
+  ...ROOT_VISIBLE,
+  activeSubpanel: CUSTOMIZE_SUBPANELS.THEMES,
+};
 
 const shownCalls = [];
 // Shaped like the lit element: once defined, `layout` is a property, so React
@@ -67,13 +68,13 @@ describe("theme-picker-shown", () => {
       expect(isRootPanelVisible(ROOT_VISIBLE)).toBe(true);
     });
 
-    it.each([
-      "showSectionsMgmtPanel",
-      "showWidgetsManagementPanel",
-      "showThemesPanel",
-      "showWallpapersPanel",
-    ])("is false when showing with %s open", flag => {
-      expect(isRootPanelVisible({ ...ROOT_VISIBLE, [flag]: true })).toBe(false);
+    it("is false when showing with a subpanel open", () => {
+      expect(
+        isRootPanelVisible({
+          ...ROOT_VISIBLE,
+          activeSubpanel: CUSTOMIZE_SUBPANELS.THEMES,
+        })
+      ).toBe(false);
     });
 
     it("reads PANEL_HIDDEN as hidden", () => {
@@ -84,9 +85,12 @@ describe("theme-picker-shown", () => {
 
   describe("isThemesPanelVisible", () => {
     it("is false when the panel is not showing", () => {
-      expect(isThemesPanelVisible({ ...HIDDEN, showThemesPanel: true })).toBe(
-        false
-      );
+      expect(
+        isThemesPanelVisible({
+          ...HIDDEN,
+          activeSubpanel: CUSTOMIZE_SUBPANELS.THEMES,
+        })
+      ).toBe(false);
     });
 
     it("is false when showing without the themes subpanel", () => {
@@ -181,13 +185,19 @@ describe("theme-picker-shown", () => {
     });
 
     it("does not notify the compact picker when the panel opens into a subpanel", async () => {
-      transition(HIDDEN, { ...ROOT_VISIBLE, showWidgetsManagementPanel: true });
+      transition(HIDDEN, {
+        ...ROOT_VISIBLE,
+        activeSubpanel: CUSTOMIZE_SUBPANELS.WIDGETS,
+      });
       await flush();
       expect(shownCalls).toHaveLength(0);
     });
 
     it("notifies the compact picker when a subpanel closes back to the root", async () => {
-      transition({ ...ROOT_VISIBLE, showWallpapersPanel: true }, ROOT_VISIBLE);
+      transition(
+        { ...ROOT_VISIBLE, activeSubpanel: CUSTOMIZE_SUBPANELS.WALLPAPERS },
+        ROOT_VISIBLE
+      );
       await flush();
       expect(shownCalls).toEqual([compact]);
     });
@@ -205,13 +215,22 @@ describe("theme-picker-shown", () => {
     });
 
     it("notifies the full picker when the panel reopens with the themes subpanel still open", async () => {
-      transition({ ...HIDDEN, showThemesPanel: true }, THEMES_VISIBLE);
+      transition(
+        {
+          ...HIDDEN,
+          activeSubpanel: CUSTOMIZE_SUBPANELS.THEMES,
+        },
+        THEMES_VISIBLE
+      );
       await flush();
       expect(shownCalls).toEqual([full]);
     });
 
     it("does not notify the full picker while the panel is hidden", async () => {
-      transition(HIDDEN, { ...HIDDEN, showThemesPanel: true });
+      transition(HIDDEN, {
+        ...HIDDEN,
+        activeSubpanel: CUSTOMIZE_SUBPANELS.THEMES,
+      });
       await flush();
       expect(shownCalls).toHaveLength(0);
     });
@@ -226,7 +245,10 @@ describe("theme-picker-shown", () => {
     it("drops the compact call when the root is covered by the time the element is ready", async () => {
       let current = ROOT_VISIBLE;
       notifyThemePickersOnTransition(container, HIDDEN, () => current);
-      current = { ...ROOT_VISIBLE, showWallpapersPanel: true };
+      current = {
+        ...ROOT_VISIBLE,
+        activeSubpanel: CUSTOMIZE_SUBPANELS.WALLPAPERS,
+      };
       await flush();
       expect(shownCalls).toHaveLength(0);
     });
