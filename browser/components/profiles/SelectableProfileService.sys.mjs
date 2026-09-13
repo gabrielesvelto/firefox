@@ -1091,15 +1091,11 @@ class SelectableProfileServiceClass extends EventEmitter {
    * @returns {{ themeFg: string, themeBg: string }}
    */
   extractThemeColors(theme) {
-    let themeFg;
-    let themeBg;
+    let themeFg = theme.icon_color || theme.textcolor || theme.toolbar_text;
+    let themeBg = theme.accentcolor || theme.toolbarColor;
 
-    if (theme.id === DEFAULT_THEME_ID) {
+    if (theme.id === DEFAULT_THEME_ID || !themeFg || !themeBg) {
       ({ themeBg, themeFg } = this.getColorsForDefaultTheme());
-    } else {
-      themeFg =
-        theme.icon_attention_color || theme.toolbar_text || theme.textcolor;
-      themeBg = theme.accentcolor || theme.toolbarColor;
     }
 
     return { themeFg, themeBg };
