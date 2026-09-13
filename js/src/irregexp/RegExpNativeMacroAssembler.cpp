@@ -525,7 +525,7 @@ bool SMRegExpMacroAssembler::SkipUntilBitInTableUseSimd(int advance_by) {
 #if defined(ENABLE_JIT_SIMD)
 #  if defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_X64)
   // SSSE3 is required for pshufb (used to implement swizzleInt8x16).
-  if (!js::jit::Assembler::HasSSE3()) {
+  if (!js::jit::Assembler::HasSSSE3()) {
     return false;
   }
 #  endif
