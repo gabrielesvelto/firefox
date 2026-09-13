@@ -643,7 +643,7 @@ static char* ShowProtectedAuthPrompt(PK11SlotInfo* slot) {
     nsCOMPtr<mozIDOMWindowProxy> newWindow;
     rv = ww->OpenWindow(activeWindow,
                         "chrome://pippki/content/protectedAuth.xhtml"_ns,
-                        "_blank"_ns, "centerscreen,chrome,modal,titlebar"_ns,
+                        u"_blank"_ns, "centerscreen,chrome,modal,titlebar"_ns,
                         dialogArgs, getter_AddRefs(newWindow));
     if (NS_FAILED(rv)) {
       return nullptr;

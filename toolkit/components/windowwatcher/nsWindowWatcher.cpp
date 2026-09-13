@@ -274,8 +274,7 @@ static already_AddRefed<nsIArray> ConvertArgsToArray(nsISupports* aArguments) {
 
 NS_IMETHODIMP
 nsWindowWatcher::OpenWindow(mozIDOMWindowProxy* aParent, const nsACString& aUrl,
-                            const nsACString& aName,
-                            const nsACString& aFeatures,
+                            const nsAString& aName, const nsACString& aFeatures,
                             nsISupports* aArguments,
                             mozIDOMWindowProxy** aResult) {
   nsCOMPtr<nsIArray> argv = ConvertArgsToArray(aArguments);
@@ -358,7 +357,7 @@ static SizeSpec CalcSizeSpec(const WindowFeatures&, bool aHasChromeParent,
 
 NS_IMETHODIMP
 nsWindowWatcher::OpenWindow2(
-    mozIDOMWindowProxy* aParent, nsIURI* aUri, const nsACString& aName,
+    mozIDOMWindowProxy* aParent, nsIURI* aUri, const nsAString& aName,
     const nsACString& aFeatures, const UserActivation::Modifiers& aModifiers,
     bool aCalledFromScript, bool aDialog, bool aNavigate, nsIArray* aArguments,
     bool aIsPopupSpam, bool aForceNoOpener, bool aForceNoReferrer,
@@ -622,8 +621,8 @@ nsWindowWatcher::OpenWindowWithRemoteTab(
 }
 
 nsresult nsWindowWatcher::OpenWindowInternal(
-    mozIDOMWindowProxy* aParent, const nsACString& aUrl,
-    const nsACString& aName, const nsACString& aFeatures,
+    mozIDOMWindowProxy* aParent, const nsACString& aUrl, const nsAString& aName,
+    const nsACString& aFeatures,
     const mozilla::dom::UserActivation::Modifiers& aModifiers,
     bool aCalledFromJS, bool aDialog, bool aNavigate, nsIArray* aArgv,
     bool aIsPopupSpam, bool aForceNoOpener, bool aForceNoReferrer,
@@ -653,7 +652,7 @@ nsresult nsWindowWatcher::OpenWindowInternal(
 }
 
 nsresult nsWindowWatcher::OpenWindowInternal(
-    mozIDOMWindowProxy* aParent, nsIURI* aUri, const nsACString& aName,
+    mozIDOMWindowProxy* aParent, nsIURI* aUri, const nsAString& aName,
     const nsACString& aFeatures,
     const mozilla::dom::UserActivation::Modifiers& aModifiers,
     bool aCalledFromJS, bool aDialog, bool aNavigate, nsIArray* aArgv,
@@ -673,7 +672,7 @@ nsresult nsWindowWatcher::OpenWindowInternal(
   bool uriToLoadIsChrome = false;
 
   uint32_t chromeFlags;
-  nsAutoString name;  // string version of aName
+  nsAutoString name;  // local copy of aName, voided if unspecified
   nsCOMPtr<nsIDocShellTreeOwner>
       parentTreeOwner;               // from the parent window, if any
   RefPtr<BrowsingContext> targetBC;  // from the new window
@@ -707,7 +706,7 @@ nsresult nsWindowWatcher::OpenWindowInternal(
 
   bool nameSpecified = false;
   if (!aName.IsEmpty()) {
-    CopyUTF8toUTF16(aName, name);
+    name.Assign(aName);
     nameSpecified = true;
   } else {
     name.SetIsVoid(true);
