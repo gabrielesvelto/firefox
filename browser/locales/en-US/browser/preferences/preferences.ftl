@@ -1246,6 +1246,13 @@ containers-new-tab-check2 =
     .accesskey = S
     .description = This will open the containers menu every time you press the open new tab button.
 
+# Checkbox in the Containers settings. By default, when a link is opened from
+# another application, Firefox tries to pick a matching container for it. When
+# this checkbox is checked, such links always open outside of any container.
+containers-external-links-check =
+    .label = Don’t use containers for links opened from external apps
+    .accesskey = D
+
 containers-settings-button2 =
     .title = Settings
 containers-remove-button2 =
