@@ -283,6 +283,11 @@ bool DecryptingInputStream<CipherStrategy>::EnsureBuffers() {
       return false;
     }
 
+    // SetLength() does not zero POD elements. Zero-initialize the whole block
+    // so that reserved/unused bytes do not expose stale data. This follows the
+    // same rationale as EncryptedBlock (see bug 1867394 and bug 2054736).
+    std::fill(mPlainBuffer.begin(), mPlainBuffer.end(), 0);
+
     // Make sure we seek our stream to its start before we do anything.  This is
     // primarily intended to deal with the case of IPC serialization, but this
     // is reasonable in all cases.
