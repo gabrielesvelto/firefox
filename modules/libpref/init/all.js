@@ -3467,8 +3467,8 @@ pref("browser.search.log", false);
 pref("browser.search.update", true);
 pref("browser.search.suggest.enabled", true);
 pref("browser.search.suggest.enabled.private", false);
-pref("browser.search.separatePrivateDefault", true);
-pref("browser.search.separatePrivateDefault.ui.enabled", false);
+pref("browser.search.separatePrivateDefault.enabled", false);
+pref("browser.search.separatePrivateDefault.featureGate", false);
 pref("browser.search.removeEngineInfobar.enabled", true);
 
 // GMPInstallManager prefs
