@@ -19,7 +19,7 @@ else
     # Replace CR/LF line endings with Unix LF endings
     find . -name "*.mak" -exec sed -i 's/\r$//' {} \;
     pushd CPP/7zip/Bundles/Alone2
-    make -f ../../cmpl_gcc.mak
+    make -f ../../cmpl_gcc.mak LDFLAGS_STATIC_2="-static"
     popd
 fi
 
