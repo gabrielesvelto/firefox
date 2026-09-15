@@ -77,6 +77,7 @@
 #include "nsIXULRuntime.h"
 
 #include "mozilla/dom/WorkerCommon.h"
+#include "nsAboutProtocolUtils.h"
 #include "nsDocShell.h"
 #include "nsDocShellLoadState.h"
 #include "nsFocusManager.h"
@@ -2335,6 +2336,31 @@ nsresult BrowsingContext::LoadURI(nsDocShellLoadState* aLoadState,
     MOZ_DIAGNOSTIC_ASSERT(!sourceBC,
                           "Should never see a cross-process javascript: load "
                           "triggered from content");
+  } else {
+    // We do the same check in the nsDocShellLoadState constructor when
+    // deserializing, but that check causes parent processes crashes for loads
+    // started in the parent with a remote effectiveRemoteType.
+    const nsCString& effectiveRemoteType =
+        aLoadState->GetEffectiveTriggeringRemoteType();
+    if (effectiveRemoteType != NOT_REMOTE_TYPE &&
+        !ContentTriggeredURILoadIsAllowed(aLoadState->URI(),
+                                          effectiveRemoteType)) {
+#ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
+      nsAutoCString aboutModuleOrScheme;
+      if (aLoadState->URI()->SchemeIs("about")) {
+        (void)NS_GetAboutModuleName(aLoadState->URI(), aboutModuleOrScheme);
+        aboutModuleOrScheme.InsertLiteral("about:", 0);
+      } else {
+        aLoadState->URI()->GetScheme(aboutModuleOrScheme);
+        aboutModuleOrScheme.AppendLiteral(":");
+      }
+      nsCString remotePrefix(RemoteTypePrefix(effectiveRemoteType));
+      MOZ_CRASH_UNSAFE_PRINTF("Illegal load attempt of %s URL from %s",
+                              aboutModuleOrScheme.get(), remotePrefix.get());
+#endif
+
+      return NS_ERROR_UNEXPECTED;
+    }
   }
 
   // Note: We do this check both here and in `nsDocShell::InternalLoad`.

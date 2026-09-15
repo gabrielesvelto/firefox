@@ -40,6 +40,13 @@ class SessionHistoryEntry;
 }  // namespace dom
 }  // namespace mozilla
 
+namespace mozilla::dom {
+
+bool ContentTriggeredURILoadIsAllowed(nsIURI* aURI,
+                                      const nsACString& aEffectiveRemoteType);
+
+}
+
 /**
  * nsDocShellLoadState contains setup information used in a nsIDocShell::loadURI
  * call.
