@@ -1,9 +1,10 @@
 {
   "data": [
     {
+      "order": 202,
       "theme": "dark",
       "title": "Wrexham",
-      "schema": 1788546906308,
+      "schema": 1789484884441,
       "visible": true,
       "category": "firefox",
       "attachment": {
@@ -13,11 +14,10 @@
         "location": "main-workspace/newtab-wallpapers-v2/20260904203317--75b87498-000e-45fa-973b-299d19212ef9--15c05c49-ba17-47ba-a7ac-ca430d967d71.avif",
         "mimetype": "image/avif"
       },
-      "visibility_group": "wrexham",
-      "filter_expression": "env.distribution == \"wrexham-001\"",
+      "visibility_group": "",
       "background_position": "top right",
       "id": "75b87498-000e-45fa-973b-299d19212ef9",
-      "last_modified": 1788554973606
+      "last_modified": 1789487753567
     },
     {
       "order": 10,
@@ -1433,5 +1433,5 @@
       "last_modified": 1718647622926
     }
   ],
-  "timestamp": 1788554973606
+  "timestamp": 1789487753567
 }
