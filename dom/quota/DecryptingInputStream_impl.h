@@ -515,8 +515,27 @@ NS_IMETHODIMP DecryptingInputStream<CipherStrategy>::Seek(const int32_t aWhence,
   }
 
   if (readBytes == 0 && baseBlocksOffset != 0) {
-    mPlainBytes = mEncryptedBlock->MaxPayloadLength();
-    mNextByte = mEncryptedBlock->MaxPayloadLength();
+    // EOF at a block boundary: re-parse the preceding (full) block so that
+    // mPlainBuffer really contains mPlainBytes bytes read calls might request.
+    // Fabricating the counts without decrypting would let a later
+    // in-block seek serve uninitialized buffer contents (see bug 2054736).
+    rv = (*mBaseSeekableStream)
+             ->Seek(NS_SEEK_SET, (baseBlocksOffset - 1) * *mBlockSize);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
+
+    rv = ParseNextChunk(true /* aCheckAvailableBytes */, &readBytes);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
+
+    if (NS_WARN_IF(readBytes != mEncryptedBlock->MaxPayloadLength())) {
+      return NS_ERROR_CORRUPTED_CONTENT;
+    }
+
+    mPlainBytes = readBytes;
+    mNextByte = readBytes;
   } else {
     mPlainBytes = readBytes;
     mNextByte = nextByteOffset;
