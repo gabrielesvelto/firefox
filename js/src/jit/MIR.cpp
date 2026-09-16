@@ -7917,6 +7917,29 @@ MDefinition* MTimeClip::foldsTo(TempAllocator& alloc) {
   return MConstant::NewDouble(alloc, JS::CanonicalizeNaN(clipped.toDouble()));
 }
 
+template <typename T>
+static wasm::MaybeRefType GetBaseRefTypeForWasmLoadOrStore(T ins) {
+  const MDefinition* structObject;
+  if (ins->base()->type() == MIRType::WasmStructData) {
+    MOZ_RELEASE_ASSERT(ins->base()->isWasmLoadField());
+    structObject = ins->base()->toWasmLoadField()->base();
+  } else {
+    structObject = ins->base();
+  }
+  return structObject->wasmRefType().asNonNullable();
+}
+
+// Wasm loads and stores can be proven not to alias if their offsets are
+// different or their ref types are known and disjoint. (Disjoint alias sets
+// also mean no aliasing, but this is obvious because that's just what alias
+// sets already do.)
+//
+// Different offsets -> NoAlias is true because each field (whether GC data or
+// internal data) has one and only one offset that is used to access it.
+// Disjoint types -> NoAlias is true because, well, types. When considering
+// types here, we exclude null because null loads and stores will trap anyway.
+//
+// For more rationale, see bug 2061530.
 MDefinition::AliasType MWasmLoadField::mightAlias(
     const MDefinition* ins) const {
   if (!(getAliasSet().flags() & ins->getAliasSet().flags())) {
@@ -7924,27 +7947,27 @@ MDefinition::AliasType MWasmLoadField::mightAlias(
   }
   MOZ_ASSERT(!isEffectful() && ins->isEffectful());
 
-  // Pick off cases where we can easily prove non-aliasing.  The idea is that
-  // two struct field accesses can't alias if either they are at different
-  // offsets, or the struct types are unrelated (which implies that the struct
-  // base pointer for one of the accesses could not validly be handed to the
-  // other access).
+  wasm::MaybeRefType insType;
+  uint32_t insOffset;
   if (ins->isWasmStoreField()) {
     const MWasmStoreField* store = ins->toWasmStoreField();
-    if (offset() != store->offset() ||
-        !wasm::MaybeRefType::mayHaveValuesInCommon(
-            base()->wasmRefType().asNonNullable(),
-            store->base()->wasmRefType().asNonNullable())) {
-      return AliasType::NoAlias;
-    }
+    insType = GetBaseRefTypeForWasmLoadOrStore(store);
+    insOffset = store->offset();
   } else if (ins->isWasmStoreFieldRef()) {
     const MWasmStoreFieldRef* store = ins->toWasmStoreFieldRef();
-    if (offset() != store->offset() ||
-        !wasm::MaybeRefType::mayHaveValuesInCommon(
-            base()->wasmRefType().asNonNullable(),
-            store->base()->wasmRefType().asNonNullable())) {
-      return AliasType::NoAlias;
-    }
+    insType = GetBaseRefTypeForWasmLoadOrStore(store);
+    insOffset = store->offset();
+  } else {
+    // Safe default, but any other type of store that can operate on the same
+    // values as a (performance-sensitive) MWasmLoadField should probably be
+    // added above.
+    return AliasType::MayAlias;
+  }
+
+  wasm::MaybeRefType thisType = GetBaseRefTypeForWasmLoadOrStore(this);
+  if (offset() != insOffset ||
+      !wasm::MaybeRefType::mayHaveValuesInCommon(thisType, insType)) {
+    return AliasType::NoAlias;
   }
 
   return AliasType::MayAlias;
