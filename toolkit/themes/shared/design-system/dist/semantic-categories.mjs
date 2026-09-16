@@ -2133,11 +2133,9 @@ export const tokensTable = {
     { value: "var(--space-medium)", name: "--input-folder-gap" },
     { value: { brand: { default: "64px" } }, name: "--page-space-block-start" },
     {
-      value:
-        "var(--panel-menuitem-margin-block) var(--panel-menuitem-margin-inline)",
+      value: "0 var(--panel-menuitem-margin-inline)",
       name: "--panel-menuitem-margin",
     },
-    { value: "0", name: "--panel-menuitem-margin-block" },
     { value: "8px", name: "--panel-menuitem-margin-inline" },
     {
       value:
@@ -4640,9 +4638,7 @@ export const variableLookupTable = {
   "page-main-content-width": { brand: { default: "664px" } },
   "page-space-block-start": { brand: { default: "64px" } },
   "panel-menuitem-border-radius": "var(--border-radius-small)",
-  "panel-menuitem-margin":
-    "var(--panel-menuitem-margin-block) var(--panel-menuitem-margin-inline)",
-  "panel-menuitem-margin-block": "0",
+  "panel-menuitem-margin": "0 var(--panel-menuitem-margin-inline)",
   "panel-menuitem-margin-inline": "8px",
   "panel-menuitem-padding":
     "var(--panel-menuitem-padding-block) var(--panel-menuitem-padding-inline)",
