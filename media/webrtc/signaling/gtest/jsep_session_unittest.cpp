@@ -12,6 +12,7 @@
 #define GTEST_HAS_RTTI 0
 #include "CodecConfig.h"
 #include "PeerConnectionImpl.h"
+#include "api/rtp_parameters.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "jsep/JsepSession.h"
@@ -4867,7 +4868,7 @@ TEST_F(JsepSessionTest, TestExtmapDefaults) {
   ASSERT_TRUE(
       offerVideoMediaAttrs.HasAttribute(SdpAttribute::kExtmapAttribute));
   auto& offerVideoExtmap = offerVideoMediaAttrs.GetExtmap().mExtmaps;
-  ASSERT_EQ(6U, offerVideoExtmap.size());
+  ASSERT_EQ(7U, offerVideoExtmap.size());
 
   ASSERT_EQ(3U, offerVideoExtmap[0].entry);
   ASSERT_EQ("urn:ietf:params:rtp-hdrext:sdes:mid"_ns,
@@ -4886,6 +4887,12 @@ TEST_F(JsepSessionTest, TestExtmapDefaults) {
       "extensions-01"_ns,
       offerVideoExtmap[4].extensionname);
   ASSERT_EQ(7U, offerVideoExtmap[4].entry);
+  ASSERT_EQ("urn:3gpp:video-orientation"_ns, offerVideoExtmap[5].extensionname);
+  ASSERT_EQ(8U, offerVideoExtmap[5].entry);
+  ASSERT_EQ(nsCString(webrtc::RtpExtension::kDependencyDescriptorUri),
+            offerVideoExtmap[6].extensionname);
+  ASSERT_EQ(9U, offerVideoExtmap[6].entry);
+  ASSERT_EQ(SdpDirectionAttribute::kRecvonly, offerVideoExtmap[6].direction);
 
   UniquePtr<Sdp> parsedAnswer(Parse(answer));
   ASSERT_EQ(2U, parsedAnswer->GetMediaSectionCount());

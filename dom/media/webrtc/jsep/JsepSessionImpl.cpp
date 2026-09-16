@@ -492,13 +492,17 @@ std::vector<SdpExtmapAttributeList::Extmap> JsepSessionImpl::GetRtpExtensions(
       break;
     case SdpMediaSection::kVideo:
       mediaType = JsepMediaType::kVideo;
-      // We need to add the dependency descriptor extension for simulcast
-      if (includes_send && StaticPrefs::media_peerconnection_video_use_dd() &&
-          msection.GetAttributeList().HasAttribute(
-              SdpAttribute::kSimulcastAttribute)) {
+      if (StaticPrefs::media_peerconnection_video_use_dd()) {
+        // We always want to receive the dependency descriptor, as libwebrtc
+        // relies on it for layered streams (Bug 2071030). We only send it for
+        // simulcast.
+        const bool sendSimulcast =
+            includes_send && msection.GetAttributeList().HasAttribute(
+                                 SdpAttribute::kSimulcastAttribute);
         AddVideoRtpExtension(
             nsLiteralCString(webrtc::RtpExtension::kDependencyDescriptorUri),
-            SdpDirectionAttribute::kSendonly);
+            sendSimulcast ? SdpDirectionAttribute::kSendrecv
+                          : SdpDirectionAttribute::kRecvonly);
       }
       if (msection.GetAttributeList().HasAttribute(
               SdpAttribute::kRidAttribute)) {
