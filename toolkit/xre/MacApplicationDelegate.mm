@@ -76,9 +76,6 @@ enum class LaunchStatus {
   DelegateIsSetup,
   CollectingURLs,
   CollectedURLs,
-  // The main browser event loop is running. URLs received after this point
-  // are handled immediately via nsICommandLineRunner.
-  Running
 };
 
 static LaunchStatus sLaunchStatus = LaunchStatus::Initial;
@@ -144,7 +141,7 @@ void SetupMacApplicationDelegate(bool* gRestartedByOS) {
   NS_OBJC_END_TRY_IGNORE_BLOCK;
 }
 
-// Run the mac app and stop it immediately after launch. This allows us to
+// Run the mac app and stop it ASAP. This allows us to
 // (a) Initialize accessibility early enough for modals that appear before
 //     the main app and nest their own event loop to be accessible.
 // (b) Collect URLs that were provided to the app at open time.
@@ -156,22 +153,44 @@ void InitializeMacApp() {
 
   sLaunchStatus = LaunchStatus::CollectingURLs;
   if (!gfxPlatform::IsHeadless()) {
+    // Spin the event loop so that any URLs the app was launched to open are
+    // buffered into StartupURLs(). Observer is released inside the callback.
+    CFRunLoopObserverRef observer = CFRunLoopObserverCreate(
+        kCFAllocatorDefault, kCFRunLoopBeforeWaiting, /* repeats = */ false,
+        /* order = */ 0,
+        [](CFRunLoopObserverRef aObserver, CFRunLoopActivity, void*) {
+          CFRunLoopObserverInvalidate(aObserver);
+          CFRelease(aObserver);
+
+          // Stop the inner run loop. We'll call `run` again when the main event
+          // loop should start.
+          [NSApp stop:NSApp];
+
+          // Send a bogus event so that the internal "app stopped" flag is
+          // processed. Since we aren't calling this from a responder, we need
+          // to post an event to have the loop iterate and respond to the
+          // stopped flag.
+          [NSApp postEvent:[NSEvent
+                               otherEventWithType:NSEventTypeApplicationDefined
+                                         location:NSMakePoint(0, 0)
+                                    modifierFlags:0
+                                        timestamp:0
+                                     windowNumber:0
+                                          context:nullptr
+                                          subtype:kEventSubtypeNone
+                                            data1:0
+                                            data2:0]
+                   atStart:NO];
+        },
+        nullptr);
+    CFRunLoopAddObserver(CFRunLoopGetCurrent(), observer,
+                         kCFRunLoopCommonModes);
     [NSApp run];
   }
   sLaunchStatus = LaunchStatus::CollectedURLs;
 }
 
 nsTArray<nsCString> TakeStartupURLs() { return std::move(StartupURLs()); }
-
-void StartupURLCollectionComplete() {
-  MOZ_ASSERT(sLaunchStatus == LaunchStatus::CollectedURLs,
-             "Expected CollectedURLs state when completing startup URL "
-             "collection");
-  if (sLaunchStatus != LaunchStatus::CollectedURLs) {
-    return;
-  }
-  sLaunchStatus = LaunchStatus::Running;
-}
 
 @implementation MacApplicationDelegate
 
@@ -307,32 +326,6 @@ void StartupURLCollectionComplete() {
        forKey:@"NSFullScreenMenuItemEverywhere"];
 }
 
-- (void)applicationDidFinishLaunching:(NSNotification*)notification {
-  if (sLaunchStatus == LaunchStatus::CollectingURLs) {
-    // We are in an inner `run` loop that we are spinning in order to get
-    // URLs that were requested while launching. `application:openURLs:` will
-    // have been called by this point and we will have finished reconstructing
-    // the command line. We now stop the app loop for the rest of startup to be
-    // processed and will call `run` again when the main event loop should
-    // start.
-    [NSApp stop:self];
-
-    // Send a bogus event so that the internal "app stopped" flag is processed.
-    // Since we aren't calling this from a responder, we need to post an event
-    // to have the loop iterate and respond to the stopped flag.
-    [NSApp postEvent:[NSEvent otherEventWithType:NSEventTypeApplicationDefined
-                                        location:NSMakePoint(0, 0)
-                                   modifierFlags:0
-                                       timestamp:0
-                                    windowNumber:0
-                                         context:NULL
-                                         subtype:kEventSubtypeNone
-                                           data1:0
-                                           data2:0]
-             atStart:NO];
-  }
-}
-
 // If we don't handle applicationShouldTerminate:, a call to [NSApp terminate:]
 // (from the browser or from the OS) can result in an unclean shutdown.
 - (NSApplicationTerminateReply)applicationShouldTerminate:
@@ -406,7 +399,7 @@ void StartupURLCollectionComplete() {
     }
 
     const char* const urlString = [[url absoluteString] UTF8String];
-    if (sLaunchStatus != LaunchStatus::Running) {
+    if (sLaunchStatus == LaunchStatus::CollectingURLs) {
       StartupURLs().AppendElement(urlString);
       bufferedURLs = true;
       continue;
