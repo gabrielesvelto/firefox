@@ -36,6 +36,7 @@
 #ifdef XP_WIN
 #  include "GLContextEGL.h"
 #  include "GLLibraryEGL.h"
+#  include "mozilla/WindowsUserHandleValidation.h"
 #  include "mozilla/widget/WinCompositorWindowThread.h"
 #  include "mozilla/gfx/DeviceManagerDx.h"
 #  include "mozilla/webrender/DCLayerTree.h"
@@ -158,6 +159,9 @@ void RenderThread::Start(uint32_t aNamespace) {
             nsThread* nsthread = static_cast<nsThread*>(thread.get());
             nsthread->SetUseHangMonitor(true);
             nsthread->SetPriority(nsISupportsPriority::PRIORITY_HIGH);
+#ifdef XP_WIN
+            mozilla::ForceToGuiThreadAndFixTebValidateHandlesFlag();
+#endif
           }),
       {.stackSize = stackSize});
 
