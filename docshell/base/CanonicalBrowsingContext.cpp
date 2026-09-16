@@ -3711,10 +3711,11 @@ bool CanonicalBrowsingContext::StartApzAutoscroll(float aAnchorX,
 
   mozilla::layers::ScrollableLayerGuid guid(layersId, aPresShellId, aScrollId);
 
-  return widget->StartAsyncAutoscroll(
+  widget->StartAsyncAutoscroll(
       ViewAs<ScreenPixel>(
           anchor, PixelCastJustification::LayoutDeviceIsScreenForBounds),
       guid);
+  return true;
 }
 
 void CanonicalBrowsingContext::StopApzAutoscroll(nsViewID aScrollId,
