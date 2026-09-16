@@ -305,7 +305,8 @@ panelview {
     --panel-padding: var(--panel-subview-body-padding);
     --panel-box-shadow-margin: inherit;
     --menuitem-border-radius: var(--panel-menuitem-border-radius);
-    --menuitem-padding: var(--panel-menuitem-padding);
+    --menuitem-padding-block: var(--panel-menuitem-padding-block);
+    --menuitem-padding-inline: var(--panel-menuitem-padding-inline);
     --menuitem-margin: var(--panel-menuitem-margin);
   }
 

@@ -10,21 +10,23 @@ panel {
   --menu-arrow-size: 1em;
   --menuitem-border-radius: var(--border-radius-xsmall);
   --menuitem-margin: 0;
-  --menuitem-padding: 0.5em 1em;
+  --menuitem-padding-block: 0.5em;
+  --menuitem-padding-inline: 1em;
   --menuitem-max-width: 42em;
 
   @media (-moz-platform: linux) {
-    --menuitem-padding: 0.25em 0.5em;
+    --menuitem-padding-block: 0.25em;
+    --menuitem-padding-inline: 0.5em;
   }
   @media (-moz-platform: macos) {
     /* Space tokens don't match native macOS dimensions. */
-    /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-    --menuitem-padding: 3px 9px;
+    --menuitem-padding-block: 3px;
+    --menuitem-padding-inline: 9px;
 
     @media (-moz-mac-tahoe-theme) {
       /* Space tokens don't match native macOS dimensions. */
-      /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-      --menuitem-padding: 4px 11px;
+      --menuitem-padding-block: 4px;
+      --menuitem-padding-inline: 11px;
       --menuitem-border-radius: var(--border-radius-medium);
     }
   }
@@ -227,9 +229,9 @@ menu,
 menuitem,
 menucaption {
   border-radius: var(--menuitem-border-radius);
-  /* --menuitem-padding uses px values on macOS to match native menus. */
+  /* --menuitem-padding-* use px values on macOS to match native menus. */
   /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */
-  padding: var(--menuitem-padding);
+  padding: var(--menuitem-padding-block) var(--menuitem-padding-inline);
   margin: var(--menuitem-margin);
   align-items: center;
   flex-shrink: 0;
