@@ -215,10 +215,14 @@ nsresult JsepSessionImpl::AddRtpExtension(
   mLastError.clear();
 
   for (auto& ext : mRtpExtensions) {
-    if (ext.mExtmap.direction == direction &&
-        ext.mExtmap.extensionname == extensionName) {
+    if (ext.mExtmap.extensionname == extensionName) {
       if (ext.mMediaType != mediaType) {
         ext.mMediaType = JsepMediaType::kAudioVideo;
+      }
+      if (ext.mExtmap.direction != direction) {
+        ext.mExtmap.direction |= direction;
+        ext.mExtmap.direction_specified =
+            ext.mExtmap.direction != SdpDirectionAttribute::kSendrecv;
       }
       return NS_OK;
     }
