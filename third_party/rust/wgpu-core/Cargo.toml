@@ -207,7 +207,7 @@ path = "../wgpu-types"
 default-features = false
 
 [build-dependencies.cfg_aliases]
-version = "0.2.1"
+version = "0.2.2"
 
 [target.'cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))'.dependencies.wgpu-core-deps-wasm]
 version = "29.0.0"

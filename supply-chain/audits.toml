@@ -85,7 +85,7 @@ notes = "Maintained by the CryptoEng team at Mozilla."
 [[wildcard-audits.cocoa]]
 who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-deploy"
-user-id = 2396 # Josh Matthews (jdm)
+user-id = 2396 # Josh Bowman-Matthews (jdm)
 start = "2019-07-23"
 end = "2023-05-04"
 renew = false
@@ -103,7 +103,7 @@ notes = "I've reviewed every source contribution that was neither authored nor r
 [[wildcard-audits.cocoa-foundation]]
 who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-deploy"
-user-id = 2396 # Josh Matthews (jdm)
+user-id = 2396 # Josh Bowman-Matthews (jdm)
 start = "2020-07-20"
 end = "2023-05-04"
 renew = false
@@ -121,7 +121,7 @@ notes = "I've reviewed every source contribution that was neither authored nor r
 [[wildcard-audits.core-foundation]]
 who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-deploy"
-user-id = 2396 # Josh Matthews (jdm)
+user-id = 2396 # Josh Bowman-Matthews (jdm)
 start = "2019-11-12"
 end = "2023-05-04"
 renew = false
@@ -139,7 +139,7 @@ notes = "I've reviewed every source contribution that was neither authored nor r
 [[wildcard-audits.core-foundation-sys]]
 who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-deploy"
-user-id = 2396 # Josh Matthews (jdm)
+user-id = 2396 # Josh Bowman-Matthews (jdm)
 start = "2019-11-12"
 end = "2023-05-04"
 renew = false
@@ -157,7 +157,7 @@ notes = "I've reviewed every source contribution that was neither authored nor r
 [[wildcard-audits.core-graphics]]
 who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-deploy"
-user-id = 2396 # Josh Matthews (jdm)
+user-id = 2396 # Josh Bowman-Matthews (jdm)
 start = "2019-10-28"
 end = "2023-05-04"
 renew = false
@@ -175,7 +175,7 @@ notes = "I've reviewed every source contribution that was neither authored nor r
 [[wildcard-audits.core-graphics-types]]
 who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-deploy"
-user-id = 2396 # Josh Matthews (jdm)
+user-id = 2396 # Josh Bowman-Matthews (jdm)
 start = "2020-07-20"
 end = "2023-05-04"
 renew = false
@@ -184,7 +184,7 @@ notes = "I've reviewed every source contribution that was neither authored nor r
 [[wildcard-audits.core-text]]
 who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-deploy"
-user-id = 2396 # Josh Matthews (jdm)
+user-id = 2396 # Josh Bowman-Matthews (jdm)
 start = "2019-03-29"
 end = "2023-05-04"
 renew = false
@@ -250,7 +250,7 @@ notes = "This crate is written and solely maintained by a mozilla employee."
 [[wildcard-audits.freetype]]
 who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-deploy"
-user-id = 2396 # Josh Matthews (jdm)
+user-id = 2396 # Josh Bowman-Matthews (jdm)
 start = "2020-02-28"
 end = "2023-05-04"
 renew = false
@@ -268,7 +268,7 @@ notes = "All code written or reviewed by Mozilla."
 [[wildcard-audits.gleam]]
 who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-deploy"
-user-id = 2396 # Josh Matthews (jdm)
+user-id = 2396 # Josh Bowman-Matthews (jdm)
 start = "2019-03-18"
 end = "2023-05-04"
 renew = false
@@ -331,7 +331,7 @@ notes = "Hawk is written and maintained by mozilla employees."
 [[wildcard-audits.io-surface]]
 who = "Bobby Holley <bobbyholley@gmail.com>"
 criteria = "safe-to-deploy"
-user-id = 2396 # Josh Matthews (jdm)
+user-id = 2396 # Josh Bowman-Matthews (jdm)
 start = "2019-07-23"
 end = "2023-05-04"
 renew = false
@@ -1351,6 +1351,11 @@ who = "Alex Franchuk <afranchuk@mozilla.com>"
 criteria = "safe-to-deploy"
 delta = "0.1.1 -> 0.2.1"
 notes = "Very minor changes."
+
+[[audits.cfg_aliases]]
+who = "Erich Gubler <erichdongubler@gmail.com>"
+criteria = "safe-to-deploy"
+delta = "0.2.1 -> 0.2.2"
 
 [[audits.cgl]]
 who = "Sotaro Ikeda <sotaro.ikeda.g@gmail.com>"
@@ -4845,7 +4850,7 @@ who = [
     "Jim Blandy <jimb@red-bean.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "29.0.0 -> 29.0.0@git:385b700740049f2059afda726f1b6afa7a5a48a7"
+delta = "29.0.0 -> 29.0.0@git:259cbd02274bc45ceb0a32d98c7ad5c7ac95a5ad"
 importable = false
 
 [[audits.net2]]
@@ -7711,7 +7716,7 @@ who = [
     "Jim Blandy <jimb@red-bean.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "29.0.0 -> 29.0.0@git:385b700740049f2059afda726f1b6afa7a5a48a7"
+delta = "29.0.0 -> 29.0.0@git:259cbd02274bc45ceb0a32d98c7ad5c7ac95a5ad"
 importable = false
 
 [[audits.wgpu-core-deps-apple]]
@@ -7761,7 +7766,7 @@ who = [
     "Jim Blandy <jimb@red-bean.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "29.0.0 -> 29.0.0@git:385b700740049f2059afda726f1b6afa7a5a48a7"
+delta = "29.0.0 -> 29.0.0@git:259cbd02274bc45ceb0a32d98c7ad5c7ac95a5ad"
 importable = false
 
 [[audits.wgpu-core-deps-windows-linux-android]]
@@ -7811,7 +7816,7 @@ who = [
     "Jim Blandy <jimb@red-bean.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "29.0.0 -> 29.0.0@git:385b700740049f2059afda726f1b6afa7a5a48a7"
+delta = "29.0.0 -> 29.0.0@git:259cbd02274bc45ceb0a32d98c7ad5c7ac95a5ad"
 importable = false
 
 [[audits.wgpu-hal]]
@@ -7939,7 +7944,7 @@ who = [
     "Jim Blandy <jimb@red-bean.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "29.0.0 -> 29.0.0@git:385b700740049f2059afda726f1b6afa7a5a48a7"
+delta = "29.0.0 -> 29.0.0@git:259cbd02274bc45ceb0a32d98c7ad5c7ac95a5ad"
 importable = false
 
 [[audits.wgpu-naga-bridge]]
@@ -7959,7 +7964,7 @@ who = [
     "Jim Blandy <jimb@red-bean.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "29.0.0 -> 29.0.0@git:385b700740049f2059afda726f1b6afa7a5a48a7"
+delta = "29.0.0 -> 29.0.0@git:259cbd02274bc45ceb0a32d98c7ad5c7ac95a5ad"
 importable = false
 
 [[audits.wgpu-types]]
@@ -8082,7 +8087,7 @@ who = [
     "Jim Blandy <jimb@red-bean.com>",
 ]
 criteria = "safe-to-deploy"
-delta = "29.0.0 -> 29.0.0@git:385b700740049f2059afda726f1b6afa7a5a48a7"
+delta = "29.0.0 -> 29.0.0@git:259cbd02274bc45ceb0a32d98c7ad5c7ac95a5ad"
 importable = false
 
 [[audits.whatsys]]

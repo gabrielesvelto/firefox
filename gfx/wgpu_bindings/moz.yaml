@@ -8,8 +8,8 @@ origin:
   name: wgpu
   description: A cross-platform pure-Rust graphics API, modeled on the WebGPU standard
   url: https://github.com/gfx-rs/wgpu
-  release: 385b700740049f2059afda726f1b6afa7a5a48a7 (2026-08-17T22:00:44Z).
-  revision: 385b700740049f2059afda726f1b6afa7a5a48a7
+  release: 259cbd02274bc45ceb0a32d98c7ad5c7ac95a5ad (2026-09-08T18:35:07Z).
+  revision: 259cbd02274bc45ceb0a32d98c7ad5c7ac95a5ad
   license: ['MIT', 'Apache-2.0']
 
 updatebot:
