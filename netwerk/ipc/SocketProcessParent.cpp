@@ -262,15 +262,16 @@ SocketProcessParent::AllocPAltServiceParent() {
 
 already_AddRefed<PProxyConfigLookupParent>
 SocketProcessParent::AllocPProxyConfigLookupParent(
-    nsIURI* aURI, const uint32_t& aProxyResolveFlags) {
-  RefPtr<ProxyConfigLookupParent> actor =
-      new ProxyConfigLookupParent(aURI, aProxyResolveFlags);
+    nsIURI* aURI, const uint32_t& aProxyResolveFlags,
+    const bool& aIsTRRServiceChannel) {
+  RefPtr<ProxyConfigLookupParent> actor = new ProxyConfigLookupParent(
+      aURI, aProxyResolveFlags, aIsTRRServiceChannel);
   return actor.forget();
 }
 
 mozilla::ipc::IPCResult SocketProcessParent::RecvPProxyConfigLookupConstructor(
     PProxyConfigLookupParent* aActor, nsIURI* aURI,
-    const uint32_t& aProxyResolveFlags) {
+    const uint32_t& aProxyResolveFlags, const bool& aIsTRRServiceChannel) {
   static_cast<ProxyConfigLookupParent*>(aActor)->DoProxyLookup();
   return IPC_OK();
 }
