@@ -1295,15 +1295,14 @@ void DocAccessibleParent::MaybeInitWindowEmulation() {
     isActive = browserParent->GetDocShellIsActive();
   }
 
-  // onCreate is guaranteed to be called synchronously by
-  // nsWinUtils::CreateNativeWindow, so this reference isn't really necessary.
-  // However, static analysis complains without it.
   RefPtr<DocAccessibleParent> thisRef = this;
-  nsWinUtils::NativeWindowCreateProc onCreate([thisRef](HWND aHwnd) -> void {
-    ::SetPropW(aHwnd, kPropNameDocAccParent,
-               reinterpret_cast<HANDLE>(thisRef.get()));
-    thisRef->SetEmulatedWindowHandle(aHwnd);
-  });
+  nsWinUtils::NativeWindowCreateProc onCreate(
+      [thisRef](HWND aHwnd) mutable -> void {
+        thisRef->SetEmulatedWindowHandle(aHwnd);
+        HANDLE val;
+        thisRef.forget(&val);  // Release in SetEmulatedWindowHandle.
+        ::SetPropW(aHwnd, kPropNameDocAccParent, val);
+      });
 
   HWND parentWnd = reinterpret_cast<HWND>(rootDocument->GetNativeWindow());
   DebugOnly<HWND> hWnd = nsWinUtils::CreateNativeWindow(
@@ -1315,6 +1314,7 @@ void DocAccessibleParent::MaybeInitWindowEmulation() {
 void DocAccessibleParent::SetEmulatedWindowHandle(HWND aWindowHandle) {
   if (!aWindowHandle && mEmulatedWindowHandle && IsTopLevel()) {
     ::DestroyWindow(mEmulatedWindowHandle);
+    Release();  // AddRef in MaybeInitWindowEmulation.
   }
   mEmulatedWindowHandle = aWindowHandle;
 }
