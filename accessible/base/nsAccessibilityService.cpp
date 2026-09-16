@@ -131,7 +131,7 @@ static already_AddRefed<LocalAccessible> MaybeCreateSpecificARIAAccessible(
         return nullptr;
       }
     }
-    if (parent->IsTable()) {
+    if (parent->IsTable() && !parent->IsCustomTable()) {
       return MakeAndAddRef<ARIAGridCellAccessible>(aContent, aDocument);
     }
   }
