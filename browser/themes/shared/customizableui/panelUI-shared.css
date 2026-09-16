@@ -308,6 +308,8 @@ panelview {
     --menuitem-padding-block: var(--panel-menuitem-padding-block);
     --menuitem-padding-inline: var(--panel-menuitem-padding-inline);
     --menuitem-margin: var(--panel-menuitem-margin);
+    --menuitem-text-padding-block: 0px;
+    --menuitem-icon-margin-block: 0px;
   }
 
   menupopup {
@@ -345,8 +347,7 @@ panelview {
   .menu-accel,
   menu::after {
     /* Reset spacing set by menu.css */
-    margin: 0;
-    padding: 0;
+    margin-inline: 0;
   }
 
   menuitem:not(.menuitem-iconic, [image]) > .menu-icon,
