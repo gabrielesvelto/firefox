@@ -619,10 +619,8 @@
         "@base": {
           "value": {
             "default": "inherit",
-            "brand": {
-              "prefersContrast": "{button.text.color.@base}",
-              "forcedColors": "{button.text.color.@base}"
-            },
+            "prefersContrast": "{button.text.color.@base}",
+            "forcedColors": "{button.text.color.@base}",
             "nova": {
               "comment": "Preserve token structure that can't be replicated in Figma",
               "value": {

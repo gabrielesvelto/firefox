@@ -50,7 +50,6 @@
   @layer tokens-prefers-contrast {
     @media (prefers-contrast) {
       /** button **/
-      --button-text-color-ghost: var(--button-text-color);
       --button-text-color-ghost-disabled: var(--button-text-color-disabled);
     }
   }
@@ -60,7 +59,6 @@
       /** button **/
       --button-background-color-ghost: ButtonFace;
       --button-background-color-ghost-disabled: var(--button-background-color-disabled);
-      --button-text-color-ghost: var(--button-text-color);
       --button-text-color-ghost-disabled: var(--button-text-color-disabled);
     }
   }
