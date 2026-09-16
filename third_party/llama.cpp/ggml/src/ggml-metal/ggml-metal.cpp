@@ -18,6 +18,10 @@
 // note: can be overridden with GGML_METAL_DEVICES env to simulate virtual devices
 static int g_devices = 1;
 
+void ggml_backend_metal_disable(void) {
+    g_devices = 0;
+}
+
 // forward declaration
 static bool ggml_backend_buffer_is_metal(ggml_backend_buffer_t buffer);
 

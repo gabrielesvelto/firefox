@@ -102,3 +102,4 @@ vendoring:
      - metal-event-availability.patch # guard a macOS 12 selector, we deploy to 10.15/11.0
      - include-order.patch # include system headers before models.h, which pulls in moz-overrides.h
      - metal-mul-mv-short-fallback.patch # macOS 15 lacks the _short mat-vec kernels, fall back to the general one
+     - metal-disable.patch # let caller decide to not attempt to use acceleration
