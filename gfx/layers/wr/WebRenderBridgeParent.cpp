@@ -2335,6 +2335,9 @@ void WebRenderBridgeParent::ScheduleForcedGenerateFrame(
 }
 
 mozilla::ipc::IPCResult WebRenderBridgeParent::RecvCapture() {
+  if (!IsRootWebRenderBridgeParent()) {
+    return IPC_FAIL(this, "Capture is only allowed on the root bridge");
+  }
   if (EnsureInitialized()) {
     mLateInit->mApi->Capture();
   }
@@ -2343,6 +2346,10 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvCapture() {
 
 mozilla::ipc::IPCResult WebRenderBridgeParent::RecvStartCaptureSequence(
     const uint32_t& aFlags) {
+  if (!IsRootWebRenderBridgeParent()) {
+    return IPC_FAIL(this,
+                    "StartCaptureSequence is only allowed on the root bridge");
+  }
   if (EnsureInitialized()) {
     mLateInit->mApi->StartCaptureSequence(aFlags);
   }
@@ -2350,6 +2357,10 @@ mozilla::ipc::IPCResult WebRenderBridgeParent::RecvStartCaptureSequence(
 }
 
 mozilla::ipc::IPCResult WebRenderBridgeParent::RecvStopCaptureSequence() {
+  if (!IsRootWebRenderBridgeParent()) {
+    return IPC_FAIL(this,
+                    "StopCaptureSequence is only allowed on the root bridge");
+  }
   if (EnsureInitialized()) {
     mLateInit->mApi->StopCaptureSequence();
   }
