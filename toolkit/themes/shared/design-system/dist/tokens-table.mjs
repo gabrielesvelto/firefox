@@ -274,7 +274,15 @@ export const tokensTable = {
       name: "--button-background-color-ghost",
     },
     {
-      value: "var(--button-background-color-active)",
+      value: {
+        default: "var(--button-background-color-active)",
+        nativeTheme: "color-mix(in srgb, currentColor 30%, transparent)",
+        forcedColors: "var(--button-background-color-active)",
+        platform: {
+          default: "color-mix(in srgb, currentColor 30%, transparent)",
+          browserTheme: { default: "var(--button-background-color-active)" },
+        },
+      },
       name: "--button-background-color-ghost-active",
     },
     {
@@ -285,7 +293,15 @@ export const tokensTable = {
       name: "--button-background-color-ghost-disabled",
     },
     {
-      value: "var(--button-background-color-hover)",
+      value: {
+        default: "var(--button-background-color-hover)",
+        nativeTheme: "color-mix(in srgb, currentColor 17%, transparent)",
+        forcedColors: "var(--button-background-color-hover)",
+        platform: {
+          default: "color-mix(in srgb, currentColor 17%, transparent)",
+          browserTheme: { default: "var(--button-background-color-hover)" },
+        },
+      },
       name: "--button-background-color-ghost-hover",
     },
     {
@@ -545,9 +561,9 @@ export const tokensTable = {
       value: {
         default: "color-mix(in srgb, currentColor 17%, transparent)",
         forcedColors: "var(--button-background-color-ghost-hover)",
-        nativeTheme: "color-mix(in srgb, currentColor 17%, transparent)",
+        nativeTheme: "var(--button-background-color-ghost-hover)",
         platform: {
-          default: "color-mix(in srgb, currentColor 17%, transparent)",
+          default: "var(--button-background-color-ghost-hover)",
           browserTheme: {
             default: "color-mix(in srgb, currentColor 17%, transparent)",
           },
@@ -559,9 +575,9 @@ export const tokensTable = {
       value: {
         default: "color-mix(in srgb, currentColor 30%, transparent)",
         forcedColors: "var(--button-background-color-ghost-active)",
-        nativeTheme: "color-mix(in srgb, currentColor 30%, transparent)",
+        nativeTheme: "var(--button-background-color-ghost-active)",
         platform: {
-          default: "color-mix(in srgb, currentColor 30%, transparent)",
+          default: "var(--button-background-color-ghost-active)",
           browserTheme: {
             default: "color-mix(in srgb, currentColor 30%, transparent)",
           },
@@ -4114,13 +4130,28 @@ export const variableLookupTable = {
       browserTheme: { default: "transparent" },
     },
   },
-  "button-background-color-ghost-active":
-    "var(--button-background-color-active)",
+  "button-background-color-ghost-active": {
+    default: "var(--button-background-color-active)",
+    nativeTheme: "color-mix(in srgb, currentColor 30%, transparent)",
+    forcedColors: "var(--button-background-color-active)",
+    platform: {
+      default: "color-mix(in srgb, currentColor 30%, transparent)",
+      browserTheme: { default: "var(--button-background-color-active)" },
+    },
+  },
   "button-background-color-ghost-disabled": {
     default: "var(--button-background-color-ghost)",
     brand: { forcedColors: "var(--button-background-color-disabled)" },
   },
-  "button-background-color-ghost-hover": "var(--button-background-color-hover)",
+  "button-background-color-ghost-hover": {
+    default: "var(--button-background-color-hover)",
+    nativeTheme: "color-mix(in srgb, currentColor 17%, transparent)",
+    forcedColors: "var(--button-background-color-hover)",
+    platform: {
+      default: "color-mix(in srgb, currentColor 17%, transparent)",
+      browserTheme: { default: "var(--button-background-color-hover)" },
+    },
+  },
   "button-background-color-ghost-selected":
     "var(--button-background-color-ghost-active)",
   "button-background-color-muted": "var(--button-background-color)",
@@ -4947,9 +4978,9 @@ export const variableLookupTable = {
   "toolbarbutton-background-color-hover": {
     default: "color-mix(in srgb, currentColor 17%, transparent)",
     forcedColors: "var(--button-background-color-ghost-hover)",
-    nativeTheme: "color-mix(in srgb, currentColor 17%, transparent)",
+    nativeTheme: "var(--button-background-color-ghost-hover)",
     platform: {
-      default: "color-mix(in srgb, currentColor 17%, transparent)",
+      default: "var(--button-background-color-ghost-hover)",
       browserTheme: {
         default: "color-mix(in srgb, currentColor 17%, transparent)",
       },
@@ -4958,9 +4989,9 @@ export const variableLookupTable = {
   "toolbarbutton-background-color-active": {
     default: "color-mix(in srgb, currentColor 30%, transparent)",
     forcedColors: "var(--button-background-color-ghost-active)",
-    nativeTheme: "color-mix(in srgb, currentColor 30%, transparent)",
+    nativeTheme: "var(--button-background-color-ghost-active)",
     platform: {
-      default: "color-mix(in srgb, currentColor 30%, transparent)",
+      default: "var(--button-background-color-ghost-active)",
       browserTheme: {
         default: "color-mix(in srgb, currentColor 30%, transparent)",
       },

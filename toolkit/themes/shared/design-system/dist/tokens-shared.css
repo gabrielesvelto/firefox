@@ -653,6 +653,8 @@
       --button-background-color-destructive-active: var(--button-background-color-primary-active);
       --button-background-color-destructive-disabled: var(--button-background-color-primary-disabled);
       --button-background-color-ghost: ButtonFace;
+      --button-background-color-ghost-hover: var(--button-background-color-hover);
+      --button-background-color-ghost-active: var(--button-background-color-active);
       --button-background-color-menu-hover: var(--button-background-color-primary);
       --button-background-color-menu-active: var(--button-background-color-primary);
       --button-background-color-menu-selected: var(--button-background-color-primary-selected);
@@ -779,6 +781,8 @@
       --button-background-color-destructive-hover: light-dark(var(--color-red-60), var(--color-red-20));
       --button-background-color-destructive-active: light-dark(var(--color-red-70), var(--color-red-10));
       --button-background-color-ghost: var(--button-background-color);
+      --button-background-color-ghost-hover: var(--button-background-color-hover);
+      --button-background-color-ghost-active: var(--button-background-color-active);
       --button-background-color-ghost-selected: var(--button-background-color-selected);
       --button-background-color-menu: var(--button-background-color-ghost);
       --button-background-color-muted: light-dark(var(--color-gray-20), var(--color-gray-55));
