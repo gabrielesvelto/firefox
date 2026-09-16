@@ -490,6 +490,10 @@ void ggml_metal_encoder_debug_group_pop (ggml_metal_encoder_t encoder) {
 }
 
 void ggml_metal_encoder_set_pipeline(ggml_metal_encoder_t encoder, struct ggml_metal_pipeline_with_params pipeline) {
+    if (!pipeline.pipeline) {
+        // The preceding compile error names the kernel.
+        GGML_ABORT("%s: no pipeline, see the preceding compile error\n", __func__);
+    }
     [encoder->obj setComputePipelineState:pipeline.pipeline->obj];
 }
 

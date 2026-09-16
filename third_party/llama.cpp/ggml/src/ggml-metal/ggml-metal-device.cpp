@@ -763,6 +763,8 @@ ggml_metal_pipeline_with_params ggml_metal_library_get_pipeline_mul_mv(ggml_meta
 
     const char * suffix = "";
 
+    bool use_short = false;
+
     // use custom matrix x vector kernel
     switch (tsrc0) {
         case GGML_TYPE_F32:
@@ -774,6 +776,7 @@ ggml_metal_pipeline_with_params ggml_metal_library_get_pipeline_mul_mv(ggml_meta
                     nr0 = 32;
                     nr1 = 1;
                     suffix = "_short";
+                    use_short = true;
                 } else {
                     nsg = std::min(4, (ne00 + 127) / 128);
                     nr0 = 2;
@@ -906,21 +909,39 @@ ggml_metal_pipeline_with_params ggml_metal_library_get_pipeline_mul_mv(ggml_meta
     const int16_t r2 = (int16_t) (ne12 / ne02);
     const int16_t r3 = (int16_t) (ne13 / ne03);
 
-    snprintf(base, 256, "kernel_mul_mv_%s_%s%s", ggml_type_name(tsrc0), ggml_type_name(tsrc1), suffix);
-    snprintf(name, 256, "%s_nsg=%d_ne12=%d_r2=%d_r3=%d", base, nsg, ne12, r2, r3);
+    auto get_or_compile = [&]() {
+        snprintf(base, 256, "kernel_mul_mv_%s_%s%s", ggml_type_name(tsrc0), ggml_type_name(tsrc1), suffix);
+        snprintf(name, 256, "%s_nsg=%d_ne12=%d_r2=%d_r3=%d", base, nsg, ne12, r2, r3);
 
-    ggml_metal_pipeline_with_params res = ggml_metal_library_get_pipeline(lib, name);
-    if (!res.pipeline) {
-        ggml_metal_cv_t cv = ggml_metal_cv_init();
+        ggml_metal_pipeline_with_params r = ggml_metal_library_get_pipeline(lib, name);
+        if (!r.pipeline) {
+            ggml_metal_cv_t cv = ggml_metal_cv_init();
 
-        ggml_metal_cv_set_int16(cv, nsg,            FC_MUL_MV + 0);
-        ggml_metal_cv_set_int16(cv, (int16_t) ne12, FC_MUL_MV + 2);
-        ggml_metal_cv_set_int16(cv, r2,             FC_MUL_MV + 3);
-        ggml_metal_cv_set_int16(cv, r3,             FC_MUL_MV + 4);
+            ggml_metal_cv_set_int16(cv, nsg,            FC_MUL_MV + 0);
+            ggml_metal_cv_set_int16(cv, (int16_t) ne12, FC_MUL_MV + 2);
+            ggml_metal_cv_set_int16(cv, r2,             FC_MUL_MV + 3);
+            ggml_metal_cv_set_int16(cv, r3,             FC_MUL_MV + 4);
 
-        res = ggml_metal_library_compile_pipeline(lib, base, name, cv);
+            r = ggml_metal_library_compile_pipeline(lib, base, name, cv);
 
-        ggml_metal_cv_free(cv);
+            ggml_metal_cv_free(cv);
+        }
+
+        return r;
+    };
+
+    ggml_metal_pipeline_with_params res = get_or_compile();
+
+    if (!res.pipeline && use_short) {
+        // macOS 15 does not emit the _short specializations, so fall back to
+        // the general kernel, which handles any ne00.
+        nsg    = std::min(4, (ne00 + 127) / 128);
+        nr0    = 2;
+        nr1    = 1;
+        smem   = 32*sizeof(float)*nr0;
+        suffix = ne00 % 4 == 0 ? "_4" : "";
+
+        res = get_or_compile();
     }
 
     res.nr0  = nr0;
