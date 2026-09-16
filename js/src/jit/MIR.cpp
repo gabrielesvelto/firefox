@@ -7917,31 +7917,6 @@ MDefinition* MTimeClip::foldsTo(TempAllocator& alloc) {
   return MConstant::NewDouble(alloc, JS::CanonicalizeNaN(clipped.toDouble()));
 }
 
-// Returns `false` if it can be proven that (1) both `mtyA` and `mtyB` are
-// struct types and (2) they are not related by inheritance.  Returns `true` in
-// all other cases.  `true` is the safe-but-possibly-suboptimal return value.
-static bool StructTypesMightBeRelatedByInheritance(wasm::MaybeRefType mtyA,
-                                                   wasm::MaybeRefType mtyB) {
-  if (!mtyA.isSome() || !mtyB.isSome()) {
-    // The "Track Wasm ref types" pass couldn't establish that both `mtyA` and
-    // `mtyB` are ref types.  Give up.
-    return true;
-  }
-
-  wasm::RefType tyA = mtyA.value();
-  wasm::RefType tyB = mtyB.value();
-  if (!tyA.isTypeRef() || !tyA.typeDef()->isStructType() || !tyB.isTypeRef() ||
-      !tyB.typeDef()->isStructType()) {
-    // They aren't both struct types.  Give up.
-    return true;
-  }
-
-  // They are both struct types.  So they are related by inheritance if one is
-  // a subtype of the other.  (Which is also the case if they are the same
-  // type.)
-  return wasm::RefType::valuesMightAlias(tyA, tyB);
-}
-
 MDefinition::AliasType MWasmLoadField::mightAlias(
     const MDefinition* ins) const {
   if (!(getAliasSet().flags() & ins->getAliasSet().flags())) {
@@ -7957,15 +7932,17 @@ MDefinition::AliasType MWasmLoadField::mightAlias(
   if (ins->isWasmStoreField()) {
     const MWasmStoreField* store = ins->toWasmStoreField();
     if (offset() != store->offset() ||
-        !StructTypesMightBeRelatedByInheritance(base()->wasmRefType(),
-                                                store->base()->wasmRefType())) {
+        !wasm::MaybeRefType::mayHaveValuesInCommon(
+            base()->wasmRefType().asNonNullable(),
+            store->base()->wasmRefType().asNonNullable())) {
       return AliasType::NoAlias;
     }
   } else if (ins->isWasmStoreFieldRef()) {
     const MWasmStoreFieldRef* store = ins->toWasmStoreFieldRef();
     if (offset() != store->offset() ||
-        !StructTypesMightBeRelatedByInheritance(base()->wasmRefType(),
-                                                store->base()->wasmRefType())) {
+        !wasm::MaybeRefType::mayHaveValuesInCommon(
+            base()->wasmRefType().asNonNullable(),
+            store->base()->wasmRefType().asNonNullable())) {
       return AliasType::NoAlias;
     }
   }
