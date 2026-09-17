@@ -5,6 +5,7 @@
 #include "mozilla/layers/CompositorManagerParent.h"
 
 #include "VsyncSource.h"
+#include "base/process_util.h"
 #include "gfxPlatform.h"
 #include "mozilla/gfx/CanvasManagerParent.h"
 #include "mozilla/gfx/GPUParent.h"

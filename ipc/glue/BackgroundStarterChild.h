@@ -6,7 +6,6 @@
 #define mozilla_ipc_BackgroundStarterChild_h
 
 #include "mozilla/ipc/PBackgroundStarterChild.h"
-#include "mozilla/dom/ContentChild.h"
 
 namespace mozilla::ipc {
 

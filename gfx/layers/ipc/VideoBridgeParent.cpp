@@ -5,12 +5,12 @@
 #include "VideoBridgeParent.h"
 
 #include "CompositorThread.h"
+#include "base/process_util.h"
 #include "mozilla/DataMutex.h"
 #include "mozilla/ipc/Endpoint.h"
 #include "mozilla/layers/PTextureParent.h"
 #include "mozilla/layers/TextureHost.h"
 #include "mozilla/layers/VideoBridgeUtils.h"
-#include "mozilla/webrender/RenderThread.h"
 
 namespace mozilla::layers {
 

@@ -7,6 +7,7 @@
 #include "CompositorThread.h"
 #include "SynchronousTask.h"
 #include "VideoBridgeParent.h"
+#include "base/process_util.h"
 #include "mozilla/StaticMutex.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/ipc/Endpoint.h"

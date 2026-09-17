@@ -9,14 +9,13 @@
 #include <utility>
 
 #include "CrashAnnotations.h"
+#include "base/process_util.h"
 #include "base/waitable_event.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/CycleCollectedJSContext.h"
-#include "mozilla/FlowMarkers.h"
 #include "mozilla/IntentionalCrash.h"
 #include "mozilla/Logging.h"
 #include "mozilla/Monitor.h"
-#include "mozilla/Mutex.h"
 #include "mozilla/ProfilerMarkers.h"
 #include "mozilla/Sprintf.h"
 #include "mozilla/StaticMutex.h"
@@ -29,7 +28,6 @@
 #include "nsAppRunner.h"
 #include "nsContentUtils.h"
 #include "nsIDirectTaskDispatcher.h"
-#include "nsTHashMap.h"
 #include "nsDebug.h"
 #include "nsExceptionHandler.h"
 #include "nsIMemoryReporter.h"

@@ -3,19 +3,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "base/process_util.h"
-#include "base/task.h"
 
 #ifdef XP_UNIX
 #  include <errno.h>
 #endif
 
-#include "mozilla/IntegerPrintfMacros.h"
-
 #include "mozilla/ipc/ProtocolMessageUtils.h"
 #include "mozilla/ipc/ProtocolUtils.h"
 
 #include "mozilla/ipc/MessageChannel.h"
-#include "mozilla/StaticMutex.h"
 #if defined(DEBUG) || defined(FUZZING)
 #  include "mozilla/Tokenizer.h"
 #endif

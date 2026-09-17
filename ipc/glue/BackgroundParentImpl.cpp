@@ -64,13 +64,10 @@
 #include "mozilla/ipc/BackgroundUtils.h"
 #include "mozilla/ipc/Endpoint.h"
 #include "mozilla/ipc/IdleSchedulerParent.h"
-#include "mozilla/ipc/PBackgroundSharedTypes.h"
 #include "mozilla/ipc/PBackgroundTestParent.h"
-#include "mozilla/net/BackgroundDataBridgeParent.h"
 #include "mozilla/net/HttpBackgroundChannelParent.h"
 #include "nsIHttpChannelInternal.h"
 #include "nsIPrincipal.h"
-#include "nsProxyRelease.h"
 #include "nsThreadUtils.h"
 #include "nsXULAppAPI.h"
 

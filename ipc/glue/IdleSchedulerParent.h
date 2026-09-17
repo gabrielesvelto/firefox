@@ -7,7 +7,6 @@
 
 #include "mozilla/LinkedList.h"
 #include "mozilla/ipc/PIdleSchedulerParent.h"
-#include "mozilla/ipc/SharedMemoryMapping.h"
 #include <bitset>
 
 #define NS_IDLE_SCHEDULER_COUNTER_ARRAY_LENGHT 1024

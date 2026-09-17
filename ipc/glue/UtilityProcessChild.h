@@ -15,13 +15,8 @@
 #  include "mozilla/psm/PKCS11ModuleChild.h"
 #endif  // NIGHTLY_BUILD && !MOZ_NO_SMART_CARDS
 
-#if defined(MOZ_SANDBOX) && defined(MOZ_DEBUG) && defined(ENABLE_TESTS)
-#  include "mozilla/PSandboxTestingChild.h"
-#endif
-#include "mozilla/PRemoteMediaManagerParent.h"
 #include "mozilla/ipc/AsyncBlockers.h"
 #include "mozilla/dom/JSOracleChild.h"
-#include "mozilla/ProfilerMarkers.h"
 
 namespace mozilla::dom {
 class PJSOracleChild;

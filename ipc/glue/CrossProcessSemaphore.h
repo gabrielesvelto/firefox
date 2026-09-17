@@ -5,7 +5,6 @@
 #ifndef mozilla_CrossProcessSemaphore_h
 #define mozilla_CrossProcessSemaphore_h
 
-#include "base/process.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Maybe.h"
 

@@ -10,6 +10,7 @@
 #include "ImageContainer.h"     // for ImageContainer
 #include "SynchronousTask.h"
 #include "WindowRenderer.h"
+#include "base/process_util.h"
 #include "mozilla/Assertions.h"        // for MOZ_ASSERT, etc
 #include "mozilla/Monitor.h"           // for Monitor, MonitorAutoLock
 #include "mozilla/ReentrantMonitor.h"  // for ReentrantMonitor, etc

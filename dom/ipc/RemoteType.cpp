@@ -9,6 +9,7 @@
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/NeverDestroyed.h"
 #include "mozilla/NullPrincipal.h"
+#include "mozilla/ResultVariant.h"
 #include "nsIURI.h"
 #include "nsNetUtil.h"
 #include "nsPrintfCString.h"

@@ -5,7 +5,6 @@
 #ifndef mozilla_CrossProcessMutex_h
 #define mozilla_CrossProcessMutex_h
 
-#include "base/process.h"
 #include "mozilla/Mutex.h"
 
 #if defined(XP_WIN)

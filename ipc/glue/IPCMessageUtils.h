@@ -15,9 +15,6 @@
 
 class PickleIterator;
 
-// XXX Things that are not necessary if moving implementations to the cpp file
-#include "base/string_util.h"
-
 #ifdef _MSC_VER
 #  pragma warning(disable : 4800)
 #endif

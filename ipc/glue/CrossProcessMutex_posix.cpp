@@ -4,7 +4,6 @@
 
 #include "CrossProcessMutex.h"
 #include "mozilla/ipc/SharedMemoryHandle.h"
-#include "nsDebug.h"
 #include "nsISupportsImpl.h"
 
 namespace {
