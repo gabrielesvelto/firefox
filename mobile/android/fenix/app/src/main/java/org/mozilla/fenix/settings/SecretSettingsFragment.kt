@@ -384,7 +384,7 @@ class SecretSettingsFragment : PreferenceFragmentCompat(), SystemInsetsPaddedFra
         }
 
         requirePreference<SwitchPreferenceCompat>(R.string.pref_key_enable_ip_protection_locations).apply {
-            isVisible = Config.channel.isNightlyOrDebug
+            isVisible = Config.channel.isNightlyOrDebug || Config.channel.isBeta
             isChecked = settings.isIPProtectionLocationsEnabled
             onPreferenceChangeListener = SharedPreferenceUpdater()
         }
