@@ -415,7 +415,7 @@ export var UITour = {
       }
 
       case "showNewTab": {
-        this.showNewTab(window, browser);
+        this.showNewTab(window, browser, data.hash);
         break;
       }
 
@@ -1490,9 +1490,12 @@ export var UITour = {
     }
   },
 
-  showNewTab(aWindow, aBrowser) {
+  showNewTab(aWindow, aBrowser, aHash) {
     aWindow.gURLBar.focus();
     let url = "about:newtab";
+    if (typeof aHash == "string" && /^[a-zA-Z0-9_-]+$/.test(aHash)) {
+      url += "#" + aHash;
+    }
     aWindow.openLinkIn(url, "current", {
       targetBrowser: aBrowser,
       triggeringPrincipal:
