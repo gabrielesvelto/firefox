@@ -3,7 +3,6 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/ipc/NodeController.h"
-#include "MainThreadUtils.h"
 #include "base/process_util.h"
 #include "chrome/common/ipc_message.h"
 #include "mojo/core/ports/name.h"

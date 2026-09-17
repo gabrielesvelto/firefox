@@ -8,6 +8,7 @@
 #include <stddef.h>  // for size_t
 #include <stdint.h>  // for uint32_t
 
+#include "base/process.h"
 #include "gfxTypes.h"
 #include "mozilla/Atomics.h"  // for Atomic
 #include "mozilla/dom/ipc/IdType.h"

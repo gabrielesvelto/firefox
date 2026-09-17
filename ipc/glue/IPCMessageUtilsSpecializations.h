@@ -32,15 +32,10 @@
 #include "nsID.h"
 #include "nsILoadInfo.h"
 #include "nsIThread.h"
-#include "nsLiteralString.h"
 #include "nsNetUtil.h"
-#include "nsString.h"
+#include "nsStringFwd.h"
 #include "nsTArray.h"
 #include "nsTHashSet.h"
-
-// XXX Includes that are only required by implementations which could be moved
-// to the cpp file.
-#include "base/string_util.h"  // for StringPrintf
 
 #ifdef _MSC_VER
 #  pragma warning(disable : 4800)

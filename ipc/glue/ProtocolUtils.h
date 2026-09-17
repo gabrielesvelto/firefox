@@ -13,28 +13,22 @@
 #include "base/basictypes.h"
 #include "base/process.h"
 #include "chrome/common/ipc_message.h"
-#include "mojo/core/ports/port_ref.h"
 #include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/FunctionRef.h"
 #include "mozilla/MoveOnlyFunction.h"
-#include "mozilla/Mutex.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/ipc/MessageChannel.h"
 #include "mozilla/ipc/MessageLink.h"
 #include "mozilla/ipc/Shmem.h"
 #include "nsPrintfCString.h"
-#include "nsTHashMap.h"
-#include "nsDebug.h"
 #include "nsISupports.h"
 #include "nsTArrayForwardDeclare.h"
-#include "nsTHashSet.h"
+#include "nsTHashMap.h"
 
-// XXX Things that could be moved to ProtocolUtils.cpp
-#include "base/process_util.h"  // for CloseProcessHandle
-#include "prenv.h"              // for PR_GetEnv
+#include "prenv.h"  // for PR_GetEnv
 
 #if defined(ANDROID) && defined(DEBUG)
 #  include <android/log.h>

@@ -5,7 +5,6 @@
 #include "mozilla/ipc/ProcessChild.h"
 
 #include "Endpoint.h"
-#include "nsDebug.h"
 
 #ifdef XP_WIN
 #  include <stdlib.h>  // for _exit()

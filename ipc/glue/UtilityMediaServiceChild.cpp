@@ -4,7 +4,6 @@
 
 #include "UtilityMediaServiceChild.h"
 
-#include "base/basictypes.h"
 #include "mozilla/AppShutdown.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/gfx/gfxVars.h"

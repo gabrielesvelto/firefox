@@ -5,12 +5,15 @@
 #ifndef mozilla_ipc_DataPipe_h
 #define mozilla_ipc_DataPipe_h
 
+#include "mozilla/FunctionRef.h"
+#include "mozilla/Mutex.h"
+#include "mozilla/ipc/ScopedPort.h"
 #include "mozilla/ipc/SharedMemoryHandle.h"
 #include "mozilla/ipc/SharedMemoryMapping.h"
-#include "mozilla/ipc/NodeController.h"
 #include "nsIAsyncInputStream.h"
 #include "nsIAsyncOutputStream.h"
 #include "nsIIPCSerializableInputStream.h"
+#include "nsIRunnable.h"
 #include "nsISupports.h"
 #include <memory>
 

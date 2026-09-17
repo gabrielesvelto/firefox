@@ -5,8 +5,6 @@
 #ifndef mozilla_ipc_RustMessageUtils_h
 #define mozilla_ipc_RustMessageUtils_h
 
-#include "chrome/common/ipc_message_utils.h"
-
 // Some macros for rust integrations. See ipc/rust/ipdl_utils
 #define MOZ_DEFINE_RUST_PARAMTRAITS(type_, serializer_, deserializer_)        \
   extern "C" uint8_t* serializer_(const type_*, size_t* len, size_t* cap);    \

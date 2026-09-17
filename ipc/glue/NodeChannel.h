@@ -5,16 +5,10 @@
 #ifndef mozilla_ipc_NodeChannel_h
 #define mozilla_ipc_NodeChannel_h
 
-#include "mojo/core/ports/node.h"
-#include "mojo/core/ports/node_delegate.h"
 #include "base/process.h"
 #include "chrome/common/ipc_message.h"
 #include "chrome/common/ipc_channel.h"
-#include "mozilla/ipc/ProtocolUtils.h"
 #include "nsISupports.h"
-#include "nsTHashMap.h"
-#include "mozilla/Queue.h"
-#include "mozilla/DataMutex.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/WeakPtr.h"
 

@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "CrashReporterClient.h"
+#include "nsExceptionHandler.h"
 #include "nsISupportsImpl.h"
 
 #if defined(XP_LINUX) && defined(MOZ_CRASHREPORTER) && \

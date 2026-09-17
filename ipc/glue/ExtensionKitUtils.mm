@@ -7,6 +7,7 @@
 
 #import <BrowserEngineKit/BrowserEngineKit.h>
 
+#import "mozilla/ResultVariant.h"
 #import "mozilla/widget/GeckoViewSupport.h"
 
 using namespace mozilla::widget;

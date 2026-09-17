@@ -8,9 +8,8 @@
 #include "chrome/common/ipc_message.h"
 #include "chrome/common/ipc_message_utils.h"
 #include "ipc/IPCMessageUtils.h"
-#include "js/AllocPolicy.h"
 #include "js/StructuredClone.h"
-#include "mozilla/mozalloc.h"
+
 class PickleIterator;
 
 namespace mozilla {

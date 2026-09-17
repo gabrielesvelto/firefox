@@ -5,7 +5,6 @@
 #include "mozilla/ipc/BigBuffer.h"
 
 #include "chrome/common/ipc_message_utils.h"
-#include "nsDebug.h"
 
 namespace mozilla::ipc {
 

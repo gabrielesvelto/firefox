@@ -5,6 +5,7 @@
 #ifndef MOZILLA_GFX_VR_VRMANAGERCHILD_H
 #define MOZILLA_GFX_VR_VRMANAGERCHILD_H
 
+#include "base/process_util.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/AnimationFrameProviderBinding.h"
 #include "mozilla/dom/WebXRBinding.h"

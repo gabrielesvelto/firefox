@@ -6,6 +6,7 @@
 
 #include "GMPChild.h"
 #include "GMPPlatform.h"
+#include "base/message_loop.h"
 
 #define MAX_NUM_TIMERS 1000
 

@@ -8,7 +8,6 @@
 #include "base/process.h"
 #include "mozilla/dom/ContentParent.h"
 #include "nsStringFwd.h"
-#include "nsTArrayForwardDeclare.h"
 
 #ifdef DEBUG
 #  include "nsXULAppAPI.h"

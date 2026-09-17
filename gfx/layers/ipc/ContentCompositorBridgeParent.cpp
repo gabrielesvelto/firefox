@@ -7,6 +7,7 @@
 #include <stdint.h>  // for uint64_t
 
 #include "apz/src/APZCTreeManager.h"  // for APZCTreeManager
+#include "base/process_util.h"
 #include "gfxUtils.h"
 #ifdef XP_WIN
 #  include "mozilla/gfx/DeviceManagerDx.h"  // for DeviceManagerDx
