@@ -11,7 +11,6 @@
 #include "mozilla/net/SubstitutingURL.h"
 #include "nsAboutProtocolHandler.h"
 #include "nsComponentManagerUtils.h"
-#include "nsDebug.h"
 #include "nsID.h"
 #include "nsIIPCSerializableURI.h"
 #include "nsJARURI.h"
@@ -19,7 +18,6 @@
 #include "nsJSProtocolHandler.h"
 #include "nsNetCID.h"
 #include "nsSimpleNestedURI.h"
-#include "nsThreadUtils.h"
 #include "nsIURIMutator.h"
 
 using namespace mozilla::ipc;

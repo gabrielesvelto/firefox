@@ -6,7 +6,6 @@
  * to the [Chromium license](ipc/chromium/src/LICENSE). */
 
 #include "mozilla/ipc/SharedMemoryHandle.h"
-#include "mozilla/ipc/SharedMemoryMapping.h"
 #include "SharedMemoryPlatform.h"
 
 #include "chrome/common/ipc_message_utils.h"

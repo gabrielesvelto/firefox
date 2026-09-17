@@ -8,7 +8,6 @@
 #include <utility>
 #include "CrashAnnotations.h"
 #include "base/process.h"
-#include "base/process_util.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/ipc/MessageLink.h"

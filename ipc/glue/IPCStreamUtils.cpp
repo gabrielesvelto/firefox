@@ -4,20 +4,16 @@
 
 #include "IPCStreamUtils.h"
 
-#include "ipc/IPCMessageUtilsSpecializations.h"
-
 #include "nsIHttpHeaderVisitor.h"
 #include "nsIIPCSerializableInputStream.h"
 #include "mozIRemoteLazyInputStream.h"
 
 #include "mozilla/Assertions.h"
-#include "mozilla/dom/File.h"
 #include "mozilla/ipc/IPCStream.h"
 #include "mozilla/ipc/InputStreamUtils.h"
 #include "mozilla/InputStreamLengthHelper.h"
 #include "mozilla/RemoteLazyInputStreamParent.h"
 #include "nsIMIMEInputStream.h"
-#include "nsNetCID.h"
 
 using namespace mozilla::dom;
 

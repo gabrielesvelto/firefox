@@ -7,6 +7,7 @@
 #include "GMPContentChild.h"
 #include "GMPPlatform.h"
 #include "GMPVideoEncodedFrameImpl.h"
+#include "base/message_loop.h"
 #include "mozilla/StaticPrefs_media.h"
 #include "runnable_utils.h"
 

@@ -8,7 +8,6 @@
 #include "mozilla/Assertions.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/ipc/ProtocolUtils.h"
-#include "ipc/IPCMessageUtils.h"
 
 namespace mozilla {
 namespace ipc {

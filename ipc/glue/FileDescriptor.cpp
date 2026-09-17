@@ -5,7 +5,6 @@
 #include "FileDescriptor.h"
 
 #include "mozilla/ipc/ProtocolMessageUtils.h"
-#include "nsDebug.h"
 
 #ifdef XP_WIN
 #  include <windows.h>

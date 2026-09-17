@@ -9,6 +9,7 @@
 #include "GLContextProvider.h"
 #include "GLLibraryLoader.h"
 #include "GeckoProfiler.h"
+#include "base/process_util.h"
 #include "gfxEnv.h"
 #include "gfxOTSUtils.h"
 #include "gfxPlatform.h"

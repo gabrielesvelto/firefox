@@ -8,6 +8,7 @@
 #include "GMPPlatform.h"
 #include "GMPVideoEncodedFrameImpl.h"
 #include "GMPVideoi420FrameImpl.h"
+#include "base/message_loop.h"
 #include "mozilla/StaticPrefs_media.h"
 #include "nsProxyRelease.h"
 #include "nsThreadUtils.h"

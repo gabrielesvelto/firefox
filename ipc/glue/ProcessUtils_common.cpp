@@ -8,7 +8,6 @@
 #include "mozilla/GeckoArgs.h"
 #include "mozilla/dom/RemoteType.h"
 #include "mozilla/ipc/GeckoChildProcessHost.h"
-#include "nsPrintfCString.h"
 
 #include "XPCSelfHostedShmem.h"
 

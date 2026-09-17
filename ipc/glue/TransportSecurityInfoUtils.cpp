@@ -4,7 +4,6 @@
 
 #include "TransportSecurityInfoUtils.h"
 
-#include "ipc/IPCMessageUtils.h"
 #include "mozilla/psm/TransportSecurityInfo.h"
 #include "nsNSSCertificate.h"
 

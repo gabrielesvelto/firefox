@@ -15,6 +15,7 @@
 #include "WidevineFileIO.h"
 #include "WidevineUtils.h"
 #include "WidevineVideoFrame.h"
+#include "base/message_loop.h"
 #include "base/time.h"
 #include "mozilla/ScopeExit.h"
 #include "nsPrintfCString.h"

@@ -5,7 +5,6 @@
 #ifndef mozilla_ipc_FileDescriptor_h
 #define mozilla_ipc_FileDescriptor_h
 
-#include "base/basictypes.h"
 #include "base/process.h"
 #include "mozilla/UniquePtrExtensions.h"
 

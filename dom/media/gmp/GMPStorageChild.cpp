@@ -5,6 +5,7 @@
 #include "GMPStorageChild.h"
 
 #include "GMPChild.h"
+#include "base/message_loop.h"
 #include "base/task.h"
 #include "gmp-storage.h"
 
