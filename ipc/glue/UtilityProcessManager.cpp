@@ -10,21 +10,16 @@
 #include "mozilla/MemoryReportingProcess.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/ProfilerMarkers.h"
-#include "mozilla/StaticPrefs_browser.h"
-#include "mozilla/StaticPrefs_media.h"
-#include "mozilla/SyncRunnable.h"  // for LaunchUtilityProcess
-#ifndef ANDROID
-#  include "mozilla/hwinference/PHWInferenceChild.h"
-#endif  // !ANDROID
+#if !defined(ANDROID)
+#  include "mozilla/StaticPrefs_browser.h"
+#endif  // !defined(ANDROID)
 #include "mozilla/ipc/UtilityProcessParent.h"
 #include "mozilla/ipc/UtilityMediaServiceChild.h"
-#include "mozilla/ipc/UtilityMediaServiceParent.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/ipc/Endpoint.h"
 #include "mozilla/ipc/UtilityProcessSandboxing.h"
 #include "mozilla/ipc/ProcessChild.h"
-#include "nsAppRunner.h"
 #include "nsContentUtils.h"
 
 #ifdef XP_WIN
@@ -33,10 +28,6 @@
 #endif
 
 #include "mozilla/GeckoArgs.h"
-
-#if defined(NIGHTLY_BUILD) && !defined(MOZ_NO_SMART_CARDS)
-#  include "mozilla/psm/PPKCS11ModuleChild.h"
-#endif  // NIGHTLY_BUILD && !MOZ_NO_SMART_CARDS
 
 namespace mozilla::ipc {
 

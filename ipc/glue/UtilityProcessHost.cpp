@@ -13,7 +13,6 @@
 #include "chrome/common/process_watcher.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/StaticPrefs_dom.h"
-#include "mozilla/StaticPrefs_general.h"
 #include "nsXULAppAPI.h"
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
@@ -43,7 +42,6 @@
 #endif
 
 #include "ProfilerParent.h"
-#include "mozilla/PProfilerChild.h"
 
 namespace mozilla::ipc {
 

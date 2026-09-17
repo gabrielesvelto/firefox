@@ -3,19 +3,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/ipc/MessageLink.h"
-#include "mojo/core/ports/event.h"
 #include "mojo/core/ports/node.h"
 #include "mozilla/ipc/MessageChannel.h"
 #include "mozilla/ipc/ProtocolUtils.h"
 #include "mozilla/ipc/NodeController.h"
 #include "chrome/common/ipc_channel.h"
-#include "base/task.h"
 
 #include "mozilla/Assertions.h"
 #include "nsDebug.h"
 #include "nsExceptionHandler.h"
 #include "nsISupportsImpl.h"
-#include "nsPrintfCString.h"
 #include "nsXULAppAPI.h"
 
 using namespace mozilla;

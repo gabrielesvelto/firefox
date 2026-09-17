@@ -4,7 +4,6 @@
 
 #include "mozilla/ipc/Endpoint.h"
 #include "chrome/common/ipc_message.h"
-#include "ipc/IPCMessageUtilsSpecializations.h"
 #include "nsThreadUtils.h"
 #include "mozilla/ipc/ProtocolMessageUtils.h"
 

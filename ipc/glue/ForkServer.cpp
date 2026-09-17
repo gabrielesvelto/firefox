@@ -5,14 +5,10 @@
 #include "mozilla/ipc/ForkServer.h"
 
 #include "base/eintr_wrapper.h"
-#include "chrome/common/chrome_switches.h"
-#include "ipc/IPCMessageUtilsSpecializations.h"
-#include "mozilla/BlockingResourceBase.h"
 #include "mozilla/GeckoArgs.h"
 #include "mozilla/Logging.h"
 #include "mozilla/Omnijar.h"
 #include "mozilla/ProcessType.h"
-#include "mozilla/ipc/FileDescriptor.h"
 #include "mozilla/ipc/ProcessUtils.h"
 #include "mozilla/ipc/ProtocolMessageUtils.h"
 #include "mozilla/ipc/SetProcessTitle.h"
@@ -31,8 +27,6 @@
 #  include "BinaryPath.h"
 #  include <err.h>
 #endif
-
-#include <algorithm>
 
 namespace mozilla {
 namespace ipc {

@@ -7,6 +7,7 @@
 #undef FF
 
 #include "MediaUtils.h"
+#include "base/string_util.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/Logging.h"
 #include "mozilla/SyncRunnable.h"

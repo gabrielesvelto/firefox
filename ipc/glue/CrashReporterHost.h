@@ -8,9 +8,7 @@
 #include "base/process.h"
 #include "nsExceptionHandler.h"
 #include "nsIFile.h"
-#include "nsThreadUtils.h"
 #include "mozilla/ipc/GeckoChildProcessHost.h"
-#include "mozilla/ipc/ProtocolUtils.h"
 
 namespace CrashReporter {
 class CrashReporterInitArgs;

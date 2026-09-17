@@ -7,21 +7,25 @@
 #include "base/command_line.h"
 #include "base/process.h"
 #include "base/process_util.h"
-#include "base/string_util.h"
-#include "base/task.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/process_watcher.h"
 #ifdef XP_DARWIN
 #  include <mach/mach_traps.h>
 #  include "base/rand_util.h"
+#  include "base/string_util.h"
 #  include "chrome/common/mach_ipc_mac.h"
+#  include "mozilla/ipc/UtilityProcessHost.h"
+#  include "mozilla/net/SocketProcessHost.h"
+#  include "mozilla/RDDProcessHost.h"
 #  include "mozilla/StaticPrefs_layers.h"
 #  include "mozilla/StaticPrefs_media.h"
+#  if defined(MOZ_SANDBOX)
+#    include "nsAppDirectoryServiceDefs.h"
+#  endif
 #endif
 #ifdef MOZ_WIDGET_COCOA
 #  include <bsm/libbsm.h>
+#  include <CoreFoundation/CFBase.h>
 #  include <servers/bootstrap.h>
-#  include "nsILocalFileMac.h"
 #endif
 
 #include "GeckoProfiler.h"
@@ -30,33 +34,24 @@
 #include "mozilla/Sprintf.h"
 #include "nsXPCOMPrivate.h"
 #include "prenv.h"
-#include "prerror.h"
-
-#if defined(MOZ_SANDBOX)
-#  include "mozilla/SandboxSettings.h"
-#  include "nsAppDirectoryServiceDefs.h"
-#endif
 
 #include "ProtocolUtils.h"
 #include "mozilla/LinkedList.h"
 #include "mozilla/Logging.h"
-#include "mozilla/Maybe.h"
+#if defined(XP_IOS) || defined(XP_WIN)
+#  include "mozilla/Maybe.h"
+#endif  // defined(XP_IOS) || defined(XP_WIN)
 #include "mozilla/GeckoArgs.h"
 #include "mozilla/Omnijar.h"
-#include "mozilla/RDDProcessHost.h"
 #include "mozilla/Services.h"
-#include "mozilla/SharedThreadPool.h"
 #include "mozilla/StaticMutex.h"
-#include "mozilla/TaskQueue.h"
 #include "mozilla/glean/DomMetrics.h"
 #include "mozilla/glean/IpcMetrics.h"
 #include "mozilla/UniquePtrExtensions.h"
 #include "mozilla/ipc/IOThread.h"
 #include "mozilla/ipc/EnvironmentMap.h"
 #include "mozilla/ipc/NodeController.h"
-#include "mozilla/net/SocketProcessHost.h"
 #include "nsDirectoryService.h"
-#include "nsDirectoryServiceDefs.h"
 #include "nsExceptionHandler.h"
 #include "nsIFile.h"
 #include "nsIObserverService.h"
@@ -64,16 +59,17 @@
 
 #ifdef XP_WIN
 #  include <stdlib.h>
+#  include "base/string_util.h"
 
 #  include "nsIWinTaskbar.h"
 #  define NS_TASKBAR_CONTRACTID "@mozilla.org/windows-taskbar;1"
 
 #  if defined(MOZ_SANDBOX)
-#    include "WinUtils.h"
 #    include "mozilla/Preferences.h"
+#    include "mozilla/SandboxSettings.h"
+#    include "nsIXULRuntime.h"
 #  endif
 
-#  include "mozilla/NativeNt.h"
 #  include "mozilla/CacheNtDllThunk.h"
 #endif
 
@@ -87,11 +83,8 @@
 #  include "mozilla/gfx/GPUProcessHost.h"
 #endif
 
-#include "mozilla/ipc/UtilityProcessHost.h"
 #include "mozilla/ipc/UtilityProcessSandboxing.h"
 
-#include "nsClassHashtable.h"
-#include "nsHashKeys.h"
 #include "nsNativeCharsetUtils.h"
 #include "nsTArray.h"
 #include "nscore.h"  // for NS_FREE_PERMANENT_DATA
@@ -102,7 +95,6 @@ using mozilla::Preferences;
 using mozilla::StaticMutexAutoLock;
 
 #ifdef MOZ_WIDGET_ANDROID
-#  include "AndroidBridge.h"
 #  include "mozilla/java/GeckoProcessManagerWrappers.h"
 #  include "mozilla/java/GeckoProcessTypeWrappers.h"
 #  include "mozilla/java/GeckoResultWrappers.h"

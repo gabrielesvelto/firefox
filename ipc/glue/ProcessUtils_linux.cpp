@@ -4,8 +4,6 @@
 
 #include "ProcessUtils.h"
 
-#include "nsString.h"
-
 #include <sys/prctl.h>
 
 namespace mozilla {

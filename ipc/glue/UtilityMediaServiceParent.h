@@ -4,15 +4,9 @@
 #ifndef _include_ipc_glue_UtilityMediaServiceParent_h_
 #define _include_ipc_glue_UtilityMediaServiceParent_h_
 
-#include "mozilla/PRemoteMediaManagerParent.h"
-#include "mozilla/ProfilerMarkers.h"
-
-#include "mozilla/ipc/Endpoint.h"
 #include "mozilla/ipc/PUtilityMediaServiceParent.h"
 
 #include "mozilla/ipc/UtilityProcessSandboxing.h"
-
-#include "nsThreadManager.h"
 
 namespace mozilla::ipc {
 

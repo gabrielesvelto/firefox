@@ -10,9 +10,6 @@
 #include "mozilla/Assertions.h"
 #include "mozilla/IntegerTypeTraits.h"
 #include "nsExceptionHandler.h"
-#include "nsLiteralString.h"
-#include "nsString.h"
-#include "nsTLiteralString.h"
 
 class PickleIterator;
 

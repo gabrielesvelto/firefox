@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "CrossProcessSemaphore.h"
-#include "nsDebug.h"
 #include "nsISupportsImpl.h"
 #include <errno.h>
 

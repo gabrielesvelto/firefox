@@ -6,7 +6,6 @@
 #define mozilla_ipc_nsIIPCSerializableInputStream_h
 
 #include "nsISupports.h"
-#include "nsTArrayForwardDeclare.h"
 
 namespace mozilla {
 namespace ipc {

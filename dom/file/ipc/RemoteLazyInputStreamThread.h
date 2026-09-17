@@ -5,10 +5,10 @@
 #ifndef mozilla_RemoteLazyInputStreamThread_h
 #define mozilla_RemoteLazyInputStreamThread_h
 
-#include "mozilla/RemoteLazyInputStreamChild.h"
-#include "nsIEventTarget.h"
-#include "nsIObserver.h"
-#include "nsTArray.h"
+#include "mozilla/NotNull.h"
+#include "nsIDirectTaskDispatcher.h"
+#include "nsISerialEventTarget.h"
+#include "nsIThread.h"
 
 class nsIThread;
 

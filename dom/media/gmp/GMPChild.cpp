@@ -10,6 +10,7 @@
 #include "ChromiumCDMAdapter.h"
 #include "GeckoProfiler.h"
 #include "base/command_line.h"
+#include "base/string_util.h"
 #include "base/task.h"
 #ifdef XP_LINUX
 #  include "dlfcn.h"

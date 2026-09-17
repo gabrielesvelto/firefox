@@ -16,6 +16,7 @@
 #include "mozilla/Logging.h"
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/Mutex.h"
+#include "mozilla/ScopeExit.h"
 #include "mozilla/ipc/InputStreamUtils.h"
 #include "nsAlgorithm.h"
 #include "nsCOMPtr.h"

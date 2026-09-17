@@ -5,9 +5,7 @@
 #ifndef mozilla_ipc_URIUtils_h
 #define mozilla_ipc_URIUtils_h
 
-#include "ipc/IPCMessageUtilsSpecializations.h"
 #include "mozilla/ipc/URIParams.h"
-#include "nsCOMPtr.h"
 #include "nsIURI.h"
 
 namespace mozilla {

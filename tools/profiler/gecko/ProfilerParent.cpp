@@ -4,6 +4,7 @@
 
 #include "ProfilerParent.h"
 
+#include "base/process_util.h"
 #include "nsProfiler.h"
 #include "platform.h"
 
