@@ -2137,8 +2137,11 @@ class Document : public nsINode,
       UniquePtr<FullscreenExit>);
 
   /**
-   * Returns true if this document is a fullscreen leaf document, i.e. it
-   * is in fullscreen mode and has no fullscreen children.
+   * Returns true if this document is a fullscreen leaf document, i.e. it is
+   * in fullscreen mode and its current fullscreen element does not embed
+   * another in-process fullscreen document. Note that this document may still
+   * have other fullscreen subdocuments which are not part of the current
+   * fullscreen document chain.
    */
   bool IsFullscreenLeaf();
 
