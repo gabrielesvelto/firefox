@@ -1589,7 +1589,7 @@ void nsXULPopupManager::PaintPopups(nsRefreshDriver* aRefreshDriver) {
     return;
   }
 
-  AutoTArray<std::pair<RefPtr<nsIWidget>, WeakFrame>, 32> popupsToPaint;
+  SegmentedVector<std::pair<RefPtr<nsIWidget>, WeakFrame>> popupsToPaint;
   for (nsMenuChainItem* item = mPopups.get(); item; item = item->GetParent()) {
     nsMenuPopupFrame* frame = item->Frame();
     if (!frame->IsVisibleOrHiding() ||
@@ -1598,16 +1598,17 @@ void nsXULPopupManager::PaintPopups(nsRefreshDriver* aRefreshDriver) {
       continue;
     }
     if (nsIWidget* widget = frame->GetWidget()) {
-      popupsToPaint.AppendElement(std::make_pair(widget, frame));
+      // If we don't paint it, alas.
+      popupsToPaint.InfallibleAppend(std::make_pair(widget, frame));
     }
   }
 
-  for (const auto& popupToPaint : Reversed(popupsToPaint)) {
-    nsIWidget* widget = popupToPaint.first;
-    nsMenuPopupFrame* frame = do_QueryFrame(popupToPaint.second.GetFrame());
+  for (auto iter = popupsToPaint.IterFromLast(); !iter.Done(); iter.Prev()) {
+    nsMenuPopupFrame* frame = do_QueryFrame(iter.Get().second.GetFrame());
     if (!frame) {
       continue;
     }
+    nsIWidget* widget = iter.Get().first;
     if (frame->PendingWidgetMoveResize()) {
       frame->ClearPendingWidgetMoveResize();
 
@@ -1634,7 +1635,7 @@ void nsXULPopupManager::PaintPopups(nsRefreshDriver* aRefreshDriver) {
     if (!widget->IsVisible()) {
       widget->Show(true);
     }
-    if (!popupToPaint.second.IsAlive() || !widget->NeedsPaint()) {
+    if (!iter.Get().second.IsAlive() || !widget->NeedsPaint()) {
       continue;
     }
     nsAutoScriptBlocker scriptBlocker;
