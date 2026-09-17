@@ -412,6 +412,11 @@ ContentCompositorBridgeParent::AllocPTextureParent(
     const SurfaceDescriptor& aSharedData, ReadLockDescriptor& aReadLock,
     const LayersBackend& aLayersBackend, const TextureFlags& aFlags,
     const uint64_t& aSerial, const wr::MaybeExternalImageId& aExternalImageId) {
+  if (aFlags & TextureFlags::REMOTE_TEXTURE) {
+    MOZ_ASSERT_UNREACHABLE("Unexpected to be called!");
+    return nullptr;
+  }
+
   switch (aSharedData.type()) {
     case SurfaceDescriptor::TSurfaceDescriptorBuffer:
       break;
