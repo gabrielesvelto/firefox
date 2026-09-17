@@ -454,6 +454,13 @@ user-id = 83100
 user-login = "mxinden"
 user-name = "Max Inden"
 
+[[publisher.multiversion_no_op]]
+version = "1.0.0"
+when = "2026-07-30"
+user-id = 4484
+user-login = "hsivonen"
+user-name = "Henri Sivonen"
+
 [[publisher.num]]
 version = "0.4.3"
 when = "2024-05-08"

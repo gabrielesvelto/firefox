@@ -416,6 +416,14 @@ user-id = 83100 # Max Inden (mxinden)
 start = "2025-01-29"
 end = "2026-09-24"
 
+[[wildcard-audits.multiversion_no_op]]
+who = "Henri Sivonen <hsivonen@hsivonen.fi>"
+criteria = "safe-to-deploy"
+user-id = 4484 # Henri Sivonen (hsivonen)
+start = "2026-07-30"
+end = "2027-08-06"
+notes = "I, Henri Sivonen, am the sole author of multiversion_no_op (which is a trivial crate)."
+
 [[wildcard-audits.ohttp]]
 who = "Martin Thomson <mt@lowentropy.net>"
 criteria = "safe-to-deploy"
@@ -1549,6 +1557,11 @@ who = "Erich Gubler <erichdongubler@gmail.com>"
 criteria = "safe-to-deploy"
 delta = "20.1.0 -> 21.0.0"
 
+[[audits.core_detect]]
+who = "Henri Sivonen <hsivonen@hsivonen.fi>"
+criteria = "safe-to-deploy"
+version = "1.0.0"
+
 [[audits.core_maths]]
 who = "Makoto Kato <m_kato@ga2.so-net.ne.jp>"
 criteria = "safe-to-deploy"
@@ -2448,7 +2461,7 @@ delta = "0.8.31 -> 0.8.32"
 [[audits.encoding_rs]]
 who = "Henri Sivonen <hsivonen@hsivonen.fi>"
 criteria = "safe-to-deploy"
-delta = "0.8.35 -> 0.8.35@git:1236d1bc423e6ba35a06485f74a6304db2d703b5"
+delta = "0.8.35 -> 0.8.35@git:a4f2911cece3997c46da56785782b60dc0e5ab17"
 importable = false
 
 [[audits.enum-map]]
@@ -4726,6 +4739,16 @@ criteria = "safe-to-deploy"
 delta = "0.4.1 -> 0.4.1@git:18832752db4700df4bdbb26f655b675931b234ac"
 importable = false
 
+[[audits.multiversion]]
+who = "Henri Sivonen <hsivonen@hsivonen.fi>"
+criteria = "safe-to-deploy"
+version = "0.8.0"
+
+[[audits.multiversion-macros]]
+who = "Henri Sivonen <hsivonen@hsivonen.fi>"
+criteria = "safe-to-deploy"
+version = "0.8.0"
+
 [[audits.naga]]
 who = "Dzmitry Malyshau <kvark@fastmail.com>"
 criteria = "safe-to-deploy"
@@ -6409,6 +6432,12 @@ criteria = "safe-to-run"
 version = "1.4.8"
 notes = "Well-maintained crate for low-level OS signal handling, used via tokio's signal feature."
 
+[[audits.simdutf8]]
+who = "Henri Sivonen <hsivonen@hsivonen.fi>"
+criteria = "safe-to-deploy"
+version = "0.1.5"
+notes = "Confidence in correctness of the algorithm is based on fuzzing the SSE 4.2 and AVX2 implementations rather than working through the logic of the code. Audit of aarch64 and Wasm is by comparing the code with the SSE 4.2 case."
+
 [[audits.siphasher]]
 who = "Emilio Cobos Álvarez <emilio@crisal.io>"
 criteria = "safe-to-deploy"
@@ -6575,6 +6604,11 @@ who = "Alex Franchuk <afranchuk@mozilla.com>"
 criteria = "safe-to-deploy"
 version = "0.3.1"
 notes = "Succinct and easily-verified unsafe code."
+
+[[audits.target-features]]
+who = "Henri Sivonen <hsivonen@hsivonen.fi>"
+criteria = "safe-to-deploy"
+version = "0.1.6"
 
 [[audits.tempfile]]
 who = "Mike Hommey <mh+mozilla@glandium.org>"
