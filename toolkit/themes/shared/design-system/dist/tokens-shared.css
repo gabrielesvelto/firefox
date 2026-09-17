@@ -762,6 +762,7 @@
       --border-color-interactive-hover: light-dark(var(--color-gray-50), var(--color-gray-20));
       --border-color-interactive-active: light-dark(var(--color-gray-50), var(--color-gray-15));
       --border-color-interactive-disabled: light-dark(var(--color-gray-25), var(--color-gray-55));
+      --border-color-interactive: light-dark(var(--color-gray-45), var(--color-gray-40));
       --border-radius-xsmall: 4px;
       --border-radius-small: 8px;
       --border-radius-medium: 12px;
