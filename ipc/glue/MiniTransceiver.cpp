@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "mozilla/ipc/MiniTransceiver.h"
 #include "chrome/common/ipc_message.h"
-#include "chrome/common/ipc_message_utils.h"
 #include "base/eintr_wrapper.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/DebugOnly.h"

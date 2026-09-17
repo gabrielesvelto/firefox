@@ -5,7 +5,10 @@
 #ifndef mozilla_CrossProcessSemaphore_h
 #define mozilla_CrossProcessSemaphore_h
 
-#include "base/process.h"
+#if defined(XP_WIN)
+#  include <windows.h>
+#endif  // defined(XP_WIN)
+
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Maybe.h"
 

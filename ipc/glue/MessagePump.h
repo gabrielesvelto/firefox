@@ -10,10 +10,10 @@
 #  include "base/message_pump_win.h"
 #elif defined(XP_DARWIN)
 #  include "base/message_pump_mac.h"
+#  include "nsIThreadInternal.h"
 #endif
 
 #include "base/time.h"
-#include "mozilla/Mutex.h"
 #include "nsCOMPtr.h"
 #include "nsIThreadInternal.h"
 

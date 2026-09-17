@@ -4,7 +4,6 @@
 
 #include "mozilla/ipc/IOThread.h"
 #include "mozilla/ipc/NodeController.h"
-#include "mozilla/Preferences.h"
 
 #if defined(XP_WIN)
 #  include <objbase.h>
@@ -15,6 +14,7 @@
 #else
 #  if defined(XP_DARWIN)
 #    include "chrome/common/ipc_channel_mach.h"
+#    include "mozilla/Preferences.h"
 #  endif
 #  include "chrome/common/ipc_channel_posix.h"
 #endif

@@ -7,7 +7,6 @@
 
 #include "ipc/IPCMessageUtilsSpecializations.h"
 #include "mozilla/ipc/URIParams.h"
-#include "nsCOMPtr.h"
 #include "nsIURI.h"
 
 namespace mozilla {

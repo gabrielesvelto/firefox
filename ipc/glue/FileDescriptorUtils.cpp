@@ -11,7 +11,6 @@
 #include "nsNetCID.h"
 #include "nsServiceManagerUtils.h"
 #include "prio.h"
-#include "private/pprio.h"
 
 #include <errno.h>
 #ifdef XP_WIN

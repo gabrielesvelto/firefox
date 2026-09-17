@@ -8,6 +8,7 @@
 
 #include "CompositableHost.h"  // for CompositableParent, Create
 #include "base/process.h"      // for ProcessId
+#include "base/process_util.h"
 #include "base/task.h"         // for CancelableTask, DeleteTask, etc
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Hal.h"       // for hal::SetCurrentThreadPriority()

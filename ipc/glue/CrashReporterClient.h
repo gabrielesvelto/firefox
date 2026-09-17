@@ -8,7 +8,6 @@
 #include "CrashReporter/CrashReporterInitArgs.h"
 #include "mozilla/StaticMutex.h"
 #include "mozilla/StaticPtr.h"
-#include "nsExceptionHandler.h"
 
 namespace mozilla::ipc {
 

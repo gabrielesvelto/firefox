@@ -6,10 +6,8 @@
 
 #include "mozilla/NotNull.h"
 #include "mozilla/Result.h"
-#include "mozilla/ResultVariant.h"
 #include "mozilla/dom/quota/EncryptedRandomAccessStream_impl.h"
 #include "mozilla/dom/quota/FileStreams.h"
-#include "mozilla/dom/quota/NSSRandomAccessCipherStrategy.h"
 #include "mozilla/ipc/RandomAccessStreamParams.h"
 #include "nsFileStreams.h"
 #include "nsIInterfaceRequestor.h"

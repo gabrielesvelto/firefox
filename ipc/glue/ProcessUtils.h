@@ -5,13 +5,13 @@
 #ifndef mozilla_ipc_ProcessUtils_h
 #define mozilla_ipc_ProcessUtils_h
 
+#include "base/basictypes.h"
+
 #include "mozilla/GeckoArgs.h"
+#include "mozilla/ProcessType.h"
 #include "mozilla/dom/RemoteType.h"
-#include "mozilla/ipc/FileDescriptor.h"
 #include "mozilla/ipc/SharedMemoryHandle.h"
 #include "mozilla/ipc/SharedMemoryMapping.h"
-#include "mozilla/Preferences.h"
-#include "nsXULAppAPI.h"
 
 namespace mozilla {
 namespace ipc {

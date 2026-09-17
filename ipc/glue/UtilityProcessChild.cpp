@@ -3,17 +3,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "UtilityProcessChild.h"
 
+#include "base/process_util.h"
 #include "mozilla/AppShutdown.h"
-#include "mozilla/Logging.h"
-#include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/JSOracleChild.h"
 #include "mozilla/dom/MemoryReportRequest.h"
 #include "mozilla/ipc/CrashReporterClient.h"
 #include "mozilla/ipc/Endpoint.h"
-#include "mozilla/ipc/UtilityProcessManager.h"
 #include "mozilla/ipc/UtilityProcessSandboxing.h"
 #include "mozilla/Preferences.h"
-#include "mozilla/RemoteMediaManagerParent.h"
 
 #if defined(XP_LINUX) && defined(MOZ_SANDBOX)
 #  include "mozilla/Sandbox.h"
@@ -28,8 +25,6 @@
 #  include "mozilla/SandboxTestingChild.h"
 #endif
 
-#include "mozilla/Telemetry.h"
-
 #if defined(XP_WIN)
 #  include "mozilla/WinDllServices.h"
 #  include "mozilla/dom/WindowsUtilsChild.h"
@@ -40,12 +35,11 @@
 #include "nsIXULRuntime.h"
 #include "nsThreadManager.h"
 #include "GeckoProfiler.h"
+#include "ProcessUtils.h"
 
 #include "mozilla/ipc/ProcessChild.h"
 #include "mozilla/FOGIPC.h"
 #include "mozilla/glean/GleanTestsTestMetrics.h"
-
-#include "mozilla/Services.h"
 
 namespace TelemetryScalar {
 void Set(mozilla::Telemetry::ScalarID aId, uint32_t aValue);

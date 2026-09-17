@@ -4,8 +4,6 @@
 
 #include "CrossProcessMutex.h"
 
-#include "nsDebug.h"
-
 namespace mozilla {
 
 CrossProcessMutex::CrossProcessMutex(const char*) {

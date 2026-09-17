@@ -5,13 +5,11 @@
 #include "VRManagerParent.h"
 
 #include "VRManager.h"
-#include "VRThread.h"
+#include "base/process_util.h"
 #include "ipc/VRLayerParent.h"
 #include "mozilla/StaticPrefs_dom.h"
-#include "mozilla/TimeStamp.h"  // for TimeStamp
 #include "mozilla/gfx/PVRManagerParent.h"
 #include "mozilla/ipc/Endpoint.h"
-#include "mozilla/ipc/ProtocolTypes.h"
 #include "mozilla/ipc/ProtocolUtils.h"  // for IToplevelProtocol
 
 using mozilla::dom::GamepadHandle;

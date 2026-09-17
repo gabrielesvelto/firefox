@@ -7,7 +7,6 @@
 #include "base/process_util.h"
 #include "mozilla/GeckoArgs.h"
 #include "nsIObserver.h"
-#include "nsString.h"
 #include "mozilla/ipc/MiniTransceiver.h"
 #include "mozilla/ipc/LaunchError.h"
 #include "mozilla/Mutex.h"

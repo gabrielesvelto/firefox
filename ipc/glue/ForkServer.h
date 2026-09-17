@@ -6,7 +6,6 @@
 
 #include "mozilla/UniquePtr.h"
 #include "mozilla/UniquePtrExtensions.h"
-#include "base/process_util.h"
 #include "mozilla/ipc/MiniTransceiver.h"
 
 namespace mozilla {

@@ -9,7 +9,6 @@
 #include <xpc/xpc.h>
 #include "mozilla/DarwinObjectPtr.h"
 #include "mozilla/Result.h"
-#include "mozilla/ResultVariant.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/ipc/LaunchError.h"
 

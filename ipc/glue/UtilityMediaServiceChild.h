@@ -4,11 +4,8 @@
 #ifndef _include_ipc_glue_UtilityMediaServiceChild_h_
 #define _include_ipc_glue_UtilityMediaServiceChild_h_
 
-#include "mozilla/ProcInfo.h"
-#include "mozilla/ProfilerMarkers.h"
 #include "mozilla/RefPtr.h"
 
-#include "mozilla/ipc/Endpoint.h"
 #include "mozilla/ipc/UtilityProcessParent.h"
 #include "mozilla/ipc/UtilityProcessSandboxing.h"
 #include "mozilla/ipc/UtilityMediaService.h"
@@ -18,8 +15,6 @@
 #ifdef MOZ_WMF_MEDIA_ENGINE
 #  include "mozilla/gfx/GPUProcessListener.h"
 #endif
-
-#include "PDMFactory.h"
 
 namespace mozilla::ipc {
 

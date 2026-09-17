@@ -7,13 +7,10 @@
 
 #include "base/file_path.h"
 #include "base/process_util.h"
-#include "base/waitable_event.h"
 #include "chrome/common/ipc_message.h"
-#include "mojo/core/ports/port_ref.h"
 
 #include "mozilla/GeckoArgs.h"
 #include "mozilla/ipc/Endpoint.h"
-#include "mozilla/ipc/FileDescriptor.h"
 #include "mozilla/ipc/NodeChannel.h"
 #include "mozilla/ipc/LaunchError.h"
 #include "mozilla/ipc/ScopedPort.h"
@@ -31,13 +28,13 @@
 #include "nsCOMPtr.h"
 #include "nsExceptionHandler.h"
 #include "nsXULAppAPI.h"  // for GeckoProcessType
-#include "nsString.h"
 
 #if defined(XP_IOS)
 #  include "mozilla/ipc/ExtensionKitUtils.h"
 #endif
 
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
+#  include "nsString.h"
 #  include "sandboxBroker.h"
 #endif
 

@@ -5,7 +5,6 @@
 #define _include_ipc_glue_UtilityProcessParent_h_
 #include "mozilla/ipc/PUtilityProcessParent.h"
 #include "mozilla/ipc/CrashReporterHelper.h"
-#include "mozilla/ipc/UtilityProcessHost.h"
 #include "mozilla/dom/MemoryReportRequest.h"
 
 #include "mozilla/RefPtr.h"

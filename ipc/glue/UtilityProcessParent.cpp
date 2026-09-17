@@ -11,7 +11,6 @@
 #  include "mozilla/WinDllServices.h"
 #endif
 
-#include "mozilla/ipc/ProcessChild.h"
 #include "mozilla/FOGIPC.h"
 
 #include "mozilla/Telemetry.h"

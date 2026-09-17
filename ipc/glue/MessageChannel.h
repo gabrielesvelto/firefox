@@ -7,7 +7,8 @@
 
 #include "ETWTools.h"
 #include "ipc/EnumSerializer.h"
-#include "mozilla/BaseProfilerMarkers.h"
+#include "mozilla/BaseProfileJSONWriter.h"
+#include "mozilla/BaseProfilerMarkersPrerequisites.h"
 #include "mozilla/LinkedList.h"
 #include "mozilla/Monitor.h"
 #include "mozilla/MoveOnlyFunction.h"

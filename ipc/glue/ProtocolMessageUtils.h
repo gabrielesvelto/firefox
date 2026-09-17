@@ -5,7 +5,6 @@
 #ifndef IPC_GLUE_PROTOCOLMESSAGEUTILS_H
 #define IPC_GLUE_PROTOCOLMESSAGEUTILS_H
 
-#include "base/string_util.h"
 #include "chrome/common/ipc_channel.h"
 #include "chrome/common/ipc_message_utils.h"
 #include "ipc/EnumSerializer.h"

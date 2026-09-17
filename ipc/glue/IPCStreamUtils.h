@@ -7,7 +7,6 @@
 
 #include "mozilla/ipc/EagerIPCStream.h"
 #include "mozilla/ipc/IPCStream.h"
-#include "nsCOMPtr.h"
 #include "nsIInputStream.h"
 
 namespace mozilla::ipc {

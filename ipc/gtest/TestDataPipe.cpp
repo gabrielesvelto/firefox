@@ -3,6 +3,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "chrome/common/ipc_message.h"
+#include "chrome/common/ipc_message_utils.h"
 #include "gtest/gtest.h"
 
 #include "mozilla/gtest/MozAssertions.h"

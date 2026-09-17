@@ -6,19 +6,12 @@
 
 #include "nsIThread.h"
 #include "nsITimer.h"
-#include "nsICancelableRunnable.h"
 
-#include "base/basictypes.h"
-#include "base/logging.h"
 #include "base/scoped_nsautorelease_pool.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/DebugOnly.h"
-#include "nsComponentManagerUtils.h"
 #include "nsDebug.h"
-#include "nsServiceManagerUtils.h"
-#include "nsString.h"
 #include "nsThreadUtils.h"
-#include "nsTimerImpl.h"
 #include "nsXULAppAPI.h"
 #include "prthread.h"
 
