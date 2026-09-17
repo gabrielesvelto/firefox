@@ -58,6 +58,7 @@ vendoring:
     - input_frame_validation_vp9.patch
     - missing_header.patch
     - reset_post_proc_state.patch
+    - vp8_clamp_fullpixel_chroma_mv.patch
 
   update-actions:
     - action: move-file
