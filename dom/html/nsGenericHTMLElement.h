@@ -1121,6 +1121,10 @@ class nsGenericHTMLFormElement : public nsGenericHTMLElement {
     return nullptr;
   }
 
+  mozilla::dom::HTMLFormElement* GetFormIfRegistered() const {
+    return HasFlag(ADDED_TO_FORM) ? GetFormInternal() : nullptr;
+  }
+
   virtual mozilla::dom::HTMLFieldSetElement* GetFieldSetInternal() const {
     return nullptr;
   }
