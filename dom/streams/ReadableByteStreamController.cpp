@@ -678,7 +678,7 @@ void ReadableStreamFulfillReadIntoRequest(JSContext* aCx,
   ReadableStreamBYOBReader* reader = aStream->GetReader()->AsBYOB();
 
   // Step 3. Assert: reader.[[readIntoRequests]] is not empty.
-  MOZ_ASSERT(!reader->ReadIntoRequests().isEmpty());
+  MOZ_RELEASE_ASSERT(!reader->ReadIntoRequests().isEmpty());
 
   // Step 4. Let readIntoRequest be reader.[[readIntoRequests]][0].
   // Step 5. Remove readIntoRequest from reader.[[readIntoRequests]].
@@ -1599,7 +1599,7 @@ void ReadableByteStreamControllerRespond(
     JSContext* aCx, ReadableByteStreamController* aController,
     uint64_t aBytesWritten, ErrorResult& aRv) {
   // Step 1.
-  MOZ_ASSERT(!aController->PendingPullIntos().isEmpty());
+  MOZ_RELEASE_ASSERT(!aController->PendingPullIntos().isEmpty());
 
   // Step 2.
   PullIntoDescriptor* firstDescriptor =
@@ -1656,7 +1656,7 @@ void ReadableByteStreamControllerRespondWithNewView(
   aRv.MightThrowJSException();
 
   // Step 1.
-  MOZ_ASSERT(!aController->PendingPullIntos().isEmpty());
+  MOZ_RELEASE_ASSERT(!aController->PendingPullIntos().isEmpty());
 
   // Step 2.
   bool isSharedMemory;
