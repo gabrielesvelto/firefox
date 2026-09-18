@@ -5569,6 +5569,16 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
   RefPtr<BrowserParent> newTab = BrowserParent::GetFrom(aNewTab);
   MOZ_ASSERT(newTab);
 
+  // We're about to hand the new tab to the frontend to be embedded, so it must
+  // be a freshly created actor which isn't already embedded somewhere else.
+  // Being destroyed means it has already been embedded and torn down, because
+  // we only destroy a BrowserParent via its embedder or via a prior failed
+  // CreateWindow.
+  if (newTab->IsEmbedded() || newTab->IsDestroyed() ||
+      newTab->CreatingWindow()) {
+    return IPC_FAIL(this, "New tab is not a fresh unembedded PBrowser");
+  }
+
   auto destroyNewTabOnError = MakeScopeExit([&] {
     // We always expect to open a new window here. If we don't, it's an error.
     if (!cwi.windowOpened() || NS_FAILED(rv)) {
