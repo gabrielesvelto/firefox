@@ -504,6 +504,11 @@
     "dark": "{Theme$border/color/deemphasized}",
     "forcedColors": "{Theme$border/color/deemphasized}"
   },
+  "sidebar/border/color": {
+    "light": "var(--chrome-content-separator-color)",
+    "dark": "var(--chrome-content-separator-color)",
+    "forcedColors": "var(--chrome-content-separator-color)"
+  },
   "table/row/background/color/alternate": {
     "light": "{Colors$color/gray/20}",
     "dark": "{Colors$color/gray/65}",
@@ -610,8 +615,8 @@
     "forcedColors": "{Theme$toolbox/text/color}"
   },
   "toolbox/background/color": {
-    "light": "#fff",
-    "dark": "#000",
+    "light": "{Colors$color/white}",
+    "dark": "{Colors$color/gray/70}",
     "forcedColors": "transparent"
   },
   "toolbox/background/gradient": {

@@ -19,7 +19,6 @@
   "panel-menuitem/border/radius": "{Primitives$border/radius/large}",
   "panel/border/radius": "{Primitives$popup/border/radius}",
   "popup/border/radius": "{Primitives$border/radius/xlarge}",
-  "sidebar/border/color": "var(--chrome-content-separator-color)",
   "toolbar/padding/inline": 6,
   "toolbarbutton/opacity/disabled": 0.4,
   "toolbarbutton/outline/offset": -1,

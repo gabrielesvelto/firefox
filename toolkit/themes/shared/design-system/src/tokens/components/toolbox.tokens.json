@@ -8,8 +8,9 @@
           "nativeTheme": "-moz-headerbar",
           "nova": {
             "value": {
-              "light": "#fff",
-              "dark": "#000"
+              "light": "{color.white.@base}",
+              "dark": "{color.gray.70}",
+              "nativeTheme": "-moz-headerbar"
             }
           }
         }

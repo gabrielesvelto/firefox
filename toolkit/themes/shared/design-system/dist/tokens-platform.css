@@ -133,6 +133,9 @@
       /** popup **/
       --popup-border-color: var(--border-color-deemphasized);
 
+      /** sidebar **/
+      --sidebar-border-color: -moz-sidebarborder;
+
       /** text-color **/
       --text-color: currentColor;
       --text-color-accent-primary-selected: SelectedItemText;
@@ -153,6 +156,7 @@
       --toolbarbutton-icon-fill-attention: AccentColor;
 
       /** toolbox **/
+      --toolbox-background-color: -moz-headerbar;
       --toolbox-background-color-inactive: -moz-headerbarinactive;
       /* This gradient is only used for Nova */
       --toolbox-background-gradient: image(transparent);
@@ -268,6 +272,9 @@
         /** popup **/
         --popup-border-color: var(--border-color-deemphasized);
 
+        /** sidebar **/
+        --sidebar-border-color: var(--chrome-content-separator-color);
+
         /** text-color **/
         --text-color: light-dark(var(--color-violet-desaturated-90), var(--color-violet-desaturated-0));
 
@@ -287,6 +294,7 @@
         --toolbarbutton-icon-fill-attention: var(--color-accent-primary);
 
         /** toolbox **/
+        --toolbox-background-color: light-dark(var(--color-white), var(--color-gray-70));
         --toolbox-background-color-inactive: transparent;
         /* This gradient is only used for Nova */
         --toolbox-background-gradient: linear-gradient(
