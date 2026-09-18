@@ -848,15 +848,15 @@ export const tokensTable = {
       name: "--tab-background-color-selected",
     },
     {
-      value: "var(--toolbarbutton-background-color)",
+      value: { default: "var(--button-background-color-ghost)" },
       name: "--tab-close-button-background-color",
     },
     {
-      value: "var(--toolbarbutton-background-color-hover)",
+      value: { default: "var(--button-background-color-ghost-hover)" },
       name: "--tab-close-button-background-color-hover",
     },
     {
-      value: "var(--toolbarbutton-background-color-active)",
+      value: { default: "var(--button-background-color-ghost-active)" },
       name: "--tab-close-button-background-color-active",
     },
     {
@@ -2883,19 +2883,16 @@ export const tokensTable = {
       },
       name: "--tab-text-color-selected",
     },
-    { value: "var(--tab-text-color)", name: "--tab-close-button-text-color" },
     {
-      value: {
-        default: "var(--tab-text-color)",
-        forcedColors: "var(--button-text-color-hover)",
-      },
+      value: { default: "var(--button-text-color-ghost)" },
+      name: "--tab-close-button-text-color",
+    },
+    {
+      value: { default: "var(--button-text-color-ghost-hover)" },
       name: "--tab-close-button-text-color-hover",
     },
     {
-      value: {
-        default: "var(--tab-text-color)",
-        forcedColors: "var(--button-text-color-active)",
-      },
+      value: { default: "var(--button-text-color-ghost-active)" },
       name: "--tab-close-button-text-color-active",
     },
     { value: "inherit", name: "--urlbar-box-text-color" },
@@ -5386,11 +5383,15 @@ export const variableLookupTable = {
   "tab-vertical-block-margin": "2px",
   "tab-vertical-inline-padding": "var(--space-medium)",
   "tab-close-button-padding": "6px",
-  "tab-close-button-background-color": "var(--toolbarbutton-background-color)",
-  "tab-close-button-background-color-hover":
-    "var(--toolbarbutton-background-color-hover)",
-  "tab-close-button-background-color-active":
-    "var(--toolbarbutton-background-color-active)",
+  "tab-close-button-background-color": {
+    default: "var(--button-background-color-ghost)",
+  },
+  "tab-close-button-background-color-hover": {
+    default: "var(--button-background-color-ghost-hover)",
+  },
+  "tab-close-button-background-color-active": {
+    default: "var(--button-background-color-ghost-active)",
+  },
   "tab-close-button-border-color": "var(--tab-border-color)",
   "tab-close-button-border-color-hover": {
     default: "var(--tab-border-color)",
@@ -5400,14 +5401,12 @@ export const variableLookupTable = {
     default: "var(--tab-border-color)",
     prefersContrast: "var(--button-border-color-active)",
   },
-  "tab-close-button-text-color": "var(--tab-text-color)",
+  "tab-close-button-text-color": { default: "var(--button-text-color-ghost)" },
   "tab-close-button-text-color-hover": {
-    default: "var(--tab-text-color)",
-    forcedColors: "var(--button-text-color-hover)",
+    default: "var(--button-text-color-ghost-hover)",
   },
   "tab-close-button-text-color-active": {
-    default: "var(--tab-text-color)",
-    forcedColors: "var(--button-text-color-active)",
+    default: "var(--button-text-color-ghost-active)",
   },
   "tab-group-blue": {
     light: "var(--color-blue-50)",

@@ -1663,19 +1663,19 @@
     "forcedColors": "{HCM Theme$SelectedItemText}"
   },
   "tab/close/button/background/color": {
-    "light": "{Theme$toolbarbutton/background/color}",
-    "dark": "{Theme$toolbarbutton/background/color}",
-    "forcedColors": "{Theme$toolbarbutton/background/color}"
+    "light": "{Theme$button/background/color/ghost}",
+    "dark": "{Theme$button/background/color/ghost}",
+    "forcedColors": "{Theme$button/background/color/ghost}"
   },
   "tab/close/button/background/color/hover": {
-    "light": "{Theme$toolbarbutton/background/color/hover}",
-    "dark": "{Theme$toolbarbutton/background/color/hover}",
-    "forcedColors": "{Theme$toolbarbutton/background/color/hover}"
+    "light": "{Theme$button/background/color/ghost/hover}",
+    "dark": "{Theme$button/background/color/ghost/hover}",
+    "forcedColors": "{Theme$button/background/color/ghost/hover}"
   },
   "tab/close/button/background/color/active": {
-    "light": "{Theme$toolbarbutton/background/color/active}",
-    "dark": "{Theme$toolbarbutton/background/color/active}",
-    "forcedColors": "{Theme$toolbarbutton/background/color/active}"
+    "light": "{Theme$button/background/color/ghost/active}",
+    "dark": "{Theme$button/background/color/ghost/active}",
+    "forcedColors": "{Theme$button/background/color/ghost/active}"
   },
   "tab/close/button/border/color": {
     "light": "{Theme$tab/border/color}",
@@ -1693,19 +1693,19 @@
     "forcedColors": "{Theme$button/border/color/active}"
   },
   "tab/close/button/text/color": {
-    "light": "{Theme$tab/text/color}",
-    "dark": "{Theme$tab/text/color}",
-    "forcedColors": "{Theme$tab/text/color}"
+    "light": "{Theme$button/text/color/ghost}",
+    "dark": "{Theme$button/text/color/ghost}",
+    "forcedColors": "{Theme$button/text/color/ghost}"
   },
   "tab/close/button/text/color/hover": {
-    "light": "{Theme$tab/text/color}",
-    "dark": "{Theme$tab/text/color}",
-    "forcedColors": "{Theme$button/text/color/hover}"
+    "light": "{Theme$button/text/color/ghost/hover}",
+    "dark": "{Theme$button/text/color/ghost/hover}",
+    "forcedColors": "{Theme$button/text/color/ghost/hover}"
   },
   "tab/close/button/text/color/active": {
-    "light": "{Theme$tab/text/color}",
-    "dark": "{Theme$tab/text/color}",
-    "forcedColors": "{Theme$button/text/color/active}"
+    "light": "{Theme$button/text/color/ghost/active}",
+    "dark": "{Theme$button/text/color/ghost/active}",
+    "forcedColors": "{Theme$button/text/color/ghost/active}"
   },
   "tab/group/blue": {
     "light": "{Colors$color/blue/50}",
