@@ -534,15 +534,15 @@
     "dark": "{Theme$toolbar/field/text/color}",
     "forcedColors": "{Theme$toolbar/field/text/color}"
   },
-  "toolbar/background/color": {
-    "light": "{Theme$background/color/box}",
-    "dark": "{Theme$background/color/box}",
-    "forcedColors": "{HCM Theme$Canvas}"
-  },
   "toolbar/field/border/color/focus": {
     "light": "{Theme$focus/outline/color}",
     "dark": "{Theme$focus/outline/color}",
     "forcedColors": "{Theme$focus/outline/color}"
+  },
+  "toolbar/background/color": {
+    "light": "rgba(255, 255, 255, 0.4)",
+    "dark": "rgba(0, 0, 0, 0.2)",
+    "forcedColors": "{HCM Theme$Canvas}"
   },
   "toolbarbutton/icon/fill": {
     "light": "{Colors$color/violet-desaturated/50}",
@@ -608,6 +608,11 @@
     "light": "{Theme$toolbox/text/color}",
     "dark": "{Theme$toolbox/text/color}",
     "forcedColors": "{Theme$toolbox/text/color}"
+  },
+  "toolbox/background/color": {
+    "light": "#fff",
+    "dark": "#000",
+    "forcedColors": "transparent"
   },
   "toolbox/background/gradient": {
     "light": "linear-gradient(96deg, color-mix({Primitives$toolbox/background/color/gradient-leading} 50%, transparent) 39.84%, color-mix({Primitives$toolbox/background/color/gradient-trailing} 50%, transparent) 101.72%)",

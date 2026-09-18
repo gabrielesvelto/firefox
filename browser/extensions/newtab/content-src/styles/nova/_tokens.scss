@@ -276,6 +276,9 @@
   --popup-border-color: var(--border-color-deemphasized);
   --popup-border-radius: var(--border-radius-xlarge);
 
+  /** sidebar **/
+  --sidebar-border-color: var(--chrome-content-separator-color);
+
   /** table **/
 
   /* TODO Bug 1821203 - Gray use needs to be consolidated */
@@ -287,7 +290,7 @@
   --text-color-error: light-dark(var(--color-red-50), var(--color-red-20));
 
   /** toolbar **/
-  --toolbar-background-color: var(--background-color-box);
+  --toolbar-background-color: light-dark(rgba(255, 255, 255, 40%), rgba(0, 0, 0, 20%));
   --toolbar-field-background-color: var(--toolbar-background-color);
   --toolbar-field-background-color-focus: var(--background-color-box);
   --toolbar-field-border-color: light-dark(var(--color-gray-20), var(--color-gray-60));
@@ -307,6 +310,7 @@
   --toolbarbutton-outline-offset: -1px;
 
   /** toolbox **/
+  --toolbox-background-color: light-dark(#FFF, #000);
   --toolbox-background-color-gradient-leading: light-dark(var(--color-violet-10), var(--color-violet-desaturated-70));
   --toolbox-background-color-gradient-trailing: light-dark(var(--color-orange-10), var(--color-orange-70));
   --toolbox-background-color-inactive: transparent;
