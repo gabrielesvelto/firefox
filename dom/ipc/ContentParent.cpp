@@ -5601,6 +5601,13 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateWindow(
     return IPC_FAIL(this, "Missing BrowsingContext for new tab");
   }
 
+  // The frontend must not embed a discarded BrowsingContext. The parent can
+  // discard it on its own, so don't blame the child for this one.
+  if (NS_WARN_IF(newBC->IsDiscarded())) {
+    rv = NS_ERROR_FAILURE;
+    return IPC_OK();
+  }
+
   uint64_t newBCOpenerId = newBC->GetOpenerId();
   if (newBCOpenerId != 0 && parent->Id() != newBCOpenerId) {
     return IPC_FAIL(this, "Invalid opener BrowsingContext for new tab");
