@@ -306,7 +306,6 @@ BrowserParent::BrowserParent(ContentParent* aManager, const TabId& aTabId,
       mBrowserDOMWindow(nullptr),
       mFrameLoader(nullptr),
       mChromeFlags(aChromeFlags),
-      mBrowserBridgeParent(nullptr),
       mContentCache(*this),
       mRect(0, 0, 0, 0),
       mDimensions(0, 0),
@@ -577,7 +576,7 @@ LayersId BrowserParent::GetLayersId() const {
 }
 
 BrowserBridgeParent* BrowserParent::GetBrowserBridgeParent() const {
-  return mBrowserBridgeParent;
+  return mBrowserBridgeParent.get();
 }
 
 BrowserHost* BrowserParent::GetBrowserHost() const { return mBrowserHost; }
