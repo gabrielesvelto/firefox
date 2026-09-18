@@ -47,8 +47,10 @@ using namespace mozilla::dom;
 // Global reference to the URI fixup service.
 static mozilla::StaticRefPtr<nsIURIFixup> sURIFixup;
 
-static bool ContentTriggeredURILoadIsAllowed(
-    nsIURI* aURI, const nsACString& aEffectiveRemoteType) {
+namespace mozilla::dom {
+
+bool ContentTriggeredURILoadIsAllowed(nsIURI* aURI,
+                                      const nsACString& aEffectiveRemoteType) {
   MOZ_ASSERT(aEffectiveRemoteType != NOT_REMOTE_TYPE);
   MOZ_ASSERT(!aURI->SchemeIs("javascript"), "Should have been blocked already");
 
@@ -105,6 +107,8 @@ static bool ContentTriggeredURILoadIsAllowed(
   return ValidatePrincipalCouldPotentiallyBeLoadedBy(principal,
                                                      aEffectiveRemoteType, {});
 }
+
+}  // namespace mozilla::dom
 
 nsDocShellLoadState::nsDocShellLoadState(nsIURI* aURI)
     : nsDocShellLoadState(aURI, nsContentUtils::GenerateLoadIdentifier()) {}
