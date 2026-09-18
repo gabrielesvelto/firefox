@@ -894,7 +894,7 @@ class BrowserParent final : public PBrowserParent,
   // Pointer to the BrowserHost that owns us, if any. This is mutually
   // exclusive with mBrowserBridgeParent, and one is guaranteed to be
   // non-null.
-  BrowserHost* mBrowserHost;
+  RefPtr<BrowserHost> mBrowserHost;
 
   // KeepAlive for the containing process.
   // NOTE: While this is a strong reference to ContentParent, which is
