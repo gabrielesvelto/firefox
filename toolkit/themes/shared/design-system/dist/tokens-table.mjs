@@ -2546,6 +2546,7 @@ export const tokensTable = {
     },
     {
       value: {
+        brand: { default: "var(--text-color)" },
         nativeTheme: "FieldText",
         platform: {
           default: "FieldText",
@@ -4551,6 +4552,7 @@ export const variableLookupTable = {
     "var(--border-color-interactive-disabled)",
   "input-text-border-radius": "var(--border-radius-medium)",
   "input-text-color": {
+    brand: { default: "var(--text-color)" },
     nativeTheme: "FieldText",
     platform: {
       default: "FieldText",
