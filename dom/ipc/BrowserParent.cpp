@@ -805,6 +805,13 @@ mozilla::ipc::IPCResult BrowserParent::RecvEnsureLayersConnected(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult BrowserParent::Recv__delete__() {
+  if (!mIsDestroyed) {
+    return IPC_FAIL(this, "BrowserParent delete was initiated by the child");
+  }
+  return IPC_OK();
+}
+
 void BrowserParent::ActorDestroy(ActorDestroyReason why) {
   // Need to close undeleted ContentPermissionRequestParents before tab is
   // closed.

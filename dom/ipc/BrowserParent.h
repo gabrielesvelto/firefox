@@ -738,6 +738,8 @@ class BrowserParent final : public PBrowserParent,
 
   virtual void ActorDestroy(ActorDestroyReason why) override;
 
+  virtual mozilla::ipc::IPCResult Recv__delete__() override;
+
   mozilla::ipc::IPCResult RecvRemoteIsReadyToHandleInputEvents();
 
   MOZ_CAN_RUN_SCRIPT_BOUNDARY
