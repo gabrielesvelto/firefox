@@ -280,6 +280,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(BrowserParent)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mBrowsingContext)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mFrameElement)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mBrowserDOMWindow)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mBrowserHost)
   tmp->UnlinkManager();
   NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_REFERENCE
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
@@ -289,6 +290,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(BrowserParent)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBrowsingContext)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mFrameElement)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBrowserDOMWindow)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mBrowserHost)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE_RAWPTR(Manager())
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
@@ -307,7 +309,6 @@ BrowserParent::BrowserParent(ContentParent* aManager, const TabId& aTabId,
       mFrameLoader(nullptr),
       mChromeFlags(aChromeFlags),
       mBrowserBridgeParent(nullptr),
-      mBrowserHost(nullptr),
       mContentCache(*this),
       mRect(0, 0, 0, 0),
       mDimensions(0, 0),
@@ -904,6 +905,10 @@ void BrowserParent::ActorDestroy(ActorDestroyReason why) {
   // and it may confuse the frontend.
   mBrowsingContext->BrowserParentDestroyed(
       this, why == AbnormalShutdown || why == ManagedEndpointDropped);
+
+  // BrowserHost::DestroyComplete() has usually cleared this already, but it is
+  // never reached if we had no frame loader.
+  mBrowserHost = nullptr;
 }
 
 mozilla::ipc::IPCResult BrowserParent::RecvMoveFocus(
