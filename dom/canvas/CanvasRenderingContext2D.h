@@ -1083,7 +1083,7 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
     ContextState() = default;
     ContextState(const ContextState& aOther);
 
-    ~ContextState() = default;
+    ~ContextState();
 
     void SetColorStyle(Style aWhichStyle, nscolor aColor);
     void SetPatternStyle(Style aWhichStyle, CanvasPattern* aPat);
@@ -1181,12 +1181,10 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
 
   AutoTArray<ContextState, 3> mStyleStack;
 
-  inline ContextState& CurrentState() {
-    return mStyleStack[mStyleStack.Length() - 1];
-  }
+  inline ContextState& CurrentState() { return mStyleStack.LastElement(); }
 
   inline const ContextState& CurrentState() const {
-    return mStyleStack[mStyleStack.Length() - 1];
+    return mStyleStack.LastElement();
   }
 
   inline const ContextState& PreviousState() const {
