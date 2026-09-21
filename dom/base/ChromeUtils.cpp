@@ -22,6 +22,7 @@
 #include "js/Value.h"  // JS::Value, JS::StringValue
 #include "jsfriendapi.h"
 #include "mozJSModuleLoader.h"
+#include "mozilla/AwakeTimeStamp.h"
 #include "mozilla/Base64.h"
 #include "mozilla/ChromeProfilerCounter.h"
 #include "mozilla/Components.h"
@@ -2728,6 +2729,12 @@ double ChromeUtils::DateNow(GlobalObject&) { return JS_Now() / 1000.0; }
 /* static */
 double ChromeUtils::Now(GlobalObject&) {
   return (TimeStamp::Now() - TimeStamp::ProcessCreation()).ToMilliseconds();
+}
+
+/* static */
+double ChromeUtils::AwakeNow(GlobalObject&) {
+  static const AwakeTimeStamp sOrigin = AwakeTimeStamp::Now();
+  return (AwakeTimeStamp::Now() - sOrigin).ToMilliseconds();
 }
 
 /* static */
