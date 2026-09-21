@@ -987,9 +987,6 @@ void BrowserParent::ResumeLoad(uint64_t aPendingSwitchID) {
 }
 
 void BrowserParent::InitRendering() {
-  if (!CanSend()) {
-    return;
-  }
   if (mRemoteLayerTreeOwner.IsInitialized()) {
     return;
   }
