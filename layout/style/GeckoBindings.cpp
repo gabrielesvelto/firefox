@@ -1032,7 +1032,7 @@ void Gecko_SetFontPaletteOverride(
     return;
   }
   aValues->mOverrides.AppendElement(gfx::FontPaletteValueSet::OverrideColor{
-      uint32_t(aIndex), gfx::sRGBColor::FromABGR(aColor->ToColor())});
+      uint32_t(aIndex), aColor->ToColor()});
 }
 
 void Gecko_EnsureImageLayersLength(nsStyleImageLayers* aLayers, size_t aLen,
