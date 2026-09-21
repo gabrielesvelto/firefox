@@ -292,7 +292,7 @@ void APZCCallbackHelper::NotifyLayerTransforms(
     const nsTArray<MatrixMessage>& aTransforms) {
   MOZ_ASSERT(NS_IsMainThread());
   for (const MatrixMessage& msg : aTransforms) {
-    RefPtr<BrowserParent> parent =
+    BrowserParent* parent =
         BrowserParent::GetBrowserParentFromLayersId(msg.GetLayersId());
     if (parent) {
       parent->SetChildToParentConversionMatrix(

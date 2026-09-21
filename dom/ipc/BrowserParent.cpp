@@ -356,9 +356,6 @@ BrowserParent::BrowserParent(ContentParent* aManager, const TabId& aTabId,
 }
 
 BrowserParent::~BrowserParent() {
-  if (mRemoteLayerTreeOwner.IsInitialized()) {
-    RemoveBrowserParentFromTable(mRemoteLayerTreeOwner.GetLayersId());
-  }
   RequestingAccessKeyEventData::OnBrowserParentDestroyed();
 }
 
@@ -394,17 +391,12 @@ BrowserParent* BrowserParent::GetFrom(nsIContent* aContent) {
 }
 
 /* static */
-already_AddRefed<BrowserParent> BrowserParent::GetBrowserParentFromLayersId(
+BrowserParent* BrowserParent::GetBrowserParentFromLayersId(
     layers::LayersId aLayersId) {
   if (!sLayerToBrowserParentTable) {
     return nullptr;
   }
-  nsWeakPtr weak = sLayerToBrowserParentTable->Get(uint64_t(aLayersId));
-  if (!weak) {
-    return nullptr;
-  }
-  RefPtr<BrowserParent> browserParent = do_QueryReferent(weak);
-  return browserParent.forget();
+  return sLayerToBrowserParentTable->Get(uint64_t(aLayersId));
 }
 
 /*static*/
@@ -421,8 +413,8 @@ void BrowserParent::AddBrowserParentToTable(layers::LayersId aLayersId,
   if (!sLayerToBrowserParentTable) {
     sLayerToBrowserParentTable = new LayerToBrowserParentTable();
   }
-  sLayerToBrowserParentTable->InsertOrUpdate(
-      uint64_t(aLayersId), do_GetWeakReference(aBrowserParent));
+  sLayerToBrowserParentTable->InsertOrUpdate(uint64_t(aLayersId),
+                                             aBrowserParent);
 }
 
 void BrowserParent::RemoveBrowserParentFromTable(layers::LayersId aLayersId) {

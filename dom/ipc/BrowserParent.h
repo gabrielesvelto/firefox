@@ -124,7 +124,7 @@ class BrowserParent final : public PBrowserParent,
 
   static BrowserParent* GetFrom(nsIContent* aContent);
 
-  static already_AddRefed<BrowserParent> GetBrowserParentFromLayersId(
+  static BrowserParent* GetBrowserParentFromLayersId(
       layers::LayersId aLayersId);
 
   static TabId GetTabIdFrom(nsIDocShell* docshell);
@@ -804,7 +804,7 @@ class BrowserParent final : public PBrowserParent,
  private:
   // This is used when APZ needs to find the BrowserParent associated with a
   // layer to dispatch events.
-  typedef nsTHashMap<nsUint64HashKey, nsWeakPtr> LayerToBrowserParentTable;
+  typedef nsTHashMap<nsUint64HashKey, BrowserParent*> LayerToBrowserParentTable;
   static LayerToBrowserParentTable* sLayerToBrowserParentTable;
 
   static void AddBrowserParentToTable(layers::LayersId aLayersId,
