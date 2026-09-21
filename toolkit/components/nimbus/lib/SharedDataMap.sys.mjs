@@ -244,7 +244,7 @@ export class SharedDataMap extends EventEmitter {
     ) {
       // This will unblock anybody waiting for our init and leave data == null
       // if it was not yet initialized, making get() return null.
-      this._readyDeferred.reject(new Error("SharedDataMap: in shutdown"));
+      this._readyDeferred.reject();
       lazy.AsyncShutdown.appShutdownConfirmed.removeBlocker(
         this._shutdownBlocker
       );

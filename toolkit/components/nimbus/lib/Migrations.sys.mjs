@@ -16,8 +16,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/profile/ProfilesDatastoreService.sys.mjs",
   RemoteSettingsSyncError:
     "resource://nimbus/lib/RemoteSettingsExperimentLoader.sys.mjs",
-  ShutdownStartedError:
-    "resource://nimbus/lib/RemoteSettingsExperimentLoader.sys.mjs",
   UnenrollmentCause: "resource://nimbus/lib/ExperimentManager.sys.mjs",
 });
 
@@ -415,24 +413,11 @@ async function migrateFirefoxLabsEnrollments() {
 export class MigrationError extends Error {
   static Reason = Object.freeze({
     UNKNOWN: "unknown",
-    SHUTDOWN_STARTED: "shutdown-started",
   });
 
   constructor(reason) {
     super(`Migration error: ${reason}`);
     this.reason = reason;
-  }
-
-  static getReason(e) {
-    if (e instanceof MigrationError) {
-      return e.reason;
-    }
-
-    if (e instanceof lazy.ShutdownStartedError) {
-      return MigrationError.Reason.SHUTDOWN_STARTED;
-    }
-
-    return MigrationError.Reason.UNKNOWN;
   }
 }
 
@@ -478,7 +463,10 @@ export const NimbusMigrations = {
           `applyMigrations: error running migration ${i} (${migration.name}): ${e}`
         );
 
-        const reason = MigrationError.getReason(e);
+        const reason =
+          e instanceof MigrationError
+            ? e.reason
+            : MigrationError.Reason.UNKNOWN;
         lazy.NimbusTelemetry.recordMigration(migration.name, duration, reason);
 
         break;

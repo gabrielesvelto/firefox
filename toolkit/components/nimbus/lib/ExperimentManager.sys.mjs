@@ -20,8 +20,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://nimbus/lib/RemoteSettingsExperimentLoader.sys.mjs",
   MatchStatus: "resource://nimbus/lib/RemoteSettingsExperimentLoader.sys.mjs",
   Sampling: "resource://gre/modules/components-utils/Sampling.sys.mjs",
-  ShutdownStartedError:
-    "resource://nimbus/lib/RemoteSettingsExperimentLoader.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "log", () => {
@@ -517,8 +515,6 @@ export class ExperimentManager {
   /**
    * Get the list of opt-ins that are available for enrollment.
    *
-   * This may return an empty list if called during shutdown.
-   *
    * @returns {OptInEntry[]} The opt-in recipes and their sources.
    */
   async getAvailableOptIns() {
@@ -533,36 +529,25 @@ export class ExperimentManager {
     // RemoteSettingsExperimentLoader should have finished updating at least
     // once. Prevent concurrent updates while we filter through the list of
     // available opt-in recipes.
-    let entries;
-    try {
-      entries = await lazy.ExperimentAPI._rsLoader.withUpdateLock(
-        async () => {
-          const filtered = [];
+    const entries = await lazy.ExperimentAPI._rsLoader.withUpdateLock(
+      async () => {
+        const filtered = [];
 
-          for (const entry of this.optIns) {
-            if (
-              (await enrollmentsCtx.checkTargeting(entry.recipe)) &&
-              (await this.isInBucketAllocation(entry.recipe.bucketConfig)) &&
-              (this.store.get(entry.recipe.slug)?.active ||
-                this.canEnroll(entry.recipe).ok)
-            ) {
-              filtered.push(entry);
-            }
+        for (const entry of this.optIns) {
+          if (
+            (await enrollmentsCtx.checkTargeting(entry.recipe)) &&
+            (await this.isInBucketAllocation(entry.recipe.bucketConfig)) &&
+            (this.store.get(entry.recipe.slug)?.active ||
+              this.canEnroll(entry.recipe).ok)
+          ) {
+            filtered.push(entry);
           }
+        }
 
-          return filtered;
-        },
-        { mode: "shared" }
-      );
-    } catch (e) {
-      // If we're in shutdown, there is no point presenting opt-ins to the user
-      // because we don't want to change enrollment state.
-      if (e instanceof lazy.ShutdownStartedError) {
-        return [];
-      }
-
-      throw e;
-    }
+        return filtered;
+      },
+      { mode: "shared" }
+    );
 
     entries.sort(
       (a, b) =>

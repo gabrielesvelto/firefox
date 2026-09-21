@@ -213,11 +213,6 @@ export class RemoteSettingsExperimentLoader {
    */
   #shutdownBlocker;
 
-  /**
-   * An AbortController that will be signalled when shutdown is confirmed.
-   */
-  #abortController;
-
   get LOCK_ID() {
     return "remote-settings-experiment-loader:update";
   }
@@ -237,8 +232,6 @@ export class RemoteSettingsExperimentLoader {
     this._hasUpdatedOnce = false;
     // deferred promise object that resolves after recipes are updated
     this._updatingDeferred = Promise.withResolvers();
-
-    this.#abortController = new AbortController();
 
     this.remoteSettingsClients = {};
     ChromeUtils.defineLazyGetter(
@@ -308,7 +301,6 @@ export class RemoteSettingsExperimentLoader {
       }
 
       this.#shutdownBlocker = async () => {
-        this.#abortController.abort();
         await this.finishedUpdating();
         this.disable();
       };
@@ -349,52 +341,13 @@ export class RemoteSettingsExperimentLoader {
    *
    * This will prevent recipe updates from starting until after the callback finishes.
    *
-   * @template T
-   * @template {() => T} F
+   * @param {Function} fn The callback to call
+   * @param {object} options Options to pass to the WebLocks request API.
    *
-   * @param {F} fn
-   * The callback to call
-   *
-   * @param {LockOptions} options
-   * Options to pass to the WebLocks request API.
-   *
-   * @returns {Promise<T>}
-   * The return value of `fn`.
-   *
-   * @throws {AbortError}
-   * If the provided signal exists and was aborted.
-   *
-   * @throws {ShutdownStartedError}
-   * If shutdown begins before the lock is acquired.
-   *
-   * @throws
-   * Any exception thrown by `fn`.
+   * @returns {any} The return value of fn.
    */
-  async withUpdateLock(fn, options = {}) {
-    try {
-      return await locks.request(
-        this.LOCK_ID,
-        {
-          ...options,
-          signal: options.signal
-            ? AbortSignal.any([options.signal, this.#abortController.signal])
-            : this.#abortController.signal,
-        },
-        fn
-      );
-    } catch (e) {
-      if (
-        DOMException.isInstance(e) &&
-        e.name === "AbortError" &&
-        Services.startup.isInOrBeyondShutdownPhase(
-          Ci.nsIAppStartup.SHUTDOWN_PHASE_APPSHUTDOWNCONFIRMED
-        )
-      ) {
-        throw new ShutdownStartedError();
-      }
-
-      throw e;
-    }
+  async withUpdateLock(fn, options) {
+    return await locks.request(this.LOCK_ID, options, fn);
   }
 
   /**
@@ -413,12 +366,14 @@ export class RemoteSettingsExperimentLoader {
    *                 options.
    */
   async updateRecipes(trigger, options) {
-    // Prevent an update from starting if we're shutting down as it might not
-    // complete in time and could result in partial state written to the
-    // database or inconsistency between pref state and database state.
+    if (this._updating || !this._enabled) {
+      return;
+    }
+
+    // If we've started shutting down, prevent an update from being triggered,
+    // which we might not complete in time and could result in partial state
+    // written to the database.
     if (
-      this._updating ||
-      !this._enabled ||
       Services.startup.isInOrBeyondShutdownPhase(
         Ci.nsIAppStartup.SHUTDOWN_PHASE_APPSHUTDOWNCONFIRMED
       )
@@ -469,6 +424,7 @@ export class RemoteSettingsExperimentLoader {
     }
 
     Services.prefs.setBoolPref("nimbus.firstUpdateComplete", true);
+
     this.recordIsReady();
   }
 
@@ -525,27 +481,14 @@ export class RemoteSettingsExperimentLoader {
           onlyFeatureIds,
         });
       } catch (e) {
-        if (e instanceof ShutdownStartedError) {
-          // Re-throw this error so that we correctly abort the update.
-          throw e;
-        }
-
         lazy.log.debug("Failed to update", e);
       }
 
       if (allRecipes !== null) {
-        let unenrolledExperimentSlugs = undefined;
-
-        // We are about to attempt to do disk IO. We have not yet made any
-        // irreversible changes, so we can attempt to abort the update if shutdown
-        // has begun.
-        if (lazy.NimbusEnrollments.syncEnrollmentsEnabled) {
-          unenrolledExperimentSlugs = await this.#raceShutdown(() =>
-            lazy.NimbusEnrollments.loadUnenrolledExperimentSlugsFromOtherProfiles()
-          );
-        } else {
-          this.#throwDuringShutdown();
-        }
+        const unenrolledExperimentSlugs = lazy.NimbusEnrollments
+          .syncEnrollmentsEnabled
+          ? await lazy.NimbusEnrollments.loadUnenrolledExperimentSlugsFromOtherProfiles()
+          : undefined;
 
         const enrollmentsCtx = new EnrollmentsContext(
           this.manager,
@@ -564,10 +507,6 @@ export class RemoteSettingsExperimentLoader {
           allRecipes,
           { onlyFeatureIds }
         );
-
-        // This is the last possible moment we can abort without making any
-        // irreversible state changes that require disk IO to persist.
-        this.#throwDuringShutdown("before-process-enrollments");
 
         for (const { enrollment, recipe } of existingEnrollments) {
           const result = recipe
@@ -688,7 +627,7 @@ export class RemoteSettingsExperimentLoader {
         //
         // TODO(bug 1967779): require the ProfilesDatastoreService to be initialized
         // and remove this check.
-        this.manager.store._db.updateSyncTimestamps(timestamps);
+        await this.manager.store._db.updateSyncTimestamps(timestamps);
       }
 
       return recipes;
@@ -718,41 +657,6 @@ export class RemoteSettingsExperimentLoader {
       }
 
       throw e;
-    }
-  }
-
-  /**
-   * Race the promise returned by `f` with shutdown.
-   *
-   * If shutdown has begun, `f` will not be invoked and this function will throw
-   * immediately.
-   *
-   * @template T
-   * @template {() => Promise<T>} F
-   *
-   * @param {F} f The function to call.
-   *
-   * @returns {Promise<T>}
-   * A promise that will either resolve/reject to the same value as the promise
-   * returned by `f()`, or a rejection containing a {@link ShutdownStartedError}
-   * if shutdown occurs before `f()` completes.
-   *
-   * @throws {ShutdownStartedError}
-   * Thrown when shutdown has started.
-   */
-  async #raceShutdown(f) {
-    this.#throwDuringShutdown();
-
-    const signal = this.#abortController.signal;
-    const { promise, reject } = Promise.withResolvers();
-    const listener = () => reject(new ShutdownStartedError());
-
-    signal.addEventListener("abort", listener, { once: true });
-
-    try {
-      return await Promise.race([f(), promise]);
-    } finally {
-      signal.removeEventListener("abort", listener);
     }
   }
 
@@ -789,23 +693,13 @@ export class RemoteSettingsExperimentLoader {
     onlyFeatureIds = undefined,
   } = {}) {
     let recipes;
-
     try {
-      // We are about to potentially do disk IO or even network IO. If the browser
-      // has started to shutdown, we should abort the current update.
-      recipes = await this.#raceShutdown(() =>
-        client.get({
-          forceSync,
-          emptyListFallback: false, // Throw instead of returning an empty list.
-          verifySignature: true,
-        })
-      );
+      recipes = await client.get({
+        forceSync,
+        emptyListFallback: false, // Throw instead of returning an empty list.
+        verifySignature: true,
+      });
     } catch (e) {
-      if (e instanceof ShutdownStartedError) {
-        // Re-throw this error so that we correctly abort the update.
-        throw e;
-      }
-
       const { RemoteSettingsSyncErrorReason } = lazy.NimbusTelemetry;
       let reason;
 
@@ -1019,12 +913,7 @@ export class RemoteSettingsExperimentLoader {
     // The callbacks will be called soon after the timer is registered
     lazy.timerManager.registerTimer(
       TIMER_NAME,
-      () =>
-        this.updateRecipes("timer").catch(e => {
-          if (!(e instanceof ShutdownStartedError)) {
-            throw e;
-          }
-        }),
+      () => this.updateRecipes("timer"),
       this.intervalInSeconds
     );
     lazy.log.debug("Registered update timer");
@@ -1135,19 +1024,6 @@ export class RemoteSettingsExperimentLoader {
       existingEnrollments,
       recipes: remaining,
     };
-  }
-
-  /**
-   * Attempt to abort an in-process update during shutdown.
-   */
-  #throwDuringShutdown() {
-    if (
-      Services.startup.isInOrBeyondShutdownPhase(
-        Ci.nsIAppStartup.SHUTDOWN_PHASE_APPSHUTDOWNCONFIRMED
-      )
-    ) {
-      throw new ShutdownStartedError();
-    }
   }
 }
 
@@ -1567,14 +1443,5 @@ export class RemoteSettingsSyncError extends Error {
 
     this.collectionName = collectionName;
     this.reason = reason;
-  }
-}
-
-/**
- * An error thrown when an operation is interrupted by shutdown.
- */
-export class ShutdownStartedError extends Error {
-  constructor() {
-    super("Shutdown started");
   }
 }
