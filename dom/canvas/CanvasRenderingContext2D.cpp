@@ -1033,12 +1033,9 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(CanvasRenderingContext2D)
       /*
        * XXXjwatt: I don't think this is doing anything useful.  All we do under
        * this function is clear a raw C-style (i.e. not strong) pointer.  That's
-       * clearly not helping in breaking any cycles.  The fact that we MOZ_CRASH
-       * in OnRenderingChange if that pointer is null indicates that this isn't
-       * even doing anything useful in terms of preventing further invalidation
-       * from any observed filters.
+       * clearly not helping in breaking any cycles.
        */
-      autoSVGFiltersObserver->Detach();
+      autoSVGFiltersObserver->SetIsActive(false);
     }
     ImplCycleCollectionUnlink(state.autoSVGFiltersObserver);
   }
@@ -1127,13 +1124,20 @@ CanvasRenderingContext2D::ContextState::ContextState(const ContextState& aOther)
       lineJoin(aOther.lineJoin),
       filterString(aOther.filterString),
       filterChain(aOther.filterChain),
-      autoSVGFiltersObserver(aOther.autoSVGFiltersObserver),
       filter(aOther.filter),
       filterAdditionalImages(aOther.filterAdditionalImages.Clone()),
       filterSourceGraphicTainted(aOther.filterSourceGraphicTainted),
-      imageSmoothingEnabled(aOther.imageSmoothingEnabled) {}
+      imageSmoothingEnabled(aOther.imageSmoothingEnabled) {
+  if (aOther.autoSVGFiltersObserver) {
+    autoSVGFiltersObserver = aOther.autoSVGFiltersObserver->Clone();
+  }
+}
 
-CanvasRenderingContext2D::ContextState::~ContextState() = default;
+CanvasRenderingContext2D::ContextState::~ContextState() {
+  if (autoSVGFiltersObserver.get()) {
+    autoSVGFiltersObserver->SetIsActive(false);
+  }
+}
 
 void CanvasRenderingContext2D::ContextState::SetColorStyle(Style aWhichStyle,
                                                            nscolor aColor) {
@@ -1230,12 +1234,6 @@ CanvasRenderingContext2D::~CanvasRenderingContext2D() {
   RemovePostRefreshObserver();
   RemoveShutdownObserver();
   ResetBitmap();
-
-  for (ContextState& state : mStyleStack) {
-    if (auto* obs = state.autoSVGFiltersObserver.get()) {
-      obs->Detach();
-    }
-  }
 
   sNumLivingContexts.set(sNumLivingContexts.get() - 1);
   if (sNumLivingContexts.get() == 0 && sErrorTarget.get()) {
@@ -2381,9 +2379,13 @@ void CanvasRenderingContext2D::Save() {
     SetErrorState();
     return;
   }
-  mStyleStack[mStyleStack.Length() - 1].transform = GetCurrentTransform();
+  CurrentState().transform = GetCurrentTransform();
   mStyleStack.SetCapacity(mStyleStack.Length() + 1);
   mStyleStack.AppendElement(CurrentState());
+  if (auto* autoSVGFiltersObserver =
+          PreviousState().autoSVGFiltersObserver.get()) {
+    autoSVGFiltersObserver->SetIsActive(false);
+  }
 
   if (mStyleStack.Length() > MAX_STYLE_STACK_SIZE) {
     // This is not fast, but is better than OOMing and shouldn't be hit by
@@ -2409,6 +2411,10 @@ void CanvasRenderingContext2D::Restore() {
   }
 
   mStyleStack.RemoveLastElement();
+  if (auto* autoSVGFiltersObserver =
+          CurrentState().autoSVGFiltersObserver.get()) {
+    autoSVGFiltersObserver->SetIsActive(true);
+  }
 
   mPathTransformDirty = true;
 }
@@ -2977,7 +2983,7 @@ void CanvasRenderingContext2D::SetFilter(const nsACString& aFilter,
     CurrentState().filterChain = std::move(filterChain);
     if (mCanvasElement) {
       if (CurrentState().autoSVGFiltersObserver) {
-        CurrentState().autoSVGFiltersObserver->Detach();
+        CurrentState().autoSVGFiltersObserver->SetIsActive(false);
       }
       CurrentState().autoSVGFiltersObserver =
           SVGObserverUtils::ObserveFiltersForCanvasContext(
