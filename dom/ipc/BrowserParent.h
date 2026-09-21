@@ -184,6 +184,10 @@ class BrowserParent final : public PBrowserParent,
   // and nullptr otherwise.
   BrowserHost* GetBrowserHost() const;
 
+  bool IsEmbedded() const {
+    return mBrowserHost || mBrowserBridgeParent || mFrameElement;
+  }
+
   ParentShowInfo GetShowInfo();
 
   // Get the content principal from the owner element.
