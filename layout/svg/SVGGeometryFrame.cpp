@@ -267,9 +267,11 @@ void SVGGeometryFrame::ReflowSVG() {
     return;
   }
 
+  // Speed is more important than accuracy here - we don't care if the stroke
+  // bounds are slightly too large so we set EstimateStrokeBounds.
   SVGBBoxFlags flags = {SVGBBoxFlag::IncludeFillGeometry,
-                        SVGBBoxFlag::IncludeStroke,
-                        SVGBBoxFlag::IncludeMarkers};
+                        SVGBBoxFlag::IncludeStroke, SVGBBoxFlag::IncludeMarkers,
+                        SVGBBoxFlag::EstimateStrokeBounds};
 
   // Our "visual" overflow rect needs to be valid for building display lists
   // for hit testing, which means that for certain values of 'pointer-events'
@@ -445,7 +447,8 @@ SVGBBox SVGGeometryFrame::GetBBoxContribution(const Matrix& aToBBoxUserspace,
       //   stroke bounds that it will return will be empty.
 
       Maybe<Rect> strokeBBoxExtents;
-      if (StaticPrefs::svg_Moz2D_strokeBounds_enabled()) {
+      if (!aFlags.contains(SVGBBoxFlag::EstimateStrokeBounds) &&
+          StaticPrefs::svg_Moz2D_strokeBounds_enabled()) {
         if (userToOuterSVG) {
           Matrix m = ToMatrix(*userToOuterSVG);
           Matrix outerSVGToBBox = aToBBoxUserspace * m.Inverse();
