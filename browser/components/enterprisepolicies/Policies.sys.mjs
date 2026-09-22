@@ -1939,20 +1939,32 @@ export var Policies = {
   Handlers: {
     onBeforeAddons(manager, param) {
       if ("mimeTypes" in param) {
-        for (let mimeType in param.mimeTypes) {
-          let mimeInfo = param.mimeTypes[mimeType];
-          let realMIMEInfo = lazy.gMIMEService.getFromTypeAndExtension(
-            mimeType,
-            ""
-          );
-          processMIMEInfo(mimeInfo, realMIMEInfo);
+        for (const mimeType in param.mimeTypes) {
+          const mimeInfo = param.mimeTypes[mimeType];
+          if (!mimeType) {
+            lazy.log.error("Invalid MIME type (empty)");
+            continue;
+          }
+          try {
+            const realMIMEInfo = lazy.gMIMEService.getFromTypeAndExtension(
+              mimeType,
+              ""
+            );
+            processMIMEInfo(mimeInfo, realMIMEInfo);
+          } catch (e) {
+            lazy.log.error(`Invalid MIME type (${mimeType})`);
+          }
         }
       }
       if ("extensions" in param) {
-        for (let extension in param.extensions) {
-          let mimeInfo = param.extensions[extension];
+        for (const extension in param.extensions) {
+          const mimeInfo = param.extensions[extension];
+          if (!extension) {
+            lazy.log.error("Invalid file extension (empty)");
+            continue;
+          }
           try {
-            let realMIMEInfo = lazy.gMIMEService.getFromTypeAndExtension(
+            const realMIMEInfo = lazy.gMIMEService.getFromTypeAndExtension(
               "",
               extension
             );
@@ -1963,11 +1975,19 @@ export var Policies = {
         }
       }
       if ("schemes" in param) {
-        for (let scheme in param.schemes) {
-          let handlerInfo = param.schemes[scheme];
-          let realHandlerInfo =
-            lazy.gExternalProtocolService.getProtocolHandlerInfo(scheme);
-          processMIMEInfo(handlerInfo, realHandlerInfo);
+        for (const scheme in param.schemes) {
+          const handlerInfo = param.schemes[scheme];
+          if (!scheme) {
+            lazy.log.error("Invalid scheme (empty)");
+            continue;
+          }
+          try {
+            const realHandlerInfo =
+              lazy.gExternalProtocolService.getProtocolHandlerInfo(scheme);
+            processMIMEInfo(handlerInfo, realHandlerInfo);
+          } catch (e) {
+            lazy.log.error(`Invalid scheme (${scheme})`);
+          }
         }
       }
     },
@@ -3970,7 +3990,13 @@ function processMIMEInfo(mimeInfo, realMIMEInfo) {
             continue;
           }
         } else if ("uriTemplate" in handler) {
-          let templateURL = new URL(handler.uriTemplate);
+          let templateURL;
+          try {
+            templateURL = new URL(handler.uriTemplate);
+          } catch (ex) {
+            lazy.log.error(`Invalid web handler URL (${handler.uriTemplate})`);
+            continue;
+          }
           if (templateURL.protocol != "https:") {
             lazy.log.error(
               `Web handler must be https (${handler.uriTemplate})`
