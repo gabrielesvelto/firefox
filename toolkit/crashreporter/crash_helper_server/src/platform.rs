@@ -8,6 +8,18 @@ mod android;
 #[cfg(target_os = "android")]
 pub(crate) use android::PROXY_RENDEZ_VOUS;
 
+#[cfg(target_os = "macos")]
+mod macos;
+
+#[cfg(target_os = "macos")]
+pub(crate) use macos::CRASH_REPORTER_PATH;
+
+#[cfg(target_os = "linux")]
+mod linux;
+
+#[cfg(target_os = "linux")]
+pub(crate) use linux::CRASH_REPORTER_PATH;
+
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 mod unix;
 
@@ -18,4 +30,4 @@ pub(crate) use unix::{daemonize, get_client_handle, PROXY_RENDEZ_VOUS};
 mod windows;
 
 #[cfg(target_os = "windows")]
-pub(crate) use windows::{daemonize, get_client_handle, PROXY_RENDEZ_VOUS};
+pub(crate) use windows::{daemonize, get_client_handle, CRASH_REPORTER_PATH, PROXY_RENDEZ_VOUS};

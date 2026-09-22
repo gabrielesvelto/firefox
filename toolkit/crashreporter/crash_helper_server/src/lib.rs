@@ -16,10 +16,15 @@ use crash_helper_common::{
     ApplicationInfo, BreakpadChar, BreakpadData, BreakpadRawData, BreakpadString, IPCConnector,
     IPCListener, Pid,
 };
-use std::ffi::OsString;
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+    process::{self, Command},
+};
 
 use crash_generation::{finalize_breakpad_minidump, initialize_static_annotations};
 use ipc_server::{IPCServer, IPCServerState};
+use platform::CRASH_REPORTER_PATH;
 
 /// Runs the crash generator process logic, this includes the IPC used by
 /// processes to signal that they crashed, the IPC used to retrieve crash
@@ -195,6 +200,25 @@ fn main_loop(mut ipc_server: IPCServer) -> i32 {
             _ => {} // Go on
         }
     }
+}
+
+#[allow(dead_code)]
+fn crashreporter_path() -> PathBuf {
+    let mut path =
+        unwrap_res_with_message(std::env::current_exe(), "Could not get the executable path");
+    path.pop();
+    path.push(CRASH_REPORTER_PATH);
+    path
+}
+
+#[allow(dead_code)]
+fn launch_client(crashreporter: &Path, minidump: &Path) {
+    let _ = Command::new(crashreporter)
+        .arg(minidump)
+        .spawn()
+        .expect("Failed to launch the crash reporter client")
+        .wait();
+    process::exit(0);
 }
 
 #[cfg(not(target_os = "android"))]
