@@ -36,6 +36,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
+  describePreferenceFailure: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   reportFailure: "resource://gre/modules/PoliciesHelpers.sys.mjs",
 });
 
@@ -996,7 +997,11 @@ export var Policies = {
             "application/pdf",
             "pdf"
           );
-          processMIMEInfo({ action: "handleInternally" }, pdfMIMEInfo);
+          processMIMEInfo(
+            { action: "handleInternally" },
+            pdfMIMEInfo,
+            "DisableBuiltinPDFViewer"
+          );
         });
         return;
       }
@@ -1004,7 +1009,11 @@ export var Policies = {
         "application/pdf",
         "pdf"
       );
-      processMIMEInfo({ action: "useSystemDefault" }, pdfMIMEInfo);
+      processMIMEInfo(
+        { action: "useSystemDefault" },
+        pdfMIMEInfo,
+        "DisableBuiltinPDFViewer"
+      );
     },
   },
 
@@ -1981,7 +1990,7 @@ export var Policies = {
         for (const mimeType in param.mimeTypes) {
           const mimeInfo = param.mimeTypes[mimeType];
           if (!mimeType) {
-            lazy.log.error("Invalid MIME type (empty)");
+            lazy.reportFailure("Handlers", "Invalid MIME type (empty)");
             continue;
           }
           try {
@@ -1989,9 +1998,12 @@ export var Policies = {
               mimeType,
               ""
             );
-            processMIMEInfo(mimeInfo, realMIMEInfo);
+            processMIMEInfo(mimeInfo, realMIMEInfo, "Handlers");
           } catch (e) {
-            lazy.log.error(`Invalid MIME type (${mimeType})`);
+            lazy.reportFailure(
+              "Handlers",
+              `Invalid MIME type (${mimeType}): ${e}`
+            );
           }
         }
       }
@@ -1999,7 +2011,7 @@ export var Policies = {
         for (const extension in param.extensions) {
           const mimeInfo = param.extensions[extension];
           if (!extension) {
-            lazy.log.error("Invalid file extension (empty)");
+            lazy.reportFailure("Handlers", "Invalid file extension (empty)");
             continue;
           }
           try {
@@ -2007,9 +2019,12 @@ export var Policies = {
               "",
               extension
             );
-            processMIMEInfo(mimeInfo, realMIMEInfo);
+            processMIMEInfo(mimeInfo, realMIMEInfo, "Handlers");
           } catch (e) {
-            lazy.log.error(`Invalid file extension (${extension})`);
+            lazy.reportFailure(
+              "Handlers",
+              `Invalid file extension (${extension}): ${e}`
+            );
           }
         }
       }
@@ -2017,15 +2032,15 @@ export var Policies = {
         for (const scheme in param.schemes) {
           const handlerInfo = param.schemes[scheme];
           if (!scheme) {
-            lazy.log.error("Invalid scheme (empty)");
+            lazy.reportFailure("Handlers", "Invalid scheme (empty)");
             continue;
           }
           try {
             const realHandlerInfo =
               lazy.gExternalProtocolService.getProtocolHandlerInfo(scheme);
-            processMIMEInfo(handlerInfo, realHandlerInfo);
+            processMIMEInfo(handlerInfo, realHandlerInfo, "Handlers");
           } catch (e) {
-            lazy.log.error(`Invalid scheme (${scheme})`);
+            lazy.reportFailure("Handlers", `Invalid scheme (${scheme}): ${e}`);
           }
         }
       }
@@ -2643,7 +2658,7 @@ export var Policies = {
             // preferences that come after it.
             lazy.reportFailure(
               "Preferences",
-              `Unable to set preference ${preference}. Probable type mismatch.`
+              lazy.describePreferenceFailure(preference, param[preference], e)
             );
           }
         } else {
@@ -2706,7 +2721,11 @@ export var Policies = {
           } catch (e) {
             lazy.reportFailure(
               "Preferences",
-              `Unable to set preference ${preference}. Probable type mismatch.`
+              lazy.describePreferenceFailure(
+                preference,
+                param[preference].Value,
+                e
+              )
             );
           }
 
@@ -4077,7 +4096,7 @@ function pemToBase64(pem) {
     .replace(/[\r\n]/g, "");
 }
 
-function processMIMEInfo(mimeInfo, realMIMEInfo) {
+function processMIMEInfo(mimeInfo, realMIMEInfo, policyName) {
   if ("handlers" in mimeInfo) {
     let firstHandler = true;
     for (let handler of mimeInfo.handlers) {
@@ -4093,7 +4112,8 @@ function processMIMEInfo(mimeInfo, realMIMEInfo) {
             ].createInstance(Ci.nsILocalHandlerApp);
             handlerApp.executable = file;
           } catch (ex) {
-            lazy.log.error(
+            lazy.reportFailure(
+              policyName,
               `Unable to create handler executable (${handler.path})`
             );
             continue;
@@ -4103,11 +4123,15 @@ function processMIMEInfo(mimeInfo, realMIMEInfo) {
           try {
             templateURL = new URL(handler.uriTemplate);
           } catch (ex) {
-            lazy.log.error(`Invalid web handler URL (${handler.uriTemplate})`);
+            lazy.reportFailure(
+              policyName,
+              `Invalid web handler URL (${handler.uriTemplate})`
+            );
             continue;
           }
           if (templateURL.protocol != "https:") {
-            lazy.log.error(
+            lazy.reportFailure(
+              policyName,
               `Web handler must be https (${handler.uriTemplate})`
             );
             continue;
@@ -4116,7 +4140,8 @@ function processMIMEInfo(mimeInfo, realMIMEInfo) {
             !templateURL.pathname.includes("%s") &&
             !templateURL.search.includes("%s")
           ) {
-            lazy.log.error(
+            lazy.reportFailure(
+              policyName,
               `Web handler must contain %s (${handler.uriTemplate})`
             );
             continue;
@@ -4126,7 +4151,7 @@ function processMIMEInfo(mimeInfo, realMIMEInfo) {
           ].createInstance(Ci.nsIWebHandlerApp);
           handlerApp.uriTemplate = handler.uriTemplate;
         } else {
-          lazy.log.error("Invalid handler");
+          lazy.reportFailure(policyName, "Invalid handler");
           continue;
         }
         if ("name" in handler) {
@@ -4146,7 +4171,7 @@ function processMIMEInfo(mimeInfo, realMIMEInfo) {
       action == realMIMEInfo.useHelperApp &&
       !realMIMEInfo.possibleApplicationHandlers.length
     ) {
-      lazy.log.error("useHelperApp requires a handler");
+      lazy.reportFailure(policyName, "useHelperApp requires a handler");
       return;
     }
     realMIMEInfo.preferredAction = action;

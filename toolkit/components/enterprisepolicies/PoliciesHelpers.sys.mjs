@@ -97,3 +97,42 @@ export function reportFailure(policyName, message) {
     PolicyFailures.report(policyName, message);
   }
 }
+
+const PREF_TYPE_NAMES = {
+  [Ci.nsIPrefBranch.PREF_BOOL]: "boolean",
+  [Ci.nsIPrefBranch.PREF_INT]: "number",
+  [Ci.nsIPrefBranch.PREF_STRING]: "string",
+};
+
+/**
+ * Describes why a preference could not be set, in terms an administrator can
+ * act on: which type the preference takes, and what the policy provided.
+ *
+ * @param {string} preference
+ *        The preference that could not be set.
+ * @param {boolean|number|string} value
+ *        The value the policy asked for.
+ * @param {Error} ex
+ *        The failure raised while setting it.
+ * @returns {string}
+ *        A description of what to correct.
+ */
+export function describePreferenceFailure(preference, value, ex) {
+  const expected =
+    PREF_TYPE_NAMES[
+      Services.prefs.getDefaultBranch("").getPrefType(preference)
+    ];
+  if (expected && expected != typeof value) {
+    return (
+      `Unable to set preference ${preference}: it takes a ${expected}, ` +
+      `but the policy provided a ${typeof value}.`
+    );
+  }
+  if (expected == "number" && !Number.isInteger(value)) {
+    return `Unable to set preference ${preference}: it takes a whole number.`;
+  }
+  const reason = ex?.result
+    ? ChromeUtils.getXPCOMErrorName(ex.result)
+    : (ex?.message ?? ex);
+  return `Unable to set preference ${preference}: ${reason}`;
+}
