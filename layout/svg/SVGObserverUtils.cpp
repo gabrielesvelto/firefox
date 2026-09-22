@@ -724,15 +724,6 @@ SVGFilterFrame* SVGFilterObserver::GetAndObserveFilterFrame() {
       GetAndObserveReferencedFrame(LayoutFrameType::SVGFilter, nullptr));
 }
 
-NS_IMPL_CYCLE_COLLECTION(ISVGFilterObserverList)
-
-NS_IMPL_CYCLE_COLLECTING_ADDREF(ISVGFilterObserverList)
-NS_IMPL_CYCLE_COLLECTING_RELEASE(ISVGFilterObserverList)
-
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ISVGFilterObserverList)
-  NS_INTERFACE_MAP_ENTRY(nsISupports)
-NS_INTERFACE_MAP_END
-
 /**
  * This class manages a list of SVGFilterObservers, which correspond to
  * reference to SVG filters in a list of filters in a given 'filter' property.
@@ -747,26 +738,23 @@ NS_INTERFACE_MAP_END
  * FIXME(emilio): Why do we need this as opposed to the individual observers we
  * create in the constructor?
  */
-class SVGFilterObserverList : public ISVGFilterObserverList {
+class SVGFilterObserverList : public nsISupports {
  public:
   SVGFilterObserverList(Span<const StyleFilter> aFilters,
                         nsIContent* aFilteredElement,
                         nsIFrame* aFilteredFrame = nullptr);
 
-  const nsTArray<RefPtr<SVGFilterObserver>>& GetObservers() const override {
+  const nsTArray<RefPtr<SVGFilterObserver>>& GetObservers() const {
     return mObservers;
   }
 
   // nsISupports
-  NS_DECL_ISUPPORTS_INHERITED
-  NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(SVGFilterObserverList,
-                                           ISVGFilterObserverList)
+  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
+  NS_DECL_CYCLE_COLLECTION_CLASS(SVGFilterObserverList)
 
   virtual void OnRenderingChange() = 0;
 
  protected:
-  SVGFilterObserverList(const SVGFilterObserverList& aOther)
-      : mObservers(aOther.mObservers.Clone()) {}
   virtual ~SVGFilterObserverList();
 
   void DetachObservers() {
@@ -813,24 +801,21 @@ void SVGFilterObserver::OnRenderingChange() {
       mObservingContent, RestyleHint{0}, changeHint);
 }
 
-NS_IMPL_ADDREF_INHERITED(SVGFilterObserverList, ISVGFilterObserverList)
-NS_IMPL_RELEASE_INHERITED(SVGFilterObserverList, ISVGFilterObserverList)
+NS_IMPL_CYCLE_COLLECTING_ADDREF(SVGFilterObserverList)
+NS_IMPL_CYCLE_COLLECTING_RELEASE(SVGFilterObserverList)
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(SVGFilterObserverList)
 
-NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(SVGFilterObserverList,
-                                                  ISVGFilterObserverList)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(SVGFilterObserverList)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mObservers)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
-NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(SVGFilterObserverList,
-                                                ISVGFilterObserverList)
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(SVGFilterObserverList)
   tmp->DetachObservers();
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mObservers)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mObservers);
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(SVGFilterObserverList)
-  NS_INTERFACE_MAP_ENTRY(ISVGFilterObserverList)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
@@ -871,13 +856,7 @@ class SVGFilterObserverListForCSSProp final : public SVGFilterObserverList {
       : SVGFilterObserverList(aFilters, aFilteredFrame->GetContent(),
                               aFilteredFrame) {}
 
-  ISVGFilterObserverList* Clone() const override {
-    return new SVGFilterObserverListForCSSProp(*this);
-  }
-
  protected:
-  SVGFilterObserverListForCSSProp(const SVGFilterObserverListForCSSProp& aOther)
-      : SVGFilterObserverList(aOther), mInvalidating(aOther.mInvalidating) {}
   void OnRenderingChange() override;
   bool mInvalidating = false;
 };
@@ -902,24 +881,17 @@ class SVGFilterObserverListForCanvasContext final
       : SVGFilterObserverList(aFilters, aCanvasElement), mContext(aContext) {}
 
   void OnRenderingChange() override;
-  void SetIsActive(bool aActive) override { mActive = aActive; }
-  ISVGFilterObserverList* Clone() const override {
-    return new SVGFilterObserverListForCanvasContext(*this);
-  }
+  void DetachFromContext() { mContext = nullptr; }
 
  private:
-  SVGFilterObserverListForCanvasContext(
-      const SVGFilterObserverListForCanvasContext& aOther)
-      : SVGFilterObserverList(aOther),
-        mContext(aOther.mContext),
-        mActive(aOther.mActive) {}
-
   CanvasRenderingContext2D* mContext;
-  bool mActive = true;
 };
 
 void SVGFilterObserverListForCanvasContext::OnRenderingChange() {
-  if (!mActive) {
+  if (!mContext) {
+    NS_WARNING(
+        "GFX: This should never be called without a context, except during "
+        "cycle collection (when DetachFromContext has been called)");
     return;
   }
   // Refresh the cached FilterDescription in mContext->CurrentState().filter.
@@ -1338,12 +1310,16 @@ SVGObserverUtils::ReferenceState SVGObserverUtils::GetFiltersIfObserving(
   return mozilla::GetAndObserveFilters(observerList, aFilterFrames);
 }
 
-already_AddRefed<ISVGFilterObserverList>
-SVGObserverUtils::ObserveFiltersForCanvasContext(
+already_AddRefed<nsISupports> SVGObserverUtils::ObserveFiltersForCanvasContext(
     CanvasRenderingContext2D* aContext, Element* aCanvasElement,
     const Span<const StyleFilter> aFilters) {
   return do_AddRef(new SVGFilterObserverListForCanvasContext(
       aContext, aCanvasElement, aFilters));
+}
+
+void SVGObserverUtils::DetachFromCanvasContext(nsISupports* aAutoObserver) {
+  static_cast<SVGFilterObserverListForCanvasContext*>(aAutoObserver)
+      ->DetachFromContext();
 }
 
 static SVGPaintingProperty* GetOrCreateClipPathObserver(

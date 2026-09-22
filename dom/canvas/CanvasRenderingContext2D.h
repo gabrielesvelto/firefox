@@ -35,7 +35,6 @@ class nsXULElement;
 
 namespace mozilla {
 class ErrorResult;
-class ISVGFilterObserverList;
 class PresShell;
 
 namespace gl {
@@ -1010,7 +1009,7 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
     StyleOwnedSlice<StyleFilter> filterChain;
     // RAII object that we obtain when we start to observer SVG filter elements
     // for rendering changes.  When released we stop observing the SVG elements.
-    nsCOMPtr<ISVGFilterObserverList> autoSVGFiltersObserver;
+    nsCOMPtr<nsISupports> autoSVGFiltersObserver;
     mozilla::gfx::FilterDescription filter;
     nsTArray<RefPtr<mozilla::gfx::SourceSurface>> filterAdditionalImages;
 
@@ -1033,10 +1032,12 @@ class CanvasRenderingContext2D : public nsICanvasRenderingContextInternal,
 
   AutoTArray<ContextState, 3> mStyleStack;
 
-  inline ContextState& CurrentState() { return mStyleStack.LastElement(); }
+  inline ContextState& CurrentState() {
+    return mStyleStack[mStyleStack.Length() - 1];
+  }
 
   inline const ContextState& CurrentState() const {
-    return mStyleStack.LastElement();
+    return mStyleStack[mStyleStack.Length() - 1];
   }
 
   struct FontStyleCacheKey {
