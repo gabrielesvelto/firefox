@@ -193,6 +193,14 @@ EnterprisePoliciesManager.prototype = {
         continue;
       }
 
+      let policyImpl = lazy.Policies[policyName];
+
+      // A few policies still accept an old syntax that the schema can't
+      // describe. Convert it before we validate.
+      if (policyImpl?.migrateLegacySyntax) {
+        policyParameters = policyImpl.migrateLegacySyntax(policyParameters);
+      }
+
       let {
         valid: parametersAreValid,
         parsedValue: parsedParameters,
@@ -208,8 +216,6 @@ EnterprisePoliciesManager.prototype = {
         );
         continue;
       }
-
-      let policyImpl = lazy.Policies[policyName];
 
       if (!policyImpl) {
         // This means there is an entry in the schema, but no implementaton.
