@@ -36,6 +36,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
+  reportFailure: "resource://gre/modules/PoliciesHelpers.sys.mjs",
 });
 
 const PREF_LOGLEVEL = "browser.policies.loglevel";
@@ -452,7 +453,9 @@ export var Policies = {
 
   Bookmarks: {
     onAllWindowsRestored(manager, param) {
-      lazy.BookmarksPolicies.processBookmarks(param);
+      // Returned so that the engine can report a failure of the bookmark
+      // processing against this policy.
+      return lazy.BookmarksPolicies.processBookmarks(param);
     },
   },
 
@@ -561,13 +564,19 @@ export var Policies = {
             try {
               file = await File.createFromNsIFile(certfile);
             } catch (e) {
-              lazy.log.error(`Unable to find certificate - ${certfilename}`);
+              lazy.reportFailure(
+                "Certificates",
+                `Unable to find certificate - ${certfilename}`
+              );
               continue;
             }
             let reader = new FileReader();
             reader.onloadend = function () {
               if (reader.readyState != reader.DONE) {
-                lazy.log.error(`Unable to read certificate - ${certfile.path}`);
+                lazy.reportFailure(
+                  "Certificates",
+                  `Unable to read certificate - ${certfile.path}`
+                );
                 return;
               }
               let certFile = reader.result;
@@ -588,9 +597,9 @@ export var Policies = {
                     pemToBase64(certFile)
                   );
                 } catch (ex) {
-                  lazy.log.error(
-                    `Unable to add certificate - ${certfile.path}`,
-                    ex
+                  lazy.reportFailure(
+                    "Certificates",
+                    `Unable to add certificate - ${certfile.path} - ${ex}`
                   );
                 }
               }
@@ -608,17 +617,29 @@ export var Policies = {
                 try {
                   lazy.gCertDB.addCert(certFile, "CT,CT,");
                 } catch (e) {
-                  // It might be PEM instead of DER.
-                  lazy.gCertDB.addCertFromBase64(
-                    pemToBase64(certFile),
-                    "CT,CT,"
-                  );
+                  try {
+                    // It might be PEM instead of DER.
+                    lazy.gCertDB.addCertFromBase64(
+                      pemToBase64(certFile),
+                      "CT,CT,"
+                    );
+                  } catch (ex) {
+                    lazy.reportFailure(
+                      "Certificates",
+                      `Unable to add certificate - ${certfile.path} - ${ex}`
+                    );
+                  }
                 }
               }
             };
             reader.readAsBinaryString(file);
           }
-        })();
+        })().catch(e =>
+          lazy.reportFailure(
+            "Certificates",
+            `Unable to import certificates - ${e}`
+          )
+        );
       }
     },
   },
@@ -801,7 +822,8 @@ export var Policies = {
               Ci.nsIPermissionManager.EXPIRE_POLICY
             );
           } catch (ex) {
-            lazy.log.error(
+            lazy.reportFailure(
+              "Cookies",
               `Unable to add cookie session permission - ${origin.href}`
             );
           }
@@ -1490,6 +1512,7 @@ export var Policies = {
   Extensions: {
     onBeforeUIStartup(manager, param) {
       let uninstallingPromise = Promise.resolve();
+      let installingPromise = Promise.resolve();
       if ("Uninstall" in param) {
         uninstallingPromise = runOncePerModification(
           "extensionsUninstall",
@@ -1519,7 +1542,7 @@ export var Policies = {
         );
       }
       if ("Install" in param) {
-        runOncePerModification(
+        installingPromise = runOncePerModification(
           "extensionsInstall",
           JSON.stringify(param.Install),
           async () => {
@@ -1533,9 +1556,19 @@ export var Policies = {
                 let xpiFile = new lazy.FileUtils.File(location);
                 uri = Services.io.newFileURI(xpiFile);
               } catch (e) {
-                uri = Services.io.newURI(location);
+                try {
+                  uri = Services.io.newURI(location);
+                } catch (ex) {
+                  // Keep going so that one bad location doesn't discard the
+                  // add-ons that come after it.
+                  lazy.reportFailure(
+                    "Extensions",
+                    `Invalid add-on location (${location})`
+                  );
+                  continue;
+                }
               }
-              installAddonFromURL(uri.spec);
+              installAddonFromURL(uri.spec, null, null, "Extensions");
             }
           }
         );
@@ -1546,6 +1579,9 @@ export var Policies = {
           manager.disallowFeature(`disable-extension:${ID}`);
         }
       }
+      // Returned so that the engine can report a failure of the
+      // uninstall/install steps against this policy.
+      return Promise.all([uninstallingPromise, installingPromise]);
     },
   },
 
@@ -1554,14 +1590,16 @@ export var Policies = {
       try {
         manager.setExtensionSettings(param);
       } catch (e) {
-        lazy.log.error(
+        lazy.reportFailure(
+          "ExtensionSettings",
           `Some ExtensionSettings could not be applied: ${e.message}`
         );
       }
       try {
         applyExtensionGuards(param);
       } catch (e) {
-        lazy.log.error(
+        lazy.reportFailure(
+          "ExtensionSettings",
           `Invalid runtime_blocked_hosts/runtime_allowed_hosts in ` +
             `ExtensionSettings: ${e.message}`
         );
@@ -1619,10 +1657,11 @@ export var Policies = {
               installAddonFromURL(
                 extensionSettings[extensionID].install_url,
                 extensionID,
-                existingAddon
+                existingAddon,
+                "ExtensionSettings"
               );
             } else if (!existingAddon) {
-              installAddonFromRepository(extensionID);
+              installAddonFromRepository(extensionID, "ExtensionSettings");
             }
             manager.disallowFeature(`uninstall-extension:${extensionID}`);
             if (
@@ -2572,14 +2611,16 @@ export var Policies = {
 
       for (let preference in param) {
         if (blockedPrefs.includes(preference)) {
-          lazy.log.error(
+          lazy.reportFailure(
+            "Preferences",
             `Unable to set preference ${preference}. Preference not allowed for security reasons.`
           );
           continue;
         }
         if (preference.startsWith("security.")) {
           if (!allowedSecurityPrefs.includes(preference)) {
-            lazy.log.error(
+            lazy.reportFailure(
+              "Preferences",
               `Unable to set preference ${preference}. Preference not allowed for security reasons.`
             );
             continue;
@@ -2587,14 +2628,24 @@ export var Policies = {
         } else if (
           !allowedPrefixes.some(prefix => preference.startsWith(prefix))
         ) {
-          lazy.log.error(
+          lazy.reportFailure(
+            "Preferences",
             `Unable to set preference ${preference}. Preference not allowed for stability reasons.`
           );
           continue;
         }
         if (typeof param[preference] != "object") {
           // Legacy policy preferences
-          setAndLockPref(preference, param[preference]);
+          try {
+            setAndLockPref(preference, param[preference]);
+          } catch (e) {
+            // Keep going so that one bad preference doesn't discard the
+            // preferences that come after it.
+            lazy.reportFailure(
+              "Preferences",
+              `Unable to set preference ${preference}. Probable type mismatch.`
+            );
+          }
         } else {
           if (param[preference].Status == "clear") {
             Services.prefs.clearUserPref(preference);
@@ -2653,7 +2704,8 @@ export var Policies = {
                 break;
             }
           } catch (e) {
-            lazy.log.error(
+            lazy.reportFailure(
+              "Preferences",
               `Unable to set preference ${preference}. Probable type mismatch.`
             );
           }
@@ -2740,7 +2792,10 @@ export var Policies = {
           restartTimeOfDay.Hour = timeOfDay.hour;
           restartTimeOfDay.Minute = timeOfDay.minute;
         } catch (ex) {
-          lazy.log.error("Incorrect format for RestartTimeOfDay");
+          lazy.reportFailure(
+            "RelaunchRequired",
+            "Incorrect format for RestartTimeOfDay"
+          );
         }
       }
       setAndLockPref(
@@ -2984,7 +3039,9 @@ export var Policies = {
       }
     },
     onAllWindowsRestored(manager, param) {
-      lazy.SearchService.init().then(async () => {
+      // Returned so that the engine can report a failure of any of these
+      // steps against this policy.
+      return lazy.SearchService.init().then(async () => {
         // Adding of engines is handled by the SearchService in the init().
         // Remove can happen after those are added - no engines are allowed
         // to replace the application provided engines, even if they have been
@@ -3004,7 +3061,10 @@ export var Policies = {
                       lazy.SearchService.CHANGE_REASON.ENTERPRISE
                     );
                   } catch (ex) {
-                    lazy.log.error("Unable to remove the search engine", ex);
+                    lazy.reportFailure(
+                      "SearchEngines",
+                      `Unable to remove the search engine ${engineName} - ${ex}`
+                    );
                   }
                 }
               }
@@ -3025,11 +3085,11 @@ export var Policies = {
                   throw new Error("No engine by that name could be found");
                 }
               } catch (ex) {
-                lazy.log.error(
+                lazy.reportFailure(
+                  "SearchEngines",
                   `Search engine lookup failed when attempting to set ` +
                     `the default engine. Requested engine was ` +
-                    `"${param.Default}".`,
-                  ex
+                    `"${param.Default}" - ${ex}`
                 );
               }
               if (defaultEngine) {
@@ -3039,7 +3099,10 @@ export var Policies = {
                     lazy.SearchService.CHANGE_REASON.ENTERPRISE
                   );
                 } catch (ex) {
-                  lazy.log.error("Unable to set the default search engine", ex);
+                  lazy.reportFailure(
+                    "SearchEngines",
+                    `Unable to set the default search engine - ${ex}`
+                  );
                 }
               }
             }
@@ -3059,11 +3122,11 @@ export var Policies = {
                   throw new Error("No engine by that name could be found");
                 }
               } catch (ex) {
-                lazy.log.error(
+                lazy.reportFailure(
+                  "SearchEngines",
                   `Search engine lookup failed when attempting to set ` +
                     `the default private engine. Requested engine was ` +
-                    `"${param.DefaultPrivate}".`,
-                  ex
+                    `"${param.DefaultPrivate}" - ${ex}`
                 );
               }
               if (defaultPrivateEngine) {
@@ -3073,9 +3136,9 @@ export var Policies = {
                     lazy.SearchService.CHANGE_REASON.ENTERPRISE
                   );
                 } catch (ex) {
-                  lazy.log.error(
-                    "Unable to set the default private search engine",
-                    ex
+                  lazy.reportFailure(
+                    "SearchEngines",
+                    `Unable to set the default private search engine - ${ex}`
                   );
                 }
               }
@@ -3139,24 +3202,24 @@ export var Policies = {
             0
           );
         } catch (ex) {
-          lazy.log.error(`Unable to add security device ${deviceName}`);
+          lazy.reportFailure(
+            "SecurityDevices",
+            `Unable to add security device ${deviceName}`
+          );
           lazy.log.debug(ex);
         }
       }
     },
 
     onProfileAfterChange(manager, param) {
-      this._onProfileAfterChangeImpl(manager, param)
-        .then(() => {
-          Services.obs.notifyObservers(
-            null,
-            "test-enterprisepolicies-securitydevices"
-          );
-        })
-        .catch(ex => {
-          lazy.log.error(`Error running SecurityDevices.onProfileAfterChange`);
-          lazy.log.debug(ex);
-        });
+      // Returned so that the engine can report a failure of the impl
+      // against this policy.
+      return this._onProfileAfterChangeImpl(manager, param).then(() => {
+        Services.obs.notifyObservers(
+          null,
+          "test-enterprisepolicies-securitydevices"
+        );
+      });
     },
   },
 
@@ -3744,6 +3807,10 @@ function validateExtensionGuardPatterns(patterns) {
  *
  * Throws if any pattern is malformed; the caller logs and skips applying
  * guards in that case.
+ *
+ * @param {object} extensionSettings
+ *        An object mapping extension ID to settings. Settings are defining
+ *        runtime_blocked_hosts and runtime_allowed_hosts properties.
  */
 function applyExtensionGuards(extensionSettings) {
   let guards = {};
@@ -3763,19 +3830,36 @@ function applyExtensionGuards(extensionSettings) {
   lazy.setEnterpriseGuards(guards);
 }
 
-function installAddonFromRepository(extensionID) {
+/**
+ * installAddonFromRepository
+ *
+ * Helper function that installs an addon from addons.mozilla.org.
+ *
+ * @param {string} extensionID The extension ID that is to be installed.
+ * @param {string} [policyName] The policy requesting the installation.
+ */
+function installAddonFromRepository(extensionID, policyName) {
   lazy.AddonRepository.getAddonsByIDs([extensionID])
     .then(repoAddons => {
       if (!repoAddons[0]?.sourceURI) {
-        lazy.log.error(
+        lazy.reportFailure(
+          policyName,
           `No XPI URL found on AMO for ${extensionID}. Please use install_url for add-ons not listed on addons.mozilla.org.`
         );
         return;
       }
-      installAddonFromURL(repoAddons[0].sourceURI.spec, extensionID, null);
+      installAddonFromURL(
+        repoAddons[0].sourceURI.spec,
+        extensionID,
+        null,
+        policyName
+      );
     })
     .catch(err => {
-      lazy.log.error(`Failed to retrieve ${extensionID} from AMO: ${err}`);
+      lazy.reportFailure(
+        policyName,
+        `Failed to retrieve ${extensionID} from AMO: ${err}`
+      );
     });
 }
 
@@ -3784,8 +3868,13 @@ function installAddonFromRepository(extensionID) {
  *
  * Helper function that installs an addon from a URL
  * and verifies that the addon ID matches.
+ *
+ * @param {string} url The URL to install from.
+ * @param {string} extensionID The extension ID that is to be installed.
+ * @param {object|null} addon Object representing the addon.
+ * @param {string} [policyName] The policy requesting the installation.
  */
-function installAddonFromURL(url, extensionID, addon) {
+function installAddonFromURL(url, extensionID, addon, policyName) {
   if (
     addon &&
     addon.sourceURI &&
@@ -3797,92 +3886,112 @@ function installAddonFromURL(url, extensionID, addon) {
   }
   lazy.AddonManager.getInstallForURL(url, {
     telemetryInfo: { source: "enterprise-policy" },
-  }).then(install => {
-    if (install.addon && install.addon.appDisabled) {
-      lazy.log.error(`Incompatible add-on - ${install.addon.id}`);
-      install.cancel();
-      return;
-    }
-    let listener = {
-      /* eslint-disable-next-line no-shadow */
-      onDownloadEnded: install => {
-        // Install failed, error will be reported elsewhere.
-        if (!install.addon) {
-          return;
-        }
-        if (extensionID && install.addon.id != extensionID) {
-          lazy.log.error(
-            `Add-on downloaded from ${url} had unexpected id (got ${install.addon.id} expected ${extensionID})`
-          );
-          install.removeListener(listener);
-          install.cancel();
-        }
-        if (install.addon.appDisabled) {
-          lazy.log.error(`Incompatible add-on - ${url}`);
-          install.removeListener(listener);
-          install.cancel();
-        }
-        if (
-          addon &&
-          Services.vc.compare(addon.version, install.addon.version) == 0
-        ) {
-          lazy.log.debug(
-            "Installation cancelled because versions are the same"
-          );
-          install.removeListener(listener);
-          install.cancel();
-        }
-
-        // Cancel install if the addon version downloaded is detected
-        // to be a downgrade compared to the version already installed.
-        if (
-          addon &&
-          Services.vc.compare(addon.version, install.addon.version) > 0
-        ) {
-          lazy.log.warn(
-            `Installation cancelled because installed version ${addon.version} is greater than ${install.addon.version} downloaded from ${url}`
-          );
-          install.removeListener(listener);
-          install.cancel();
-        }
-      },
-      onDownloadFailed: () => {
-        install.removeListener(listener);
-        lazy.log.error(
-          `Download failed - ${lazy.AddonManager.errorToString(
-            install.error
-          )} - ${url}`
-        );
-        clearRunOnceModification("extensionsInstall");
-      },
-      onInstallFailed: () => {
-        install.removeListener(listener);
-        lazy.log.error(
-          `Installation failed - ${lazy.AddonManager.errorToString(
-            install.error
-          )} - ${url}`
-        );
-      },
-      /* eslint-disable-next-line no-shadow */
-      onInstallEnded: (install, addon) => {
-        if (addon.type == "theme") {
-          addon.enable();
-        }
-        install.removeListener(listener);
-        lazy.log.debug(`Installation succeeded - ${url}`);
-      },
-    };
-    // If it's a local file install, onDownloadEnded is never called.
-    // So we call it manually, to handle some error cases.
-    if (url.startsWith("file:")) {
-      listener.onDownloadEnded(install);
-      if (install.state == lazy.AddonManager.STATE_CANCELLED) {
+  })
+    .then(install => {
+      if (!install) {
+        lazy.reportFailure(policyName, `Unable to install add-on from ${url}`);
         return;
       }
-    }
-    install.addListener(listener);
-    install.install();
-  });
+      if (install.addon && install.addon.appDisabled) {
+        lazy.reportFailure(
+          policyName,
+          `Incompatible add-on - ${install.addon.id}`
+        );
+        install.cancel();
+        return;
+      }
+      let listener = {
+        /* eslint-disable-next-line no-shadow */
+        onDownloadEnded: install => {
+          // Install failed, error will be reported elsewhere.
+          if (!install.addon) {
+            return;
+          }
+          if (extensionID && install.addon.id != extensionID) {
+            lazy.reportFailure(
+              policyName,
+              `Add-on downloaded from ${url} had unexpected id (got ${install.addon.id} expected ${extensionID})`
+            );
+            install.removeListener(listener);
+            install.cancel();
+            return;
+          }
+          if (install.addon.appDisabled) {
+            lazy.reportFailure(policyName, `Incompatible add-on - ${url}`);
+            install.removeListener(listener);
+            install.cancel();
+            return;
+          }
+          if (
+            addon &&
+            Services.vc.compare(addon.version, install.addon.version) == 0
+          ) {
+            lazy.log.debug(
+              "Installation cancelled because versions are the same"
+            );
+            install.removeListener(listener);
+            install.cancel();
+            return;
+          }
+
+          // Cancel install if the addon version downloaded is detected
+          // to be a downgrade compared to the version already installed.
+          if (
+            addon &&
+            Services.vc.compare(addon.version, install.addon.version) > 0
+          ) {
+            lazy.log.warn(
+              `Installation cancelled because installed version ${addon.version} is greater than ${install.addon.version} downloaded from ${url}`
+            );
+            install.removeListener(listener);
+            install.cancel();
+          }
+        },
+        onDownloadFailed: () => {
+          install.removeListener(listener);
+          lazy.reportFailure(
+            policyName,
+            `Download failed - ${lazy.AddonManager.errorToString(
+              install.error
+            )} - ${url}`
+          );
+          clearRunOnceModification("extensionsInstall");
+        },
+        onInstallFailed: () => {
+          install.removeListener(listener);
+          lazy.reportFailure(
+            policyName,
+            `Installation failed - ${lazy.AddonManager.errorToString(
+              install.error
+            )} - ${url}`
+          );
+        },
+        /* eslint-disable-next-line no-shadow */
+        onInstallEnded: (install, addon) => {
+          if (addon.type == "theme") {
+            addon.enable();
+          }
+          install.removeListener(listener);
+          lazy.log.debug(`Installation succeeded - ${url}`);
+        },
+      };
+      // If it's a local file install, onDownloadEnded is never called.
+      // So we call it manually, to handle some error cases.
+      if (url.startsWith("file:")) {
+        listener.onDownloadEnded(install);
+        if (install.state == lazy.AddonManager.STATE_CANCELLED) {
+          return;
+        }
+      }
+      install.addListener(listener);
+      install.install();
+    })
+    .catch(e => {
+      lazy.reportFailure(
+        policyName,
+        `Unable to install add-on from ${url}: ${e.message ?? e}`
+      );
+    });
 }
 
 let gBlockedAboutPages = [];
