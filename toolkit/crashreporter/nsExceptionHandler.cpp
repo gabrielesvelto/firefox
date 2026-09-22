@@ -1964,6 +1964,16 @@ static void RegisterAnnotations() {
       static_cast<uint32_t>(Annotation::BlockedDllList),
       DllBlocklist_GetBlocklistWriterData());
 #endif  // defined(XP_WIN) && defined(HAS_DLL_BLOCKLIST)
+#ifdef MOZ_PHC
+  // HACK: We're using the PHCBaseAddress annotation to point to the actual
+  // PHC address information object. This is because we currently have no
+  // difference between the internal representation of annotations and their
+  // external representation. Once we remove the old annotation API this
+  // will be properly addressed.
+  mozannotation_register_bytebuffer(
+      static_cast<uint32_t>(Annotation::PHCBaseAddress),
+      &mozilla::phc::gAddrInfo, sizeof(mozilla::phc::gAddrInfo));
+#endif  // MOZ_PHC
 }
 
 static void TeardownAppNotes() {
@@ -1972,6 +1982,20 @@ static void TeardownAppNotes() {
 
   delete notesField;
   notesField = nullptr;
+}
+
+#if defined(XP_WIN) || defined(XP_MACOSX) || defined(XP_IOS)
+using CrashPipeType = const char*;
+#else
+using CrashPipeType = mozilla::UniqueFileHandle;
+#endif
+
+static CrashPipeType GetChildNotificationPipe() {
+#if defined(XP_WIN) || defined(XP_MACOSX)
+  return childCrashNotifyPipe.get();
+#elif defined(XP_LINUX)
+  return DuplicateFileHandle(clientSocketFd);
+#endif
 }
 
 nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
@@ -2062,7 +2086,8 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
                      tempPath.get(),
 #endif
 
-      Filter, MinidumpCallback, nullptr,
+      /* filter */ nullptr, /* callback */ nullptr,
+      /* callback_context */ nullptr,
 #ifdef XP_WIN
       google_breakpad::ExceptionHandler::HANDLER_ALL, GetMinidumpType(),
       (const wchar_t*)nullptr, nullptr);
@@ -2074,7 +2099,7 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
 #  endif
 #  ifdef XP_LINUX
       ,
-      -1
+      GetChildNotificationPipe().release()
 #  endif
   );
 #endif  // XP_WIN
@@ -3297,20 +3322,6 @@ void SetCrashHelperPipes(FileHandle breakpadFd, FileHandle crashHelperFd) {
 }
 #endif  // defined(MOZ_WIDGET_ANDROID)
 
-#if defined(XP_WIN) || defined(XP_MACOSX) || defined(XP_IOS)
-using CrashPipeType = const char*;
-#else
-using CrashPipeType = mozilla::UniqueFileHandle;
-#endif
-
-static CrashPipeType GetChildNotificationPipe() {
-#if defined(XP_WIN) || defined(XP_MACOSX)
-  return childCrashNotifyPipe.get();
-#elif defined(XP_LINUX)
-  return DuplicateFileHandle(clientSocketFd);
-#endif
-}
-
 bool RegisterChildIPCChannel(mozilla::geckoargs::ChildProcessArgs& aArgs,
                              GeckoChildID aID) {
   StaticMutexAutoLock lock(gCrashHelperClientMutex);
@@ -3406,16 +3417,6 @@ bool SetRemoteExceptionHandler(int& aArgc, char** aArgv) {
   InitializeAppNotes();
   RegisterAnnotations();
 
-#ifdef MOZ_PHC
-  // HACK: We're using the PHCBaseAddress annotation to point to the actual
-  // PHC address information object. This is because we currently have no
-  // difference between the internal representation of annotations and their
-  // external representation. Once we remove the old annotation API this
-  // will be properly addressed.
-  mozannotation_register_bytebuffer(
-      static_cast<uint32_t>(Annotation::PHCBaseAddress),
-      &mozilla::phc::gAddrInfo, sizeof(mozilla::phc::gAddrInfo));
-#endif
 #if defined(XP_WIN)
   gExceptionHandler = new google_breakpad::ExceptionHandler(
       L"", ChildFilter,
