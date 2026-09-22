@@ -17,9 +17,10 @@ use crash_helper_common::{
     IPCListener, Pid,
 };
 use std::{
+    env,
     ffi::OsString,
     path::{Path, PathBuf},
-    process::{self, Command},
+    process::Command,
 };
 
 use crash_generation::{finalize_breakpad_minidump, initialize_static_annotations};
@@ -190,14 +191,20 @@ pub unsafe extern "C" fn crash_generator_logic_android(
 fn main_loop(mut ipc_server: IPCServer) -> i32 {
     loop {
         match ipc_server.run() {
-            Ok(_result @ IPCServerState::ClientDisconnected) => {
-                return 0;
+            Ok(result) => {
+                match result {
+                    IPCServerState::Running => {} // Go on
+                    IPCServerState::ClientDisconnected => return 0,
+                    IPCServerState::ClientCrashed(minidump) => {
+                        maybe_launch_client(&minidump);
+                        return 0;
+                    }
+                }
             }
             Err(error) => {
                 log::error!("The crashhelper encountered an error, exiting (error: {error})");
                 return -1;
             }
-            _ => {} // Go on
         }
     }
 }
@@ -211,14 +218,26 @@ fn crashreporter_path() -> PathBuf {
     path
 }
 
-#[allow(dead_code)]
-fn launch_client(crashreporter: &Path, minidump: &Path) {
-    let _ = Command::new(crashreporter)
+fn env_var_is_set(name: &'static str) -> bool {
+    env::var(name).is_ok_and(|v| !v.is_empty())
+}
+
+fn maybe_launch_client(minidump: &Path) {
+    if env_var_is_set("MOZ_CRASHREPORTER_NO_REPORT") || env_var_is_set("MOZ_CRASHREPORTER_FULLDUMP")
+    {
+        return;
+    }
+
+    launch_client(minidump);
+}
+
+fn launch_client(minidump: &Path) {
+    let crashreporter = crashreporter_path();
+    let _ = Command::new(crashreporter.as_path())
         .arg(minidump)
         .spawn()
         .expect("Failed to launch the crash reporter client")
         .wait();
-    process::exit(0);
 }
 
 #[cfg(not(target_os = "android"))]
