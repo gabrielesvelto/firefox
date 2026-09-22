@@ -8,10 +8,10 @@ mod android;
 #[cfg(target_os = "android")]
 pub(crate) use android::PROXY_RENDEZ_VOUS;
 
-#[cfg(any(target_os = "macos"))]
+#[cfg(target_os = "macos")]
 mod macos;
 
-#[cfg(any(target_os = "macos"))]
+#[cfg(target_os = "macos")]
 pub(crate) use macos::CRASH_REPORTER_PATH;
 
 #[cfg(target_os = "linux")]
