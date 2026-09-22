@@ -63,3 +63,5 @@ pub(crate) unsafe fn daemonize() {
 pub(crate) fn get_client_handle(_handle: &CStr) -> Result<Option<ProcessHandle>> {
     Ok(None)
 }
+
+pub(crate) const CRASH_REPORTER_FILENAME: &'static str = "crashreporter";
