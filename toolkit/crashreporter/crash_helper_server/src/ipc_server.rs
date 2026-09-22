@@ -8,7 +8,7 @@ use crash_helper_common::{
     AncillaryData, GeckoChildId, IPCConnector, IPCConnectorKey, IPCEvent, IPCListener, IPCQueue,
     Pid, ProcessHandle,
 };
-use std::{collections::HashMap, ffi::OsString, mem, rc::Rc, sync::Mutex};
+use std::{collections::HashMap, ffi::OsString, mem, path::PathBuf, rc::Rc, sync::Mutex};
 
 use crate::{
     breakpad_crash_generator::BreakpadCrashGenerator, crash_generation::CrashGenerator,
@@ -19,6 +19,7 @@ use crate::{
 pub enum IPCServerState {
     Running,
     ClientDisconnected,
+    ClientCrashed(PathBuf),
 }
 
 #[derive(PartialEq)]
@@ -179,8 +180,14 @@ impl IPCServer {
                     }
 
                     if connection.endpoint == IPCEndpoint::Parent {
-                        // The main process disconnected, leave
-                        return Ok(IPCServerState::ClientDisconnected);
+                        if let Some(report) =
+                            self.generator.lock().unwrap().retrieve_minidump_by_id(0)
+                        {
+                            return Ok(IPCServerState::ClientCrashed(PathBuf::from(report.path)));
+                        } else {
+                            // The main process disconnected, leave
+                            return Ok(IPCServerState::ClientDisconnected);
+                        }
                     }
                 }
             }
