@@ -16,7 +16,12 @@ use crash_helper_common::{
     ApplicationInfo, BreakpadChar, BreakpadData, BreakpadRawData, BreakpadString, IPCConnector,
     IPCListener, Pid,
 };
-use std::ffi::OsString;
+use std::{
+    env,
+    ffi::OsString,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use crash_generation::{finalize_breakpad_minidump, initialize_static_annotations};
 use ipc_server::{IPCServer, IPCServerState};
@@ -202,39 +207,98 @@ pub unsafe extern "C" fn crash_generator_logic_android(
 fn main_loop(mut ipc_server: IPCServer, #[allow(unused)] mode: ClientMode) -> i32 {
     loop {
         match ipc_server.run() {
-            Ok(_result @ IPCServerState::ClientDisconnected) => {
-                return 0;
+            Ok(result) => {
+                match result {
+                    IPCServerState::Running => {} // Go on
+                    IPCServerState::ClientDisconnected => return 0,
+                    IPCServerState::ClientCrashed(minidump) => {
+                        maybe_report_crash(&minidump);
+                        return 0;
+                    }
+                }
             }
             Err(error) => {
                 log::error!("The crashhelper encountered an error, exiting (error: {error})");
                 return -1;
             }
-            _ => {} // Go on
         }
     }
 }
 
 #[cfg(not(target_os = "android"))]
-#[no_mangle]
-#[allow(dead_code)]
 fn crashreporter_path() -> std::path::PathBuf {
-    let mut path =
-        unwrap_res_with_message(std::env::current_exe(), "Could not get the executable path");
+    let mut path = unwrap_res_with_message(env::current_exe(), "Could not get the executable path");
     path.pop();
     path.push(CRASH_REPORTER_PATH);
     path
 }
 
-#[cfg(not(target_os = "android"))]
-#[no_mangle]
-#[allow(dead_code)]
-fn launch_client(crashreporter: &std::path::Path, minidump: &std::path::Path) {
-    let _ = std::process::Command::new(crashreporter)
-        .arg(minidump)
-        .spawn()
-        .expect("Failed to launch the crash reporter client")
-        .wait();
-    process::exit(0);
+fn env_var_is_set(name: &'static str) -> bool {
+    env::var(name).is_ok_and(|v| !v.is_empty())
+}
+
+fn maybe_report_crash(minidump: &Path) {
+    if env_var_is_set("MOZ_CRASHREPORTER_NO_REPORT") || env_var_is_set("MOZ_CRASHREPORTER_FULLDUMP")
+    {
+        return;
+    }
+
+    report_crash(minidump);
+}
+
+fn report_crash(minidump: &Path) {
+    #[cfg(not(target_os = "android"))]
+    {
+        let crash_reporter = crashreporter_path();
+        let _ = Command::new(crash_reporter.as_path())
+            .arg(minidump)
+            .spawn()
+            .expect("Failed to launch the crash reporter client")
+            .wait();
+    }
+    #[cfg(target_os = "android")]
+    {
+        let Ok(crash_handler) = env::var("MOZ_ANDROID_CRASH_HANDLER") else {
+            log::error!("MOZ_ANDROID_CRASH_HANDLER is not set, could not report a crash");
+            return;
+        };
+
+        let mut extra = PathBuf::from(minidump);
+        extra.set_extension("extra");
+        let serial_number = env::var("MOZ_ANDROID_USER_SERIAL_NUMBER");
+
+        let mut command = Command::new("/system/bin/am");
+        let command = command.arg("start-foreground-service");
+        let command = if let Ok(serial_number) = serial_number {
+            command.arg("--user").arg(serial_number)
+        } else {
+            command
+        };
+
+        let _ = command
+            .arg("-a")
+            .arg("org.mozilla.gecko.ACTION_CRASHED")
+            .arg("-n")
+            .arg(crash_handler)
+            .arg("--es")
+            .arg("minidumpPath")
+            .arg(minidump)
+            .arg("--es")
+            .arg("extrasPath")
+            .arg(extra)
+            .arg("--ez")
+            .arg("fatal")
+            .arg("true")
+            .arg("--es")
+            .arg("processVisibility")
+            .arg("MAIN")
+            .arg("--es")
+            .arg("processType")
+            .arg("main")
+            .spawn()
+            .expect("Could not launch the crash reporter activity")
+            .wait();
+    }
 }
 
 #[cfg(not(target_os = "android"))]
