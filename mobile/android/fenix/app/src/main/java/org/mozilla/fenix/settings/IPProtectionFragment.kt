@@ -191,6 +191,7 @@ class IPProtectionFragment : Fragment(), SystemInsetsPaddedFragment {
     }
 
     private fun handleOnLocationClicked() {
+        Vpn.locationSelectorTapped.record()
         findNavController()
             .nav(
                 R.id.ipProtectionFragment,
