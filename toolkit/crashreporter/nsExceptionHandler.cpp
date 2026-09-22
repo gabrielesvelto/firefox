@@ -1965,6 +1965,20 @@ static void TeardownAppNotes() {
   notesField = nullptr;
 }
 
+#if defined(XP_WIN) || defined(XP_MACOSX) || defined(XP_IOS)
+using CrashPipeType = const char*;
+#else
+using CrashPipeType = mozilla::UniqueFileHandle;
+#endif
+
+static CrashPipeType GetChildNotificationPipe() {
+#if defined(XP_WIN) || defined(XP_MACOSX)
+  return childCrashNotifyPipe.get();
+#elif defined(XP_LINUX)
+  return DuplicateFileHandle(clientSocketFd);
+#endif
+}
+
 nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
   if (gExceptionHandler) return NS_ERROR_ALREADY_INITIALIZED;
 
@@ -2053,7 +2067,8 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
                      tempPath.get(),
 #endif
 
-      Filter, MinidumpCallback, nullptr,
+      /* filter */ nullptr, /* callback */ nullptr,
+      /* callback_context */ nullptr,
 #ifdef XP_WIN
       google_breakpad::ExceptionHandler::HANDLER_ALL, GetMinidumpType(),
       (const wchar_t*)nullptr, nullptr);
@@ -2065,7 +2080,7 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
 #  endif
 #  ifdef XP_LINUX
       ,
-      -1
+      GetChildNotificationPipe().release()
 #  endif
   );
 #endif  // XP_WIN
@@ -3321,20 +3336,6 @@ void SetCrashHelperPipes(FileHandle breakpadFd, FileHandle crashHelperFd) {
   crashHelperClientFd = crashHelperFd;
 }
 #endif  // defined(MOZ_WIDGET_ANDROID)
-
-#if defined(XP_WIN) || defined(XP_MACOSX) || defined(XP_IOS)
-using CrashPipeType = const char*;
-#else
-using CrashPipeType = mozilla::UniqueFileHandle;
-#endif
-
-static CrashPipeType GetChildNotificationPipe() {
-#if defined(XP_WIN) || defined(XP_MACOSX)
-  return childCrashNotifyPipe.get();
-#elif defined(XP_LINUX)
-  return DuplicateFileHandle(clientSocketFd);
-#endif
-}
 
 bool RegisterChildIPCChannel(mozilla::geckoargs::ChildProcessArgs& aArgs,
                              GeckoChildID aID) {
