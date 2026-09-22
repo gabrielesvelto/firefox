@@ -98,7 +98,12 @@ impl CrashGenerator {
     }
 
     fn get_minidump_type(&self) -> MINIDUMP_TYPE {
-        let mut minidump_type = MiniDumpWithFullMemoryInfo | MiniDumpWithUnloadedModules;
+        if env::var("MOZ_CRASHREPORTER_FULLDUMP").is_ok_and(|v| !v.is_empty()) {
+            return MiniDumpWithFullMemory;
+        }
+
+        let mut minidump_type =
+            MiniDumpWithFullMemoryInfo | MiniDumpWithUnloadedModules | MiniDumpWithHandleData;
         if mozbuild::config::NIGHTLY_BUILD {
             // This is Nightly only because this doubles the size of minidumps based
             // on the experimental data.
