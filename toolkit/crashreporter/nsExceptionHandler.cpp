@@ -222,7 +222,7 @@ static StaticMutex gCrashHelperClientMutex;
 static CrashHelperClient* gCrashHelperClient
     MOZ_GUARDED_BY(gCrashHelperClientMutex) = nullptr;
 static google_breakpad::ExceptionHandler* gExceptionHandler = nullptr;
-static mozilla::Atomic<bool> gEncounteredChildException(false);
+static mozilla::Atomic<bool> gEncounteredException(false);
 constinit static nsCString gServerURL;
 
 static MOZ_GLIBCXX_CONSTINIT xpstring pendingDirectory;
@@ -1789,7 +1789,9 @@ static void PrepareCrashTimeAnnotations() {
 // This includes disabling the I/O interposer and DLL blocklist which both
 // would get in the way. We also free the resources we have reserved, such as
 // address space on 32-bit Windows builds, so that they're available to the
-// minidump generation code.
+// minidump generation code. Child processes must wait to rendez-vous with the
+// crash helper before they can be dumped, the main process does not as it
+// did the rendez-vous procedure while launching the helper itself.
 static void PrepareForMinidump(bool isChildProcess = true) {
   mozilla::IOInterposer::Disable();
   ReleaseResources();
@@ -1816,6 +1818,10 @@ static ExceptionHandler::FilterResult Filter(void* context,
     return ExceptionHandler::FilterResult::ContinueSearch;
   }
 
+  if (gEncounteredException.exchange(true)) {
+    return ExceptionHandler::FilterResult::AbortWithoutMinidump;
+  }
+
   PrepareForMinidump(/* isChildProcess */ false);
   return ExceptionHandler::FilterResult::HandleException;
 }
@@ -1826,7 +1832,7 @@ static ExceptionHandler::FilterResult ChildFilter(
     return ExceptionHandler::FilterResult::ContinueSearch;
   }
 
-  if (gEncounteredChildException.exchange(true)) {
+  if (gEncounteredException.exchange(true)) {
     return ExceptionHandler::FilterResult::AbortWithoutMinidump;
   }
 
@@ -1861,12 +1867,16 @@ static MINIDUMP_TYPE GetMinidumpType() {
 #else
 
 static bool Filter(void* context) {
+  if (gEncounteredException.exchange(true)) {
+    return false;
+  }
+
   PrepareForMinidump(/* isChildProcess */ false);
   return true;
 }
 
 static bool ChildFilter(void* context) {
-  if (gEncounteredChildException.exchange(true)) {
+  if (gEncounteredException.exchange(true)) {
     return false;
   }
 
@@ -1964,6 +1974,16 @@ static void RegisterAnnotations() {
       static_cast<uint32_t>(Annotation::BlockedDllList),
       DllBlocklist_GetBlocklistWriterData());
 #endif  // defined(XP_WIN) && defined(HAS_DLL_BLOCKLIST)
+#ifdef MOZ_PHC
+  // HACK: We're using the PHCBaseAddress annotation to point to the actual
+  // PHC address information object. This is because we currently have no
+  // difference between the internal representation of annotations and their
+  // external representation. Once we remove the old annotation API this
+  // will be properly addressed.
+  mozannotation_register_bytebuffer(
+      static_cast<uint32_t>(Annotation::PHCBaseAddress),
+      &mozilla::phc::gAddrInfo, sizeof(mozilla::phc::gAddrInfo));
+#endif  // MOZ_PHC
 }
 
 static void TeardownAppNotes() {
@@ -1972,6 +1992,20 @@ static void TeardownAppNotes() {
 
   delete notesField;
   notesField = nullptr;
+}
+
+#if defined(XP_WIN) || defined(XP_MACOSX) || defined(XP_IOS)
+using CrashPipeType = const char*;
+#else
+using CrashPipeType = mozilla::UniqueFileHandle;
+#endif
+
+static CrashPipeType GetChildNotificationPipe() {
+#if defined(XP_WIN) || defined(XP_MACOSX)
+  return childCrashNotifyPipe.get();
+#elif defined(XP_LINUX)
+  return DuplicateFileHandle(clientSocketFd);
+#endif
 }
 
 nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
@@ -2062,10 +2096,12 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
                      tempPath.get(),
 #endif
 
-      Filter, MinidumpCallback, nullptr,
+      Filter, /* callback */ nullptr,
+      /* callback_context */ nullptr,
 #ifdef XP_WIN
       google_breakpad::ExceptionHandler::HANDLER_ALL, GetMinidumpType(),
-      (const wchar_t*)nullptr, nullptr);
+      (const wchar_t*)NS_ConvertUTF8toUTF16(GetChildNotificationPipe()).get(),
+      nullptr);
 #else
       true
 #  ifdef XP_MACOSX
@@ -2074,7 +2110,7 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
 #  endif
 #  ifdef XP_LINUX
       ,
-      -1
+      GetChildNotificationPipe().release()
 #  endif
   );
 #endif  // XP_WIN
@@ -2148,15 +2184,6 @@ nsresult SetMinidumpPath(const nsAString& aPath) {
   path = aPath;
 #else
   path = NS_ConvertUTF16toUTF8(aPath);
-#endif
-
-  // Set the path for the in-process exception handler
-#ifdef XP_WIN
-  gExceptionHandler->set_dump_path(std::wstring(path.getW()));
-#elif defined(XP_LINUX)
-  gExceptionHandler->set_minidump_descriptor(MinidumpDescriptor(path.get()));
-#else
-  gExceptionHandler->set_dump_path(path.get());
 #endif
 
   // Set the path used by the crash helper for out-of-process crash generation
@@ -3295,20 +3322,6 @@ void SetCrashHelperPipes(FileHandle breakpadFd, FileHandle crashHelperFd) {
 }
 #endif  // defined(MOZ_WIDGET_ANDROID)
 
-#if defined(XP_WIN) || defined(XP_MACOSX) || defined(XP_IOS)
-using CrashPipeType = const char*;
-#else
-using CrashPipeType = mozilla::UniqueFileHandle;
-#endif
-
-static CrashPipeType GetChildNotificationPipe() {
-#if defined(XP_WIN) || defined(XP_MACOSX)
-  return childCrashNotifyPipe.get();
-#elif defined(XP_LINUX)
-  return DuplicateFileHandle(clientSocketFd);
-#endif
-}
-
 bool RegisterChildIPCChannel(mozilla::geckoargs::ChildProcessArgs& aArgs,
                              GeckoChildID aID) {
   StaticMutexAutoLock lock(gCrashHelperClientMutex);
@@ -3404,16 +3417,6 @@ bool SetRemoteExceptionHandler(int& aArgc, char** aArgv) {
   InitializeAppNotes();
   RegisterAnnotations();
 
-#ifdef MOZ_PHC
-  // HACK: We're using the PHCBaseAddress annotation to point to the actual
-  // PHC address information object. This is because we currently have no
-  // difference between the internal representation of annotations and their
-  // external representation. Once we remove the old annotation API this
-  // will be properly addressed.
-  mozannotation_register_bytebuffer(
-      static_cast<uint32_t>(Annotation::PHCBaseAddress),
-      &mozilla::phc::gAddrInfo, sizeof(mozilla::phc::gAddrInfo));
-#endif
 #if defined(XP_WIN)
   gExceptionHandler = new google_breakpad::ExceptionHandler(
       L"", ChildFilter,
