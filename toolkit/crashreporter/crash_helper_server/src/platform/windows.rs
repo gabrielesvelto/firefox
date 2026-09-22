@@ -6,6 +6,7 @@ use anyhow::Result;
 use crash_helper_common::ProcessHandle;
 use std::ffi::OsStr;
 
+pub(crate) const CRASH_REPORTER_PATH: &'static str = "crashreporter.exe";
 pub(crate) const PROXY_RENDEZ_VOUS: bool = true;
 
 // This is just a no-op, the crash helper process is spawned as a detached
