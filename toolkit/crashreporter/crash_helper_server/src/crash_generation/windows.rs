@@ -11,6 +11,7 @@ use crash_helper_common::{
 use mozannotation_server::{AnnotationData, CAnnotation};
 use std::{
     convert::TryInto,
+    env,
     fs::{create_dir_all, File},
     mem::{size_of, zeroed},
     os::windows::io::{AsHandle, AsRawHandle, BorrowedHandle},
@@ -23,9 +24,10 @@ use windows_sys::Win32::{
     Foundation::{FALSE, HANDLE},
     System::{
         Diagnostics::Debug::{
-            MiniDumpWithFullMemoryInfo, MiniDumpWithIndirectlyReferencedMemory,
-            MiniDumpWithProcessThreadData, MiniDumpWithUnloadedModules, MiniDumpWriteDump,
-            EXCEPTION_POINTERS, EXCEPTION_RECORD, MINIDUMP_EXCEPTION_INFORMATION, MINIDUMP_TYPE,
+            MiniDumpWithFullMemory, MiniDumpWithFullMemoryInfo, MiniDumpWithHandleData,
+            MiniDumpWithIndirectlyReferencedMemory, MiniDumpWithProcessThreadData,
+            MiniDumpWithUnloadedModules, MiniDumpWriteDump, EXCEPTION_POINTERS, EXCEPTION_RECORD,
+            MINIDUMP_EXCEPTION_INFORMATION, MINIDUMP_TYPE,
         },
         SystemInformation::{
             VerSetConditionMask, VerifyVersionInfoW, OSVERSIONINFOEXW, VER_MAJORVERSION,
@@ -98,7 +100,12 @@ impl CrashGenerator {
     }
 
     fn get_minidump_type(&self) -> MINIDUMP_TYPE {
-        let mut minidump_type = MiniDumpWithFullMemoryInfo | MiniDumpWithUnloadedModules;
+        if env::var("MOZ_CRASHREPORTER_FULLDUMP").is_ok_and(|v| !v.is_empty()) {
+            return MiniDumpWithFullMemory;
+        }
+
+        let mut minidump_type =
+            MiniDumpWithFullMemoryInfo | MiniDumpWithUnloadedModules | MiniDumpWithHandleData;
         if mozbuild::config::NIGHTLY_BUILD {
             // This is Nightly only because this doubles the size of minidumps based
             // on the experimental data.
