@@ -20,6 +20,8 @@ use std::ffi::OsString;
 
 use crash_generation::{finalize_breakpad_minidump, initialize_static_annotations};
 use ipc_server::{IPCServer, IPCServerState};
+#[cfg(not(target_os = "android"))]
+use platform::CRASH_REPORTER_PATH;
 
 // Indicates how the client is operating. When in background mode the crash
 // helper will not prompt the user if the client crashes.
@@ -210,6 +212,29 @@ fn main_loop(mut ipc_server: IPCServer, #[allow(unused)] mode: ClientMode) -> i3
             _ => {} // Go on
         }
     }
+}
+
+#[cfg(not(target_os = "android"))]
+#[no_mangle]
+#[allow(dead_code)]
+fn crashreporter_path() -> std::path::PathBuf {
+    let mut path =
+        unwrap_res_with_message(std::env::current_exe(), "Could not get the executable path");
+    path.pop();
+    path.push(CRASH_REPORTER_PATH);
+    path
+}
+
+#[cfg(not(target_os = "android"))]
+#[no_mangle]
+#[allow(dead_code)]
+fn launch_client(crashreporter: &std::path::Path, minidump: &std::path::Path) {
+    let _ = std::process::Command::new(crashreporter)
+        .arg(minidump)
+        .spawn()
+        .expect("Failed to launch the crash reporter client")
+        .wait();
+    process::exit(0);
 }
 
 #[cfg(not(target_os = "android"))]
