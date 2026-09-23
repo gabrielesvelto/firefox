@@ -3494,6 +3494,9 @@ void nsWindow::OnFullscreenChanged(nsSizeMode aOldSizeMode, bool aFullScreen) {
       mFrameState->GetSizeMode() == nsSizeMode_Minimized ||
       aOldSizeMode == nsSizeMode_Minimized;
   if (!toOrFromMinimized) {
+    if (aFullScreen) {
+      TaskbarConcealer::OnFullscreenWillBeEntered(this);
+    }
     InfallibleMakeFullScreen(aFullScreen);
   }
 
