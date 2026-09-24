@@ -2966,6 +2966,12 @@ void SetMemoryReportFile(nsIFile* aFile) {
   PathString path;
   if (NS_SUCCEEDED(GetNativePathFromFile(aFile, path))) {
     memoryReportPath = xpstring(path.get());
+    StaticMutexAutoLock lock(gCrashHelperClientMutex);
+    if (gCrashHelperClient) {
+      set_memory_report_path(
+          gCrashHelperClient,
+          mozilla::BitwiseCast<const BreakpadChar*>(path.get()));
+    }
   }
 }
 
