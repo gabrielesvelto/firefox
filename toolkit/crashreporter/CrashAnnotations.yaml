@@ -724,7 +724,9 @@ IPCShutdownState:
     IPC shutdown state, can be set to either "RecvShutdown" or
     "SendFinishShutdown" by a content process while it's shutting down.
   type: string
-  scope: report
+  scope: ping
+  bugs:
+    - 2049749
 
 IPCSystemError:
   description: >
@@ -1312,7 +1314,13 @@ StartupTime:
   description: >
     The time when Firefox was launched expressed in seconds since the Epoch.
   type: u64
-  scope: report
+  scope: ping
+  glean:
+    type: timespan
+    time_unit: second
+    custom_convert: duration_seconds
+  bugs:
+    - 2049749
 
 StorageConnectionNotClosed:
   description: >
@@ -1511,7 +1519,9 @@ useragent_locale:
   description: >
     User-agent locale.
   type: string
-  scope: report
+  scope: ping
+  bugs:
+    - 2049749
 
 UserFontRulesExhausted:
   description: >

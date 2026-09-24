@@ -310,6 +310,7 @@ mod test {
                         ]}
                     ]
                 }"#,
+                "StartupTime": "1784642478",
                 "UptimeTS": "400.5",
                 "UtilityActorsName": "abc,def",
                 "WindowsFileDialogErrorCode": "40",
