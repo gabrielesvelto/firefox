@@ -1133,7 +1133,6 @@ void gfxFontEntry::CheckForVariationAxes() {
   if (mCheckedForVariationAxes) {
     return;
   }
-  mCheckedForVariationAxes = true;
   if (HasVariations()) {
     AutoTArray<gfxFontVariationAxis, 4> axes;
     GetVariationAxes(axes);
@@ -1150,6 +1149,7 @@ void gfxFontEntry::CheckForVariationAxes() {
       }
     }
   }
+  mCheckedForVariationAxes = true;
 }
 
 bool gfxFontEntry::HasBoldVariableWeight() {

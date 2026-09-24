@@ -71,15 +71,18 @@ gfxMacFont::gfxMacFont(const RefPtr<UnscaledFontMac>& aUnscaledFont,
             axes.IndexOf(kOpszTag, 0, TagEquals<gfxFontVariationAxis>());
         MOZ_ASSERT(index != axes.NoIndex);
         if (index != axes.NoIndex) {
-          const auto& axis = axes[index];
-          aFontEntry->mOpszAxis = axis;
-          // Pick a slightly-adjusted version of the default that we'll
-          // use to work around Core Text's habit of ignoring any attempt
-          // to explicitly set the default value.
-          aFontEntry->mAdjustedDefaultOpsz =
-              axis.mDefaultValue == axis.mMinValue
-                  ? axis.mDefaultValue + kOpszFudgeAmount
-                  : axis.mDefaultValue - kOpszFudgeAmount;
+          AutoWriteLock lock(aFontEntry->mLock);
+          if (!aFontEntry->mOpszAxis.mTag) {
+            const auto& axis = axes[index];
+            // Pick a slightly-adjusted version of the default that we'll
+            // use to work around Core Text's habit of ignoring any attempt
+            // to explicitly set the default value.
+            aFontEntry->mAdjustedDefaultOpsz =
+                axis.mDefaultValue == axis.mMinValue
+                    ? axis.mDefaultValue + kOpszFudgeAmount
+                    : axis.mDefaultValue - kOpszFudgeAmount;
+            aFontEntry->mOpszAxis = axis;
+          }
         }
       }
 
