@@ -173,6 +173,9 @@ class MozillaSocorroServiceTest {
             assert(request.contains("name=Android_Device\r\n\r\nrobolectric"))
             assert(request.contains("name=CrashType\r\n\r\n$FATAL_NATIVE_CRASH_TYPE"))
             assert(request.contains("name=CrashTime\r\n\r\n123"))
+            assert(request.contains("name=OS\r\n\r\nAndroid"))
+            assert(request.contains("name=OSVersion\r\n\r\n"))
+            assert(request.contains("name=CPUArchitecture\r\n\r\n"))
             assert(request.contains("name=useragent_locale\r\n\r\nen-US"))
             assert(request.contains("name=Breadcrumbs\r\n\r\n[{\"timestamp\":\"2018-06-12T19:30:00\",\"message\":\"Hello World\",\"category\":\"\",\"level\":\"Debug\",\"type\":\"Default\",\"data\":{}}]"))
 
@@ -522,6 +525,9 @@ class MozillaSocorroServiceTest {
             assert(request.contains("name=Android_Device\r\n\r\nrobolectric"))
             assert(request.contains("name=CrashType\r\n\r\n$UNCAUGHT_EXCEPTION_TYPE"))
             assert(request.contains("name=CrashTime\r\n\r\n123"))
+            assert(request.contains("name=OS\r\n\r\nAndroid"))
+            assert(request.contains("name=OSVersion\r\n\r\n"))
+            assert(request.contains("name=CPUArchitecture\r\n\r\n"))
             assert(request.contains("name=useragent_locale\r\n\r\nen-US"))
 
             verify(service).report(crash)
