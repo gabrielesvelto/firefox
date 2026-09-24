@@ -15,6 +15,11 @@ support-files = [
 
 ["browser_bug1539497.js"]
 
+["browser_dragdrop_invalid_remote_drag.js"]
+support-files = [
+  "file_empty.html",
+]
+
 ["browser_dragdrop_protected_diff_origin.js"]
 support-files = [
   "browser_dragdrop_impl.js",
