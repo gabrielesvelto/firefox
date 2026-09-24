@@ -42,8 +42,7 @@ pub type ClipPath = generic::GenericClipPath<BasicShape, SpecifiedUrl>;
 pub type ShapeOutside = generic::GenericShapeOutside<BasicShape, Image>;
 
 /// A specified basic shape.
-pub type BasicShape =
-    generic::GenericBasicShape<Angle, AxisPosition, Position, LengthPercentage, BasicShapeRect>;
+pub type BasicShape = generic::GenericBasicShape<Angle, Position, LengthPercentage, BasicShapeRect>;
 
 /// The specified value of `inset()`.
 pub type InsetRect = generic::GenericInsetRect<LengthPercentage>;
@@ -62,14 +61,10 @@ pub type Polygon = generic::GenericPolygon<LengthPercentage>;
 
 /// The specified value of `PathOrShapeFunction`.
 pub type PathOrShapeFunction =
-    generic::GenericPathOrShapeFunction<Angle, AxisPosition, Position, LengthPercentage>;
+    generic::GenericPathOrShapeFunction<Angle, Position, LengthPercentage>;
 
 /// The specified value of `ShapeCommand`.
-pub type ShapeCommand =
-    generic::GenericShapeCommand<Angle, AxisPosition, Position, LengthPercentage>;
-
-/// The specified value for position type of `AxisEndPoint`.
-pub type AxisPosition = generic::AxisPosition<LengthPercentage>;
+pub type ShapeCommand = generic::GenericShapeCommand<Angle, Position, LengthPercentage>;
 
 /// The specified value of `xywh()`.
 /// Defines a rectangle via offsets from the top and left edge of the reference box, and a
@@ -704,7 +699,7 @@ impl ToComputedValue for BasicShapeRect {
     }
 }
 
-impl generic::Shape<Angle, AxisPosition, Position, LengthPercentage> {
+impl generic::Shape<Angle, Position, LengthPercentage> {
     /// Parse the inner arguments of a `shape` function.
     /// shape() = shape(<fill-rule>? from <coordinate-pair>, <shape-command>#)
     fn parse_function_arguments<'i, 't>(
@@ -919,7 +914,7 @@ impl generic::CommandEndPoint<Position, LengthPercentage> {
     }
 }
 
-impl generic::AxisEndPoint<AxisPosition, LengthPercentage> {
+impl generic::AxisEndPoint<LengthPercentage> {
     /// Parse <horizontal-line-command>
     pub fn parse_hline<'i, 't>(
         context: &ParserContext,
@@ -979,20 +974,40 @@ impl generic::AxisEndPoint<AxisPosition, LengthPercentage> {
 }
 
 impl ToComputedValue for generic::AxisPosition<LengthPercentage> {
-    type ComputedValue = ComputedLengthPercentage;
+    type ComputedValue = generic::AxisPosition<ComputedLengthPercentage>;
 
     fn to_computed_value(&self, context: &Context) -> Self::ComputedValue {
         match self {
-            Self::LengthPercent(lp) => lp.to_computed_value(context),
+            Self::LengthPercent(lp) => {
+                Self::ComputedValue::LengthPercent(lp.to_computed_value(context))
+            },
             Self::Keyword(word) => {
-                LengthPercentage::Percentage(NoCalcPercentage::new(word.as_percentage().0))
-                    .to_computed_value(context)
+                let lp =
+                    LengthPercentage::Percentage(NoCalcPercentage::new(word.as_percentage().0));
+                Self::ComputedValue::LengthPercent(lp.to_computed_value(context))
             },
         }
     }
 
     fn from_computed_value(computed: &Self::ComputedValue) -> Self {
-        Self::LengthPercent(LengthPercentage::from_computed_value(computed))
+        match computed {
+            Self::ComputedValue::LengthPercent(lp) => {
+                Self::LengthPercent(LengthPercentage::from_computed_value(lp))
+            },
+            _ => unreachable!("Invalid state: computed value cannot be a keyword."),
+        }
+    }
+}
+
+impl ToComputedValue for generic::AxisPosition<CSSFloat> {
+    type ComputedValue = Self;
+
+    fn to_computed_value(&self, _context: &Context) -> Self {
+        *self
+    }
+
+    fn from_computed_value(computed: &Self) -> Self {
+        *computed
     }
 }
 

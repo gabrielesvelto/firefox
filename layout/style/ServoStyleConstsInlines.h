@@ -1382,19 +1382,26 @@ StyleCommandEndPoint<StylePosition, LengthPercentage>::ToGfxPoint(
 }
 
 template <>
-inline gfx::Coord StyleAxisEndPoint<StyleCSSFloat, StyleCSSFloat>::ToGfxCoord(
+inline gfx::Coord StyleAxisEndPoint<StyleCSSFloat>::ToGfxCoord(
     const StyleCSSFloat* aBasis) const {
-  return gfx::Coord(IsToPosition() ? AsToPosition() : AsByCoordinate());
+  if (IsToPosition()) {
+    const auto pos = AsToPosition();
+    MOZ_ASSERT(pos.IsLengthPercent());
+    return gfx::Coord(pos.AsLengthPercent());
+  }
+  return gfx::Coord(AsByCoordinate());
 }
 
 template <>
-inline gfx::Coord
-StyleAxisEndPoint<LengthPercentage, LengthPercentage>::ToGfxCoord(
+inline gfx::Coord StyleAxisEndPoint<LengthPercentage>::ToGfxCoord(
     const StyleCSSFloat* aBasis) const {
   MOZ_ASSERT(aBasis);
-  return gfx::Coord(IsToPosition()
-                        ? AsToPosition().ResolveToCSSPixels(*aBasis)
-                        : AsByCoordinate().ResolveToCSSPixels(*aBasis));
+  if (IsToPosition()) {
+    const auto pos = AsToPosition();
+    MOZ_ASSERT(pos.IsLengthPercent());
+    return gfx::Coord(pos.AsLengthPercent().ResolveToCSSPixels(*aBasis));
+  }
+  return gfx::Coord(AsByCoordinate().ResolveToCSSPixels(*aBasis));
 }
 
 template <>

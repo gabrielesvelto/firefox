@@ -193,7 +193,7 @@ pub use self::GenericShapeOutside as ShapeOutside;
     ToShmem,
 )]
 #[repr(C, u8)]
-pub enum GenericBasicShape<Angle, AxisPosition, Position, LengthPercentage, BasicShapeRect> {
+pub enum GenericBasicShape<Angle, Position, LengthPercentage, BasicShapeRect> {
     /// The <basic-shape-rect>.
     Rect(BasicShapeRect),
     /// Defines a circle with a center and a radius.
@@ -217,7 +217,7 @@ pub enum GenericBasicShape<Angle, AxisPosition, Position, LengthPercentage, Basi
         #[animation(field_bound)]
         #[css(field_bound)]
         #[compute(field_bound)]
-        GenericPathOrShapeFunction<Angle, AxisPosition, Position, LengthPercentage>,
+        GenericPathOrShapeFunction<Angle, Position, LengthPercentage>,
     ),
 }
 
@@ -411,14 +411,14 @@ pub struct PolygonCoord<LengthPercentage>(pub LengthPercentage, pub LengthPercen
     ToShmem,
 )]
 #[repr(C, u8)]
-pub enum GenericPathOrShapeFunction<Angle, AxisPosition, Position, LengthPercentage> {
+pub enum GenericPathOrShapeFunction<Angle, Position, LengthPercentage> {
     /// Defines a path with SVG path syntax.
     Path(Path),
     /// Defines a shape function, which is identical to path() but it uses the CSS syntax.
     Shape(
         #[css(field_bound)]
         #[compute(field_bound)]
-        Shape<Angle, AxisPosition, Position, LengthPercentage>,
+        Shape<Angle, Position, LengthPercentage>,
     ),
 }
 
@@ -647,34 +647,27 @@ fn is_default<T: Default + PartialEq>(fill: &T) -> bool {
     ToShmem,
 )]
 #[repr(C)]
-pub struct Shape<Angle, AxisPosition, Position, LengthPercentage> {
+pub struct Shape<Angle, Position, LengthPercentage> {
     /// The filling rule for this shape.
     pub fill: FillRule,
     /// The shape command data. Note that the starting point will be the first command in this
     /// slice.
     // Note: The first command is always GenericShapeCommand::Move.
     #[compute(field_bound)]
-    pub commands:
-        crate::OwnedSlice<GenericShapeCommand<Angle, AxisPosition, Position, LengthPercentage>>,
+    pub commands: crate::OwnedSlice<GenericShapeCommand<Angle, Position, LengthPercentage>>,
 }
 
-impl<Angle, AxisPosition, Position, LengthPercentage>
-    Shape<Angle, AxisPosition, Position, LengthPercentage>
-{
+impl<Angle, Position, LengthPercentage> Shape<Angle, Position, LengthPercentage> {
     /// Returns the slice of GenericShapeCommand<..>.
     #[inline]
-    pub fn commands(
-        &self,
-    ) -> &[GenericShapeCommand<Angle, AxisPosition, Position, LengthPercentage>] {
+    pub fn commands(&self) -> &[GenericShapeCommand<Angle, Position, LengthPercentage>] {
         &self.commands
     }
 }
 
-impl<Angle, AxisPosition, Position, LengthPercentage> Animate
-    for Shape<Angle, AxisPosition, Position, LengthPercentage>
+impl<Angle, Position, LengthPercentage> Animate for Shape<Angle, Position, LengthPercentage>
 where
     Angle: Animate,
-    AxisPosition: Animate,
     Position: Animate,
     LengthPercentage: Animate,
 {
@@ -691,11 +684,10 @@ where
     }
 }
 
-impl<Angle, AxisPosition, Position, LengthPercentage> ComputeSquaredDistance
-    for Shape<Angle, AxisPosition, Position, LengthPercentage>
+impl<Angle, Position, LengthPercentage> ComputeSquaredDistance
+    for Shape<Angle, Position, LengthPercentage>
 where
     Angle: ComputeSquaredDistance,
-    AxisPosition: ComputeSquaredDistance,
     Position: ComputeSquaredDistance,
     LengthPercentage: ComputeSquaredDistance,
 {
@@ -707,11 +699,9 @@ where
     }
 }
 
-impl<Angle, AxisPosition, Position, LengthPercentage> ToCss
-    for Shape<Angle, AxisPosition, Position, LengthPercentage>
+impl<Angle, Position, LengthPercentage> ToCss for Shape<Angle, Position, LengthPercentage>
 where
     Angle: ToCss + Zero,
-    AxisPosition: ToCss,
     Position: ToCss,
     LengthPercentage: PartialEq + ToCss,
 {
@@ -773,7 +763,7 @@ where
 )]
 #[allow(missing_docs)]
 #[repr(C, u8)]
-pub enum GenericShapeCommand<Angle, AxisPosition, Position, LengthPercentage> {
+pub enum GenericShapeCommand<Angle, Position, LengthPercentage> {
     /// The move command.
     Move {
         point: CommandEndPoint<Position, LengthPercentage>,
@@ -784,11 +774,13 @@ pub enum GenericShapeCommand<Angle, AxisPosition, Position, LengthPercentage> {
     },
     /// The hline command.
     HLine {
-        x: AxisEndPoint<AxisPosition, LengthPercentage>,
+        #[compute(field_bound)]
+        x: AxisEndPoint<LengthPercentage>,
     },
     /// The vline command.
     VLine {
-        y: AxisEndPoint<AxisPosition, LengthPercentage>,
+        #[compute(field_bound)]
+        y: AxisEndPoint<LengthPercentage>,
     },
     /// The cubic Bézier curve command.
     CubicCurve {
@@ -824,12 +816,9 @@ pub enum GenericShapeCommand<Angle, AxisPosition, Position, LengthPercentage> {
 
 pub use self::GenericShapeCommand as ShapeCommand;
 
-
-impl<Angle, AxisPosition, Position, LengthPercentage> ToCss
-    for ShapeCommand<Angle, AxisPosition, Position, LengthPercentage>
+impl<Angle, Position, LengthPercentage> ToCss for ShapeCommand<Angle, Position, LengthPercentage>
 where
     Angle: ToCss + Zero,
-    AxisPosition: ToCss,
     Position: ToCss,
     LengthPercentage: PartialEq + ToCss,
 {
@@ -1001,12 +990,12 @@ impl<Position, LengthPercentage> CommandEndPoint<Position, LengthPercentage> {
     ToShmem,
 )]
 #[repr(u8)]
-pub enum AxisEndPoint<AxisPosition, LengthPercentage> {
-    ToPosition(AxisPosition),
+pub enum AxisEndPoint<LengthPercentage> {
+    ToPosition(#[compute(field_bound)] AxisPosition<LengthPercentage>),
     ByCoordinate(LengthPercentage),
 }
 
-impl<AxisPosition, LengthPercentage> AxisEndPoint<AxisPosition, LengthPercentage> {
+impl<LengthPercentage> AxisEndPoint<LengthPercentage> {
     /// Return true if it is absolute, i.e. it is To.
     #[inline]
     pub fn is_abs(&self) -> bool {
@@ -1014,9 +1003,7 @@ impl<AxisPosition, LengthPercentage> AxisEndPoint<AxisPosition, LengthPercentage
     }
 }
 
-impl<AxisPosition: ToCss, LengthPercentage: ToCss> ToCss
-    for AxisEndPoint<AxisPosition, LengthPercentage>
-{
+impl<LengthPercentage: ToCss> ToCss for AxisEndPoint<LengthPercentage> {
     fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result
     where
         W: Write,
