@@ -222,7 +222,7 @@ static StaticMutex gCrashHelperClientMutex;
 static CrashHelperClient* gCrashHelperClient
     MOZ_GUARDED_BY(gCrashHelperClientMutex) = nullptr;
 static google_breakpad::ExceptionHandler* gExceptionHandler = nullptr;
-static mozilla::Atomic<bool> gEncounteredChildException(false);
+static mozilla::Atomic<bool> gEncounteredException(false);
 constinit static nsCString gServerURL;
 
 static MOZ_GLIBCXX_CONSTINIT xpstring pendingDirectory;
@@ -1780,11 +1780,13 @@ static bool IsCrashingException(EXCEPTION_POINTERS* exinfo) {
 
 #endif  // XP_WIN
 
-// Do various actions to prepare the child process for minidump generation.
+// Do various actions to prepare the process for minidump generation.
 // This includes disabling the I/O interposer and DLL blocklist which both
 // would get in the way. We also free the resources we have reserved, such as
 // address space on 32-bit Windows builds, so that they're available to the
-// minidump generation code.
+// minidump generation code. Child processes must wait to rendez-vous with the
+// crash helper before they can be dumped, the main process does not as it
+// did the rendez-vous procedure while launching the helper itself.
 static void PrepareForMinidump(bool isChildProcess = true) {
   mozilla::IOInterposer::Disable();
   ReleaseResources();
@@ -1855,12 +1857,16 @@ static MINIDUMP_TYPE GetMinidumpType() {
 #else
 
 static bool Filter(void* context) {
+  if (gEncounteredException.exchange(true)) {
+    return false;
+  }
+
   PrepareForMinidump(/* isChildProcess */ false);
   return true;
 }
 
 static bool ChildFilter(void* context) {
-  if (gEncounteredChildException.exchange(true)) {
+  if (gEncounteredException.exchange(true)) {
     return false;
   }
 
@@ -2067,7 +2073,7 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
                      tempPath.get(),
 #endif
 
-      /* filter */ nullptr, /* callback */ nullptr,
+      Filter, /* callback */ nullptr,
       /* callback_context */ nullptr,
 #ifdef XP_WIN
       google_breakpad::ExceptionHandler::HANDLER_ALL, GetMinidumpType(),
