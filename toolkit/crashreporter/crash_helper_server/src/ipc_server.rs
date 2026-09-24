@@ -183,7 +183,7 @@ impl IPCServer {
                         if let Some(report) =
                             self.generator.lock().unwrap().retrieve_minidump_by_id(0)
                         {
-                            return Ok(IPCServerState::ClientCrashed(PathBuf::from(report.path)));
+                            return Ok(IPCServerState::ClientCrashed(report.path));
                         } else {
                             // The main process disconnected, leave
                             return Ok(IPCServerState::ClientDisconnected);
@@ -238,7 +238,7 @@ impl IPCServer {
 
                     let reply = crash_report
                         .map_or(messages::MinidumpReply::new(OsString::new(), None), |cr| {
-                            messages::MinidumpReply::new(cr.path, cr.error)
+                            messages::MinidumpReply::new(cr.path.into_os_string(), cr.error)
                         });
 
                     connector.send_message(reply)?;
@@ -259,7 +259,7 @@ impl IPCServer {
 
                     let reply = crash_report
                         .map_or(messages::MinidumpReply::new(OsString::new(), None), |cr| {
-                            messages::MinidumpReply::new(cr.path, cr.error)
+                            messages::MinidumpReply::new(cr.path.into_os_string(), cr.error)
                         });
 
                     connector.send_message(reply)?;
