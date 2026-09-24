@@ -49,8 +49,8 @@ pub enum MessageError {
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, FromPrimitive, ToPrimitive, PartialEq)]
 pub enum Kind {
-    /// Changes the folder where crash reports are generated
-    SetCrashReportPath = 1,
+    /// Set the path of a file or folder used by the crash helper
+    SetPath = 1,
     /// Request the transfer of an already generated minidump of the specified
     /// process back to the client.
     TransferMinidump = 2,
@@ -248,26 +248,38 @@ impl Header {
     }
 }
 
-/* Message used to change the path where crash reports are generated. */
+/* Message used to change a path use by the crash helper. */
 
-pub struct SetCrashReportPath {
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, FromPrimitive, ToPrimitive, PartialEq)]
+pub enum PathType {
+    /// The folder where crash reports are generated.
+    CrashReports = 1,
+    /// The path to a file where a memory report is potentially stored.
+    MemoryReport = 2,
+}
+
+pub struct SetPath {
+    pub path_type: PathType,
     pub path: OsString,
 }
 
-impl SetCrashReportPath {
-    pub fn new(path: OsString) -> SetCrashReportPath {
-        SetCrashReportPath { path }
+impl SetPath {
+    pub fn new(path_type: PathType, path: OsString) -> SetPath {
+        SetPath { path_type, path }
     }
 }
 
-impl Message for SetCrashReportPath {
+impl Message for SetPath {
     fn kind() -> Kind {
-        Kind::SetCrashReportPath
+        Kind::SetPath
     }
 
     fn payload_size(&self) -> usize {
         let path_len = self.path.clone().serialize().len();
-        size_of::<usize>().checked_add(path_len).unwrap()
+        (size_of::<PathType>() + size_of::<usize>())
+            .checked_add(path_len)
+            .unwrap()
     }
 
     fn ancillary_data_len(&self) -> usize {
@@ -278,6 +290,7 @@ impl Message for SetCrashReportPath {
         let header = Header::encode(Self::kind(), self.payload_size());
         let mut payload = BytesMut::with_capacity(self.payload_size());
         let path = self.path.serialize();
+        payload.put_u8(self.path_type as u8);
         payload.put_usize_ne(path.len());
         payload.put(path);
 
@@ -291,12 +304,14 @@ impl Message for SetCrashReportPath {
 
         let mut data = Bytes::from(data);
 
+        let path_type = data.try_get_u8()?;
+        let path_type = PathType::from_u8(path_type).ok_or(MessageError::InvalidData)?;
         let path_len = data.try_get_usize_ne()?;
         let path = data.try_get_vec(path_len)?;
         let path = <OsString as BreakpadString>::deserialize(path)
             .map_err(|_| MessageError::InvalidData)?;
 
-        Ok(SetCrashReportPath { path })
+        Ok(SetPath { path_type, path })
     }
 }
 

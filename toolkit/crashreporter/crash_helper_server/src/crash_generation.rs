@@ -78,6 +78,7 @@ where
 {
     main_process_handle: ProcessHandle,
     minidump_path: PathBuf,
+    memory_report_path: Option<PathBuf>,
     reports_by_pid: HashMap<Pid, Vec<CrashReport>>,
     reports_by_id: HashMap<GeckoChildId, CrashReport>,
 }
@@ -90,13 +91,18 @@ impl CrashGenerator {
         CrashGenerator {
             main_process_handle,
             minidump_path: PathBuf::from(minidump_path),
+            memory_report_path: None,
             reports_by_pid: HashMap::<Pid, Vec<CrashReport>>::new(),
             reports_by_id: HashMap::<GeckoChildId, CrashReport>::new(),
         }
     }
 
-    pub(crate) fn set_path(&mut self, path: OsString) {
+    pub(crate) fn set_minidump_path(&mut self, path: &OsString) {
         self.minidump_path = PathBuf::from(path);
+    }
+
+    pub(crate) fn set_memory_report_path(&mut self, path: &OsString) {
+        self.memory_report_path = Some(PathBuf::from(path));
     }
 
     pub(crate) fn move_report_to_id(&mut self, pid: Pid, id: GeckoChildId) {

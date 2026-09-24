@@ -43,8 +43,8 @@ pub struct CrashHelperClient {
 }
 
 impl CrashHelperClient {
-    fn set_crash_report_path(&mut self, path: OsString) -> Result<()> {
-        let message = messages::SetCrashReportPath::new(path);
+    fn set_path(&mut self, path_type: messages::PathType, path: OsString) -> Result<()> {
+        let message = messages::SetPath::new(path_type, path);
         self.connector.send_message(message)?;
         Ok(())
     }
@@ -240,7 +240,28 @@ pub unsafe extern "C" fn set_crash_report_path(
 ) -> bool {
     let client = client.as_mut().unwrap();
     let path = <OsString as BreakpadString>::from_ptr(path);
-    client.set_crash_report_path(path).is_ok()
+    client
+        .set_path(messages::PathType::CrashReports, path)
+        .is_ok()
+}
+
+/// Changes the path where the memory report is found.
+///
+/// # Safety
+///
+/// The `client` parameter must be a valid pointer to the crash helper client
+/// object returned by the [`crash_helper_launch()`] or
+/// [`crash_helper_connect()`] functions.
+#[no_mangle]
+pub unsafe extern "C" fn set_memory_report_path(
+    client: *mut CrashHelperClient,
+    path: *const BreakpadChar,
+) -> bool {
+    let client = client.as_mut().unwrap();
+    let path = <OsString as BreakpadString>::from_ptr(path);
+    client
+        .set_path(messages::PathType::MemoryReport, path)
+        .is_ok()
 }
 
 /// Creates a new IPC channel to connect a soon-to-be-created child process
