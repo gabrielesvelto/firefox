@@ -12,6 +12,11 @@ var { XPCOMUtils } = ChromeUtils.importESModule(
 
 const lazy = {};
 
+ChromeUtils.defineESModuleGetters(lazy, {
+  isTrailingDotPolicyDuplicate:
+    "resource://gre/modules/PoliciesHelpers.sys.mjs",
+});
+
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
   "contentBlockingAllowList",
@@ -341,6 +346,12 @@ var gPermissionManager = {
 
   _addPermissionToList(perm) {
     if (perm.type !== this._type) {
+      return;
+    }
+    if (
+      perm.expireType === Services.perms.EXPIRE_POLICY &&
+      lazy.isTrailingDotPolicyDuplicate(perm)
+    ) {
       return;
     }
     if (!this._isCapabilitySupported(perm.capability)) {

@@ -14,6 +14,13 @@ const { PermissionUI } = ChromeUtils.importESModule(
   "resource:///modules/PermissionUI.sys.mjs"
 );
 
+const lazy = {};
+
+ChromeUtils.defineESModuleGetters(lazy, {
+  isTrailingDotPolicyDuplicate:
+    "resource://gre/modules/PoliciesHelpers.sys.mjs",
+});
+
 const sitePermissionsL10n = {
   "desktop-notification": {
     window: "permissions-site-notification-window2",
@@ -433,6 +440,8 @@ var gSitePermissionsManager = {
       type !== this._type ||
       !PERMISSION_STATES.includes(perm.capability) ||
       !SitePermissions.isSupportedPrincipal(perm.principal) ||
+      (perm.expireType === Services.perms.EXPIRE_POLICY &&
+        lazy.isTrailingDotPolicyDuplicate(perm)) ||
       // Skip private browsing session permissions
       (perm.principal.privateBrowsingId !==
         Services.scriptSecurityManager.DEFAULT_PRIVATE_BROWSING_ID &&
