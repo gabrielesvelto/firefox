@@ -212,13 +212,18 @@ extern void wgpu_server_pre_device_drop(WGPUWebGPUParentPtr aParent,
 extern void wgpu_server_set_buffer_map_data(
     WGPUWebGPUParentPtr aParent, WGPUDeviceId aDeviceId, WGPUBufferId aBufferId,
     bool aHasMapFlags, uint64_t aMappedOffset, uint64_t aMappedSize,
-    uintptr_t aShmemIndex) {
+    bool aIsMapped, uintptr_t aShmemIndex) {
   auto* parent = static_cast<WebGPUParent*>(aParent);
 
   auto mapping = parent->mTempMappings.at(aShmemIndex);
 
   auto data = WebGPUParent::BufferMapData{
-      mapping, aHasMapFlags, aMappedOffset, aMappedSize, aDeviceId,
+      .mShmem = mapping,
+      .mHasMapFlags = aHasMapFlags,
+      .mMappedOffset = aMappedOffset,
+      .mMappedSize = aMappedSize,
+      .mIsMapped = aIsMapped,
+      .mDeviceId = aDeviceId,
   };
 
   parent->mSharedMemoryMap.insert({aBufferId, std::move(data)});
@@ -707,8 +712,6 @@ void WebGPUParent::MapCallback(uint8_t* aUserData,
     return;
   }
 
-  ipc::ByteBuf bb;
-
   if (aStatus != ffi::WGPUBufferMapAsyncStatus_Success) {
     // A buffer map operation that fails with a DeviceError gets
     // mapped to the ContextLost status. If we have this status, we
@@ -721,40 +724,59 @@ void WebGPUParent::MapCallback(uint8_t* aUserData,
     auto error = nsPrintfCString("Mapping WebGPU buffer failed: %s",
                                  MapStatusString(aStatus));
 
-    ffi::wgpu_server_pack_buffer_map_error(req->mBufferId, &error, ToFFI(&bb));
-  } else {
-    auto* mapData = req->mParent->GetBufferMapData(req->mBufferId);
-    MOZ_RELEASE_ASSERT(mapData);
-
-    auto size = req->mSize;
-    auto offset = req->mOffset;
-
-    if (req->mHostMap == ffi::WGPUHostMap_Read && size > 0) {
-      ErrorBuffer error;
-      const auto src = ffi::wgpu_server_buffer_get_mapped_range(
-          req->mParent->GetContext(), mapData->mDeviceId, req->mBufferId,
-          offset, size, error.ToFFI());
-
-      MOZ_RELEASE_ASSERT(!error.GetError());
-
-      MOZ_RELEASE_ASSERT(mapData->mShmem->Size() >= offset + size);
-      if (src.ptr != nullptr && src.length >= size) {
-        auto dst = mapData->mShmem->DataAsSpan<uint8_t>().Subspan(offset, size);
-        memcpy(dst.data(), src.ptr, size);
-      }
-    }
-
-    bool is_writable = req->mHostMap == ffi::WGPUHostMap_Write;
-    ffi::wgpu_server_pack_buffer_map_success(req->mBufferId, is_writable,
-                                             offset, size, ToFFI(&bb));
-
-    mapData->mMappedOffset = offset;
-    mapData->mMappedSize = size;
+    ffi::wgpu_server_send_buffer_map_error(req->mParent, req->mBufferId,
+                                           &error);
+    return;
   }
 
-  if (!req->mParent->SendServerMessage(std::move(bb))) {
-    NS_ERROR("SendServerMessage failed");
+  auto* mapData = req->mParent->GetBufferMapData(req->mBufferId);
+
+  // The buffer mapping callback can race with buffer.destroy()
+  // since the callback is not directly called by wgpu-core; it's
+  // called later by a task on the same thread as the WebGPU parent actor.
+  if (!mapData) {
+    auto error = nsCString("Mapping WebGPU buffer failed: Map aborted");
+    ffi::wgpu_server_send_buffer_map_error(req->mParent, req->mBufferId,
+                                           &error);
+    return;
   }
+
+  auto size = req->mSize;
+  auto offset = req->mOffset;
+
+  const auto src = ffi::wgpu_server_buffer_get_mapped_range(
+      req->mParent->GetContext(), req->mBufferId, offset, size);
+
+  // The buffer mapping callback can race with buffer.destroy() and
+  // buffer.unmap() since the callback is not directly called by wgpu-core;
+  // it's called later by a task on the same thread as the WebGPU parent
+  // actor.
+  if (src.ptr == nullptr && src.length == 0) {
+    auto error = nsCString("Mapping WebGPU buffer failed: Map aborted");
+    ffi::wgpu_server_send_buffer_map_error(req->mParent, req->mBufferId,
+                                           &error);
+    return;
+  }
+
+  MOZ_RELEASE_ASSERT(src.ptr != nullptr);
+  MOZ_RELEASE_ASSERT(src.length >= size);
+
+  if (req->mHostMap == ffi::WGPUHostMap_Read && size > 0) {
+    auto shmSize = mapData->mShmem->Size();
+    MOZ_RELEASE_ASSERT(offset <= shmSize);
+    MOZ_RELEASE_ASSERT(size <= shmSize - offset);
+
+    auto dst = mapData->mShmem->DataAsSpan<uint8_t>().Subspan(offset, size);
+    memcpy(dst.data(), src.ptr, size);
+  }
+
+  mapData->mMappedOffset = offset;
+  mapData->mMappedSize = size;
+  mapData->mIsMapped = true;
+
+  bool is_writable = req->mHostMap == ffi::WGPUHostMap_Write;
+  ffi::wgpu_server_send_buffer_map_success(req->mParent, req->mBufferId,
+                                           is_writable, offset, size);
 }
 
 void WebGPUParent::BufferUnmap(RawId aDeviceId, RawId aBufferId, bool aFlush) {
@@ -762,21 +784,24 @@ void WebGPUParent::BufferUnmap(RawId aDeviceId, RawId aBufferId, bool aFlush) {
           ("RecvBufferUnmap %" PRIu64 " flush=%d\n", aBufferId, aFlush));
 
   auto* mapData = GetBufferMapData(aBufferId);
+  if (!mapData) {
+    return;
+  }
 
-  if (mapData && aFlush) {
+  if (mapData->mIsMapped && aFlush) {
     uint64_t offset = mapData->mMappedOffset;
     uint64_t size = mapData->mMappedSize;
 
-    ErrorBuffer getRangeError;
     const auto mapped = ffi::wgpu_server_buffer_get_mapped_range(
-        mContext.get(), aDeviceId, aBufferId, offset, size,
-        getRangeError.ToFFI());
-    // We don't forward the error since `Buffer.unmap()` should not generate any
-    // errors. We only call `GetError` so that `ErrorBuffer`'s destructor
-    // doesn't assert.
-    getRangeError.GetError();
+        mContext.get(), aBufferId, offset, size);
 
-    if (mapped.ptr != nullptr && mapped.length >= size) {
+    // There may be nothing left to flush into: once a device is lost or
+    // destroyed, wgpu-core destroys its buffers in `release_gpu_resources`
+    // on poll.
+    bool is_destroyed = mapped.ptr == nullptr && mapped.length == 0;
+    if (!is_destroyed) {
+      MOZ_RELEASE_ASSERT(mapped.ptr != nullptr);
+      MOZ_RELEASE_ASSERT(mapped.length >= size);
       auto shmSize = mapData->mShmem->Size();
       MOZ_RELEASE_ASSERT(offset <= shmSize);
       MOZ_RELEASE_ASSERT(size <= shmSize - offset);
@@ -784,9 +809,6 @@ void WebGPUParent::BufferUnmap(RawId aDeviceId, RawId aBufferId, bool aFlush) {
       auto src = mapData->mShmem->DataAsSpan<uint8_t>().Subspan(offset, size);
       memcpy(mapped.ptr, src.data(), size);
     }
-
-    mapData->mMappedOffset = 0;
-    mapData->mMappedSize = 0;
   }
 
   ErrorBuffer unmapError;
@@ -796,6 +818,10 @@ void WebGPUParent::BufferUnmap(RawId aDeviceId, RawId aBufferId, bool aFlush) {
   // errors. We only call `GetError` so that `ErrorBuffer`'s destructor doesn't
   // assert.
   unmapError.GetError();
+
+  mapData->mMappedOffset = 0;
+  mapData->mMappedSize = 0;
+  mapData->mIsMapped = false;
 
   if (mapData && !mapData->mHasMapFlags) {
     // We get here if the buffer was mapped at creation without map flags.
@@ -1027,21 +1053,24 @@ static void ReadbackPresentCallback(uint8_t* userdata,
   // copy the data
   if (status == ffi::WGPUBufferMapAsyncStatus_Success) {
     const auto bufferSize = data->mBufferSize;
-    ErrorBuffer getRangeError;
+
     const auto mapped = ffi::wgpu_server_buffer_get_mapped_range(
-        req->mContext, data->mDeviceId, bufferId, 0, bufferSize,
-        getRangeError.ToFFI());
-    getRangeError.CoerceValidationToInternal();
-    if (req->mData->mParent) {
-      req->mData->mParent->ForwardError(getRangeError);
-    }
-    if (auto innerError = getRangeError.GetError()) {
+        req->mContext, bufferId, 0, bufferSize);
+
+    // There may be nothing to read back: once a device is lost or
+    // destroyed, wgpu-core destroys its buffers in `release_gpu_resources`
+    // on poll.
+    bool is_destroyed = mapped.ptr == nullptr && mapped.length == 0;
+    if (is_destroyed) {
       MOZ_LOG(sLogger, LogLevel::Info,
-              ("WebGPU present: buffer get_mapped_range for internal "
-               "presentation readback failed: %s\n",
-               innerError->message.get()));
+              ("ReadbackPresentCallback for buffer %" PRIu64
+               " skipped: the readback buffer is gone\n",
+               bufferId));
       return;
     }
+
+    MOZ_RELEASE_ASSERT(mapped.ptr != nullptr);
+    MOZ_RELEASE_ASSERT(mapped.length >= bufferSize);
 
     const auto size = data->mDesc.size();
 
@@ -1140,22 +1169,23 @@ static void ReadbackSnapshotCallback(uint8_t* userdata,
   }
   // copy the data
   const auto bufferSize = data->mBufferSize;
-  ErrorBuffer getRangeError;
+
   const auto mapped = ffi::wgpu_server_buffer_get_mapped_range(
-      req->mContext, data->mDeviceId, req->mBufferId, 0, bufferSize,
-      getRangeError.ToFFI());
-  getRangeError.CoerceValidationToInternal();
-  if (req->mData->mParent) {
-    req->mData->mParent->ForwardError(getRangeError);
-  }
-  if (auto innerError = getRangeError.GetError()) {
+      req->mContext, req->mBufferId, 0, bufferSize);
+
+  // There may be nothing to read back: once a device is lost or
+  // destroyed, wgpu-core destroys its buffers in `release_gpu_resources`
+  // on poll.
+  bool is_destroyed = mapped.ptr == nullptr && mapped.length == 0;
+  if (is_destroyed) {
     MOZ_LOG(sLogger, LogLevel::Info,
-            ("WebGPU present: buffer get_mapped_range for internal "
-             "presentation readback failed: %s\n",
-             innerError->message.get()));
+            ("ReadbackSnapshotCallback for buffer %" PRIu64
+             " skipped: the readback buffer is gone\n",
+             req->mBufferId));
     return;
   }
 
+  MOZ_RELEASE_ASSERT(mapped.ptr != nullptr);
   MOZ_RELEASE_ASSERT(mapped.length >= bufferSize);
 
   uint8_t* src = mapped.ptr;

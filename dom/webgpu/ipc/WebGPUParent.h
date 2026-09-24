@@ -139,6 +139,7 @@ class WebGPUParent final : public PWebGPUParent, public SupportsWeakPtr {
     bool mHasMapFlags;
     uint64_t mMappedOffset;
     uint64_t mMappedSize;
+    bool mIsMapped;
     RawId mDeviceId;
   };
 

@@ -1062,21 +1062,29 @@ pub struct MappedBufferSlice {
 #[no_mangle]
 pub unsafe extern "C" fn wgpu_server_buffer_get_mapped_range(
     global: &Global,
-    device_id: id::DeviceId,
     buffer_id: id::BufferId,
     start: wgt::BufferAddress,
     size: wgt::BufferAddress,
-    mut error_buf: ErrorBuffer,
 ) -> MappedBufferSlice {
-    let result = global.buffer_get_mapped_range(buffer_id, start, Some(size));
-
-    let (ptr, length) = result
-        .map(|(ptr, len)| (ptr.as_ptr(), len))
-        .unwrap_or_else(|error| {
-            error_buf.init(error, device_id);
-            (std::ptr::null_mut(), 0)
-        });
-    MappedBufferSlice { ptr, length }
+    match global.buffer_get_mapped_range(buffer_id, start, Some(size)) {
+        Ok((ptr, len)) => MappedBufferSlice {
+            ptr: ptr.as_ptr(),
+            length: len,
+        },
+        Err(error) => match error {
+            // The map may have been cancelled before the caller got here:
+            // `buffer.destroy()` destroys the resource and `buffer.unmap()`
+            // returns it to the idle state. Report an empty slice so the
+            // caller can turn it into a map error.
+            BufferAccessError::DestroyedResource(_) | BufferAccessError::NotMapped => {
+                MappedBufferSlice {
+                    ptr: core::ptr::null_mut(),
+                    length: 0,
+                }
+            }
+            _ => panic!("{error}"),
+        },
+    }
 }
 
 #[no_mangle]
@@ -1638,6 +1646,7 @@ extern "C" {
         has_map_flags: bool,
         mapped_offset: u64,
         mapped_size: u64,
+        is_mapped: bool,
         shmem_index: usize,
     );
     fn wgpu_server_device_push_error_scope(
@@ -2125,7 +2134,14 @@ impl Global {
                     return;
                 }
 
+                let (_, error) = self.device_create_buffer(device_id, &desc, Some(buffer_id));
+
                 if needs_shmem {
+                    // A `mapped_at_creation` buffer starts out mapped, so the
+                    // parent must know to flush the shmem contents back into it
+                    // on `unmap()`. If creation failed there is nothing mapped,
+                    // and `buffer_unmap` is expected to fail.
+                    let is_mapped = desc.mapped_at_creation && error.is_none();
                     unsafe {
                         wgpu_server_set_buffer_map_data(
                             self.owner,
@@ -2133,17 +2149,13 @@ impl Global {
                             buffer_id,
                             has_map_flags,
                             0,
-                            if desc.mapped_at_creation {
-                                desc.size
-                            } else {
-                                0
-                            },
+                            if is_mapped { desc.size } else { 0 },
+                            is_mapped,
                             shmem_handle_index,
                         );
                     }
                 }
 
-                let (_, error) = self.device_create_buffer(device_id, &desc, Some(buffer_id));
                 if let Some(err) = error {
                     error_buf.init(err, device_id);
                 }
@@ -2636,30 +2648,32 @@ impl Global {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wgpu_server_pack_buffer_map_success(
+pub unsafe extern "C" fn wgpu_server_send_buffer_map_success(
+    parent: WebGPUParentPtr,
     buffer_id: id::BufferId,
     is_writable: bool,
     offset: u64,
     size: u64,
-    bb: &mut ByteBuf,
 ) {
     let result = BufferMapResult::Success {
         is_writable,
         offset,
         size,
     };
-    *bb = make_byte_buf(&ServerMessage::BufferMapResponse(buffer_id, result));
+    let mut byte_buf = make_byte_buf(&ServerMessage::BufferMapResponse(buffer_id, result));
+    unsafe { wgpu_parent_send_server_message(parent, &mut byte_buf) };
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wgpu_server_pack_buffer_map_error(
+pub unsafe extern "C" fn wgpu_server_send_buffer_map_error(
+    parent: WebGPUParentPtr,
     buffer_id: id::BufferId,
     error: &nsACString,
-    bb: &mut ByteBuf,
 ) {
     let error = error.to_utf8();
     let result = BufferMapResult::Error(error);
-    *bb = make_byte_buf(&ServerMessage::BufferMapResponse(buffer_id, result));
+    let mut byte_buf = make_byte_buf(&ServerMessage::BufferMapResponse(buffer_id, result));
+    unsafe { wgpu_parent_send_server_message(parent, &mut byte_buf) };
 }
 
 #[no_mangle]
