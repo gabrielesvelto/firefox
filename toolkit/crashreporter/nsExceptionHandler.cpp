@@ -30,6 +30,7 @@
 
 #include "nsPrintfCString.h"
 #include "nsSystemInfo.h"
+#include "prsystem.h"
 #include "nsThreadUtils.h"
 #include "nsThread.h"
 #include "jsfriendapi.h"
@@ -41,6 +42,10 @@
 
 #ifdef MOZ_BACKGROUNDTASKS
 #  include "mozilla/BackgroundTasks.h"
+#endif
+
+#if defined(XP_LINUX) && !defined(ANDROID)
+#  include "mozilla/widget/LSBUtils.h"
 #endif
 
 #if defined(XP_WIN)
@@ -1298,6 +1303,10 @@ static bool LaunchCrashHandlerService(const XP_CHAR* aProgramPath,
 #endif
 
 nsresult RecordPlatformAnnotations() {
+  if (!GetEnabled()) {
+    return NS_ERROR_NOT_INITIALIZED;
+  }
+
   // CPU architecture values corresponding to `system_info.cpu_arch` values in
   // https://github.com/rust-minidump/rust-minidump/blob/main/minidump-processor/json-schema.md,
   // which is the format expected by Socorro.
@@ -1343,6 +1352,39 @@ nsresult RecordPlatformAnnotations() {
 #endif
                                   ));
 
+  // These values are read straight from NSPR and LSBUtils rather than through
+  // @mozilla.org/system-info;1, so that recording them neither instantiates
+  // that service nor requires XPCOM to be initialized.
+#if !defined(ANDROID)
+  // nsSystemInfo reports the Android SDK version rather than the release here,
+  // and lib-crash records OSVersion for Android itself.
+  char sysRelease[SYS_INFO_BUFFER_LENGTH];
+  if (PR_GetSystemInfo(PR_SI_RELEASE, sysRelease, sizeof(sysRelease)) ==
+      PR_SUCCESS) {
+    nsAutoCString osVersion(sysRelease);
+    char sysBuild[SYS_INFO_BUFFER_LENGTH];
+    if (PR_GetSystemInfo(PR_SI_RELEASE_BUILD, sysBuild, sizeof(sysBuild)) ==
+        PR_SUCCESS) {
+      osVersion.Append(
+#  if defined(XP_WIN)
+          '.'
+#  else
+          ' '
+#  endif
+      );
+      osVersion.Append(sysBuild);
+    }
+    MOZ_TRY(RecordAnnotationNSCString(Annotation::OSVersion, osVersion));
+  }
+#endif
+
+#if defined(XP_LINUX) && !defined(ANDROID)
+  nsAutoCString dist, desc, release, codename;
+  if (widget::lsb::GetLSBRelease(dist, desc, release, codename)) {
+    MOZ_TRY(RecordAnnotationNSCString(Annotation::LinuxLSBDescription, desc));
+  }
+#endif
+
   return NS_OK;
 }
 
@@ -1362,41 +1404,11 @@ static nsresult RecordCPUInfoAnnotation() {
 }
 
 nsresult RecordXPCOMPlatformAnnotations() {
-  nsCOMPtr<nsIPropertyBag2> sysInfo = do_GetService(NS_SYSTEMINFO_CONTRACTID);
-  if (!sysInfo) {
-    NS_WARNING(
-        "expected nsSystemInfo to be available for platform crash annotations");
+  if (!GetEnabled()) {
     return NS_ERROR_NOT_INITIALIZED;
   }
 
-  nsCString osVersion;
-  if (NS_SUCCEEDED(sysInfo->GetPropertyAsACString(u"version"_ns, osVersion))) {
-    nsCString build;
-    if (NS_SUCCEEDED(sysInfo->GetPropertyAsACString(u"build"_ns, build))) {
-      osVersion.Append(
-#if defined(XP_WIN)
-          '.'
-#else
-          ' '
-#endif
-      );
-      osVersion.Append(build);
-    }
-    MOZ_TRY(
-        RecordAnnotationNSCString(Annotation::OSVersion, std::move(osVersion)));
-  }
-
-#if defined(XP_LINUX)
-  nsCString lsbDesc;
-  if (NS_SUCCEEDED(sysInfo->GetPropertyAsACString(u"distroDesc"_ns, lsbDesc))) {
-    MOZ_TRY(RecordAnnotationNSCString(
-        CrashReporter::Annotation::LinuxLSBDescription, std::move(lsbDesc)));
-  }
-#endif
-
-  MOZ_TRY(RecordCPUInfoAnnotation());
-
-  return NS_OK;
+  return RecordCPUInfoAnnotation();
 }
 
 static void WriteAnnotations(AnnotationWriter& aWriter,
