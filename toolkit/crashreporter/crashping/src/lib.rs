@@ -242,6 +242,7 @@ mod test {
                 "AsyncShutdownTimeout": "{\"phase\":\"abcd\",\"conditions\":[{\"foo\":\"bar\"}],\"brokenAddBlockers\":[\"foo\"]}",
                 "BlockedDllList": "Foo.dll;bar.dll;rawr.dll",
                 "CrashTime": "1234",
+                "InstallTime": "1784641473",
                 "LastInteractionDuration": "100",
                 "NimbusEnrollments": "a,b,c,d,e",
                 "QuotaManagerShutdownTimeout": "line1\nline2\nline3",

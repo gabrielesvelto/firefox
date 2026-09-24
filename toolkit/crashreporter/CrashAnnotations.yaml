@@ -647,7 +647,13 @@ InstallTime:
   description: >
     The time when Firefox was installed expressed as seconds since the Epoch
   type: u64
-  scope: report
+  scope: ping
+  glean:
+    type: timespan
+    time_unit: second
+    custom_convert: duration_seconds
+  bugs:
+    - 2049748
 
 ipc_channel_error:
   description: >
