@@ -25,6 +25,8 @@ support-files = [
 
 ["test_clear_blocked_cookies.js"]
 
+["test_clear_on_shutdown.js"]
+
 ["test_containers.js"]
 
 ["test_defaultbrowsercheck.js"]

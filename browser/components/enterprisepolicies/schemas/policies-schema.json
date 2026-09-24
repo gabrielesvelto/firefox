@@ -295,6 +295,27 @@
       }
     },
 
+    "ClearOnShutdown": {
+      "type": ["boolean", "object"],
+      "properties": {
+        "BrowsingHistoryAndDownloads": {
+          "type": "boolean"
+        },
+        "CookiesAndStorage": {
+          "type": "boolean"
+        },
+        "Cache": {
+          "type": "boolean"
+        },
+        "FormData": {
+          "type": "boolean"
+        },
+        "SiteSettings": {
+          "type": "boolean"
+        }
+      }
+    },
+
     "Containers": {
       "type": "object",
       "properties": {

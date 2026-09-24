@@ -49,6 +49,8 @@ policy-CaptivePortal = Enable or disable captive portal support.
 
 policy-CertificatesDescription = Add certificates or use built-in certificates.
 
+policy-ClearOnShutdown = Clear browsing data when { -brand-short-name } closes.
+
 policy-ContentAnalysis = Enable or disable connection to data-loss-prevention agent.
 
 policy-Cookies = Allow or deny websites to set cookies.
