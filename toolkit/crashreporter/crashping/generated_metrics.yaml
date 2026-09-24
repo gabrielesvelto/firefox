@@ -278,9 +278,13 @@ crash:
     type: boolean
   java_exception:
     bugs:
-    - https://bugzilla.mozilla.org/1950749
+    - https://bugzilla.mozilla.org/1904847
+    - https://bugzilla.mozilla.org/1961011
+    - https://bugzilla.mozilla.org/2073234
     data_reviews:
-    - https://bugzilla.mozilla.org/1950749
+    - https://bugzilla.mozilla.org/1904847
+    - https://bugzilla.mozilla.org/1961011
+    - https://bugzilla.mozilla.org/2073234
     data_sensitivity:
     - technical
     description: JSON structured Java stack trace, only present on Firefox for Android
@@ -296,8 +300,6 @@ crash:
         throwables:
           items:
             properties:
-              message:
-                type: string
               stack:
                 items:
                   properties:
