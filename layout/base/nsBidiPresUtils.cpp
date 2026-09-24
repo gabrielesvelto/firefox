@@ -13,7 +13,6 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/ScopeExit.h"
-#include "mozilla/Utf16.h"
 #include "mozilla/dom/Text.h"
 #include "mozilla/intl/Bidi.h"
 #include "nsBidiUtils.h"
