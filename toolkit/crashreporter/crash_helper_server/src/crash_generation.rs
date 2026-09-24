@@ -46,14 +46,14 @@ use std::{
 };
 
 pub(crate) struct CrashReport {
-    pub(crate) path: OsString,
+    pub(crate) path: PathBuf,
     pub(crate) error: Option<CString>,
 }
 
 impl CrashReport {
     fn new(path: &OsStr, error: &Option<CString>) -> CrashReport {
         CrashReport {
-            path: path.to_owned(),
+            path: PathBuf::from(path),
             error: error.to_owned(),
         }
     }
