@@ -5397,15 +5397,6 @@ smartblockEmbeds:
       description: >-
         Controls whether smartblock embed placeholders and protections panel toggles will be shown to the user.
 
-selectableProfiles:
-  description: "Multiple profile management using selectableProfileService"
-  owner: jhirsch@mozilla.com
-  hasExposure: false
-  variables:
-    enabled:
-      type: boolean
-      description: Enables the multiple profiles feature when true. Turning off this variable will not disable the feature.
-
 storageAccessHeuristics:
   description: Heuristics that grant cookie access automatically for foreign resources
   owner: bvandersloot@mozilla.com

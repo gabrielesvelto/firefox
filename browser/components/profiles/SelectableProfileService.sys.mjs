@@ -29,7 +29,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   EveryWindow: "resource:///modules/EveryWindow.sys.mjs",
   ExperimentAPI: "resource://nimbus/ExperimentAPI.sys.mjs",
   MigrationUtils: "resource:///modules/MigrationUtils.sys.mjs",
-  NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   TelemetryUtils: "resource://gre/modules/TelemetryUtils.sys.mjs",
@@ -379,7 +378,6 @@ class SelectableProfileServiceClass extends EventEmitter {
   constructor() {
     super();
 
-    this.onNimbusUpdate = this.onNimbusUpdate.bind(this);
     this.themeObserver = this.themeObserver.bind(this);
     this.matchMediaObserver = this.matchMediaObserver.bind(this);
     this.prefObserver = (subject, topic, prefName) =>
@@ -524,12 +522,6 @@ class SelectableProfileServiceClass extends EventEmitter {
     await this.#attemptFlushProfileService();
   }
 
-  onNimbusUpdate() {
-    if (lazy.NimbusFeatures.selectableProfiles.getVariable("enabled")) {
-      Services.prefs.setBoolPref(PROFILES_PREF_NAME, true);
-    }
-  }
-
   /**
    * At startup, store the nsToolkitProfile for the group.
    * Get the groupDBPath from the nsToolkitProfile, and connect to it.
@@ -552,8 +544,6 @@ class SelectableProfileServiceClass extends EventEmitter {
     if (this.#initialized) {
       return;
     }
-
-    lazy.NimbusFeatures.selectableProfiles.onUpdate(this.onNimbusUpdate);
 
     this.#profileService = ProfilesDatastoreService.toolkitProfileService;
 
@@ -707,8 +697,6 @@ class SelectableProfileServiceClass extends EventEmitter {
       this.themeObserver,
       "lightweight-theme-styling-update"
     );
-
-    lazy.NimbusFeatures.selectableProfiles.offUpdate(this.onNimbusUpdate);
 
     this.#currentProfile = null;
     this.#badge = null;
