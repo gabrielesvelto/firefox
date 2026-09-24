@@ -36,6 +36,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
+  addPolicyPermission: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   describePreferenceFailure: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   reportFailure: "resource://gre/modules/PoliciesHelpers.sys.mjs",
 });
@@ -844,13 +845,10 @@ export var Policies = {
       if (param.AllowSession) {
         for (let origin of param.AllowSession) {
           try {
-            Services.perms.addFromPrincipal(
-              Services.scriptSecurityManager.createContentPrincipalFromOrigin(
-                origin
-              ),
+            lazy.addPolicyPermission(
+              origin,
               "cookie",
-              Ci.nsICookiePermission.ACCESS_SESSION,
-              Ci.nsIPermissionManager.EXPIRE_POLICY
+              Ci.nsICookiePermission.ACCESS_SESSION
             );
           } catch (ex) {
             lazy.reportFailure(
@@ -3725,11 +3723,10 @@ function addAllowDenyPermissions(permissionName, allowList, blockList) {
 
   for (let origin of allowList) {
     try {
-      Services.perms.addFromPrincipal(
-        Services.scriptSecurityManager.createContentPrincipalFromOrigin(origin),
+      lazy.addPolicyPermission(
+        origin,
         permissionName,
-        Ci.nsIPermissionManager.ALLOW_ACTION,
-        Ci.nsIPermissionManager.EXPIRE_POLICY
+        Ci.nsIPermissionManager.ALLOW_ACTION
       );
     } catch (ex) {
       // It's possible if the origin was invalid, we'll have a string instead of an origin.
@@ -3742,11 +3739,10 @@ function addAllowDenyPermissions(permissionName, allowList, blockList) {
   }
 
   for (let origin of blockList) {
-    Services.perms.addFromPrincipal(
-      Services.scriptSecurityManager.createContentPrincipalFromOrigin(origin),
+    lazy.addPolicyPermission(
+      origin,
       permissionName,
-      Ci.nsIPermissionManager.DENY_ACTION,
-      Ci.nsIPermissionManager.EXPIRE_POLICY
+      Ci.nsIPermissionManager.DENY_ACTION
     );
   }
 }

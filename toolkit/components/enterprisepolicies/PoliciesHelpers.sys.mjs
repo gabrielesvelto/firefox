@@ -136,3 +136,102 @@ export function describePreferenceFailure(preference, value, ex) {
     : (ex?.message ?? ex);
   return `Unable to set preference ${preference}: ${reason}`;
 }
+
+/**
+ * addPolicyPermission
+ *
+ * Sets a permission from a policy site list. A host and its trailing dot form
+ * are distinct permission origins, so both get the permission.
+ *
+ * @param {URL|string} origin
+ *        The origin the permission applies to.
+ * @param {string} permissionName
+ *        The name of the permission to set.
+ * @param {number} permission
+ *        The permission value to set, for example ALLOW_ACTION.
+ */
+export function addPolicyPermission(origin, permissionName, permission) {
+  let principal =
+    Services.scriptSecurityManager.createContentPrincipalFromOrigin(origin);
+
+  for (let prin of [principal, trailingDotPrincipal(principal)]) {
+    if (prin) {
+      Services.perms.addFromPrincipal(
+        prin,
+        permissionName,
+        permission,
+        Ci.nsIPermissionManager.EXPIRE_POLICY
+      );
+    }
+  }
+}
+
+/**
+ * Returns the principal for aPrincipal's other host form: bare for a host with
+ * trailing dots, one trailing dot for a bare host. Null when there is no such
+ * principal: no host, an IP address host, or a host setHost rejects.
+ *
+ * @param {nsIPrincipal} aPrincipal
+ * @returns {nsIPrincipal?}
+ */
+function trailingDotPrincipal(aPrincipal) {
+  let host = principalHost(aPrincipal);
+
+  if (!host || aPrincipal.isIpAddress) {
+    return null;
+  }
+
+  let bareHost = host.replace(/\.+$/, "");
+  let otherHost = bareHost == host ? `${host}.` : bareHost;
+
+  try {
+    return Services.scriptSecurityManager.createContentPrincipal(
+      aPrincipal.URI.mutate().setHost(otherHost).finalize(),
+      aPrincipal.originAttributes
+    );
+  } catch (ex) {
+    return null;
+  }
+}
+
+// nsIPrincipal.host throws for a URI with no host, such as an about: URI.
+function principalHost(aPrincipal) {
+  try {
+    return aPrincipal.host;
+  } catch (ex) {
+    return "";
+  }
+}
+
+/**
+ * isTrailingDotPolicyDuplicate
+ *
+ * True when aPermission is a policy permission for a trailing dot host and the
+ * same policy permission exists for the bare host. A permission list UI lists
+ * the site once, so it skips these. A trailing dot host with a permission of
+ * its own is not a duplicate and stays listed.
+ *
+ * Callers check expireType first, so a profile with no policy permissions
+ * never imports this module.
+ *
+ * @param {nsIPermission} aPermission
+ * @returns {boolean}
+ */
+export function isTrailingDotPolicyDuplicate(aPermission) {
+  if (
+    aPermission.expireType != Ci.nsIPermissionManager.EXPIRE_POLICY ||
+    !principalHost(aPermission.principal).endsWith(".")
+  ) {
+    return false;
+  }
+
+  let barePrincipal = trailingDotPrincipal(aPermission.principal);
+  let barePermission =
+    barePrincipal &&
+    Services.perms.getPermissionObject(barePrincipal, aPermission.type, true);
+
+  return (
+    barePermission?.expireType == Ci.nsIPermissionManager.EXPIRE_POLICY &&
+    barePermission.capability == aPermission.capability
+  );
+}
