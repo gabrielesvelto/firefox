@@ -1,4 +1,4 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
+    /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
@@ -38,7 +38,7 @@ use std::{
     collections::HashMap,
     convert::TryInto,
     ffi::{c_void, CString, OsStr, OsString},
-    fs::File,
+    fs::{self, File},
     io::{Seek, SeekFrom, Write},
     mem::size_of,
     path::{Path, PathBuf},
@@ -127,6 +127,23 @@ impl CrashGenerator {
 
     pub(crate) fn retrieve_minidump_by_id(&mut self, id: GeckoChildId) -> Option<CrashReport> {
         self.reports_by_id.remove(&id)
+    }
+
+    // Moves the memory report file next to the minidump. Does not report
+    // errors as they are harmless.
+    fn add_memory_report(&self, path: &Path) {
+        if let Some(memory_report_path) = self.memory_report_path.as_ref() {
+            if memory_report_path.exists() {
+                let dst_path = path.with_extension(".memory.json.gz");
+                if let Err(err) = fs::rename(memory_report_path, &dst_path) {
+                    log::error!(
+                        "Could not move memory report {} to {}, error: {err}",
+                        memory_report_path.display(),
+                        dst_path.display()
+                    );
+                }
+            }
+        }
     }
 
     pub(crate) fn generate_minidump(
@@ -351,6 +368,8 @@ pub(crate) unsafe extern "C" fn finalize_breakpad_minidump(
         &minidump_path,
         ProcessType::Child,
     );
+
+    generator.add_memory_report(&minidump_path);
     generator.insert_crash_report(&process_id, &minidump_path, error);
 }
 
