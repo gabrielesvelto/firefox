@@ -484,6 +484,9 @@ TRRLoadInfo::GetPolicyContainerToInherit() {
   return nullptr;
 }
 
+void TRRLoadInfo::SetPolicyContainerToInherit(
+    nsIPolicyContainer* aPolicyContainerToInherit) {}
+
 Maybe<FeaturePolicyInfo> TRRLoadInfo::GetContainerFeaturePolicyInfo() {
   return Nothing();
 }
