@@ -2282,6 +2282,11 @@ var SessionStoreInternal = {
           let state = { windows: [newWindowState] };
           let options = { overwriteTabs: this._isCmdLineEmpty(aWindow, state) };
           this.restoreWindow(aWindow, newWindowState, options);
+          // Unlike #restoreWindowsFeaturesAndTabs, we restore into the window
+          // directly, so notify here as well. Consumers such as
+          // SidebarController wait for this to know that the state we handed
+          // them is all they are going to get.
+          Services.obs.notifyObservers(aWindow, NOTIFY_SINGLE_WINDOW_RESTORED);
         }
       }
       // we actually restored the session just now.
