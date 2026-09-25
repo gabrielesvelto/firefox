@@ -1346,7 +1346,23 @@ CookieService::GetCookieNative(const nsACString& aHost, const nsACString& aPath,
 // the nsICookieManager interface.
 NS_IMETHODIMP
 CookieService::CountCookiesFromHost(const nsACString& aHost,
-                                    uint32_t* aCountFromHost) {
+                                    JS::Handle<JS::Value> aOriginAttributes,
+                                    JSContext* aCx, uint32_t* aCountFromHost) {
+  OriginAttributes attrs;
+  if (!aOriginAttributes.isObject() || !attrs.Init(aCx, aOriginAttributes)) {
+    return NS_ERROR_INVALID_ARG;
+  }
+
+  return CountCookiesFromHostNative(aHost, &attrs, aCountFromHost);
+}
+
+NS_IMETHODIMP_(nsresult)
+CookieService::CountCookiesFromHostNative(const nsACString& aHost,
+                                          OriginAttributes* aOriginAttributes,
+                                          uint32_t* aCountFromHost) {
+  NS_ENSURE_ARG_POINTER(aOriginAttributes);
+  NS_ENSURE_ARG_POINTER(aCountFromHost);
+
   // first, normalize the hostname, and fail if it contains illegal characters.
   nsAutoCString host(aHost);
   nsresult rv = NormalizeHost(host);
@@ -1360,12 +1376,10 @@ CookieService::CountCookiesFromHost(const nsACString& aHost,
     return NS_ERROR_NOT_AVAILABLE;
   }
 
-  mPersistentStorage->EnsureInitialized();
+  CookieStorage* storage = PickStorage(*aOriginAttributes);
 
-  OriginAttributes attrs;
   uint32_t count = 0;
-
-  mPersistentStorage->ForEachCookie(baseDomain, attrs, [&](Cookie*) {
+  storage->ForEachCookie(baseDomain, *aOriginAttributes, [&](Cookie*) {
     ++count;
     return true;
   });

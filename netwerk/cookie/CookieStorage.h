@@ -83,8 +83,6 @@ class CookieStorage : public nsIObserver, public nsSupportsWeakReference {
                           const OriginAttributes& aOriginAttributes,
                           nsTArray<RefPtr<Cookie>>& aCookies);
 
-  // Iterates the cookies stored for aBaseDomain in the aOriginAttributes jar.
-  // The iteration stops as soon as aCallback returns false.
   void ForEachCookie(const nsACString& aBaseDomain,
                      const OriginAttributes& aOriginAttributes,
                      const std::function<bool(Cookie*)>& aCallback);

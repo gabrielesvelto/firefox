@@ -861,10 +861,10 @@ TEST(TestCookie, TestCookieMain)
   EXPECT_TRUE(CheckResult(cookie.get(), MUST_CONTAIN, "test2=yes"));
   GetACookieNoHttp(cookieService, "http://cookiemgr.test/foo/", cookie);
   EXPECT_TRUE(CheckResult(cookie.get(), MUST_NOT_CONTAIN, "test2=yes"));
-  // check CountCookiesFromHost()
+  // check CountCookiesFromHostNative()
   uint32_t hostCookies = 0;
-  EXPECT_TRUE(NS_SUCCEEDED(
-      cookieMgr2->CountCookiesFromHost("cookiemgr.test"_ns, &hostCookies)));
+  EXPECT_TRUE(NS_SUCCEEDED(cookieMgr2->CountCookiesFromHostNative(
+      "cookiemgr.test"_ns, &attrs, &hostCookies)));
   EXPECT_EQ(hostCookies, 2u);
   // check CookieExistsNative() using the third cookie
   bool found;
@@ -874,10 +874,10 @@ TEST(TestCookie, TestCookieMain)
 
   // sleep four seconds, to make sure the second cookie has expired
   PR_Sleep(4 * PR_TicksPerSecond());
-  // check that both CountCookiesFromHost() and CookieExistsNative() count the
-  // expired cookie
-  EXPECT_TRUE(NS_SUCCEEDED(
-      cookieMgr2->CountCookiesFromHost("cookiemgr.test"_ns, &hostCookies)));
+  // check that both CountCookiesFromHostNative() and CookieExistsNative() count
+  // the expired cookie
+  EXPECT_TRUE(NS_SUCCEEDED(cookieMgr2->CountCookiesFromHostNative(
+      "cookiemgr.test"_ns, &attrs, &hostCookies)));
   EXPECT_EQ(hostCookies, 2u);
   EXPECT_TRUE(NS_SUCCEEDED(cookieMgr2->CookieExistsNative(
       "cookiemgr.test"_ns, "/foo"_ns, "test2"_ns, &attrs, &found)));
