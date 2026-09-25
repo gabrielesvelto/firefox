@@ -1335,6 +1335,24 @@ TEST(TestCookie, RemoveOlderCookiesByBytesEntryFreed)
   EXPECT_FALSE(storage->mHostTable.GetEntry(key));
 }
 
+static bool HasCookiesForSite(CookieStorage* aStorage,
+                              const nsACString& aBaseDomain,
+                              const OriginAttributesPattern& aPattern) {
+  int64_t currentTimeInMSec = PR_Now() / PR_USEC_PER_MSEC;
+  bool hasCookies = false;
+
+  aStorage->ForEachCookie(aBaseDomain, aPattern, [&](Cookie* aCookie) {
+    if (aCookie->IsExpired(currentTimeInMSec)) {
+      return true;
+    }
+
+    hasCookies = true;
+    return false;
+  });
+
+  return hasCookies;
+}
+
 // Regression test for Bug 2041131: HasCookiesForSite must find cookies stored
 // under any OriginAttributes matching the pattern (containers, partitionKey,
 // …), not just the default-OA bucket.
@@ -1344,13 +1362,17 @@ TEST(TestCookie, HasCookiesForSite)
 
   nsAutoCString baseDomain("example.com"_ns);
 
-  auto addCookie = [&](const OriginAttributes& aAttrs) {
+  const int64_t nowInMSec = PR_Now() / PR_USEC_PER_MSEC;
+  const int64_t kFuture = nowInMSec + 86400 * 1000;
+  const int64_t kPast = nowInMSec - 1;
+
+  auto addCookie = [&](const OriginAttributes& aAttrs, int64_t aExpiryInMSec) {
     CookieStruct cookieData;
     cookieData.name() = "c"_ns;
     cookieData.value() = "v"_ns;
     cookieData.host() = "example.com"_ns;
     cookieData.path() = "/"_ns;
-    cookieData.expiryInMSec() = PR_Now() / PR_USEC_PER_MSEC + 86400 * 1000;
+    cookieData.expiryInMSec() = aExpiryInMSec;
     cookieData.lastAccessedInUSec() = 0;
     cookieData.creationTimeInUSec() = 0;
     cookieData.updateTimeInUSec() = 0;
@@ -1370,16 +1392,16 @@ TEST(TestCookie, HasCookiesForSite)
   nonPbPattern.mPrivateBrowsingId.Construct(0);
 
   // No cookies at all → false.
-  EXPECT_FALSE(storage->HasCookiesForSite(baseDomain, nonPbPattern));
-  EXPECT_FALSE(storage->HasCookiesForSite("other.test"_ns, nonPbPattern));
+  EXPECT_FALSE(HasCookiesForSite(storage, baseDomain, nonPbPattern));
+  EXPECT_FALSE(HasCookiesForSite(storage, "other.test"_ns, nonPbPattern));
 
   // Cookie in the default-OA bucket → true.
   OriginAttributes defaultAttrs;
-  addCookie(defaultAttrs);
-  EXPECT_TRUE(storage->HasCookiesForSite(baseDomain, nonPbPattern));
+  addCookie(defaultAttrs, kFuture);
+  EXPECT_TRUE(HasCookiesForSite(storage, baseDomain, nonPbPattern));
 
   // Different base domain still gets false.
-  EXPECT_FALSE(storage->HasCookiesForSite("other.test"_ns, nonPbPattern));
+  EXPECT_FALSE(HasCookiesForSite(storage, "other.test"_ns, nonPbPattern));
 
   // Cookie only in a container (userContextId != 0) → true. This is the
   // direct regression case from Bug 2041131.
@@ -1387,20 +1409,20 @@ TEST(TestCookie, HasCookiesForSite)
   storage = containerOnly;
   OriginAttributes containerAttrs;
   containerAttrs.mUserContextId = 1;
-  addCookie(containerAttrs);
-  EXPECT_TRUE(storage->HasCookiesForSite(baseDomain, nonPbPattern));
+  addCookie(containerAttrs, kFuture);
+  EXPECT_TRUE(HasCookiesForSite(storage, baseDomain, nonPbPattern));
 
   // PB-only cookie must NOT be visible to a non-PB pattern.
   RefPtr<TestableCookieStorage> pbOnly = TestableCookieStorage::Create();
   storage = pbOnly;
   OriginAttributes pbAttrs;
   pbAttrs.mPrivateBrowsingId = 1;
-  addCookie(pbAttrs);
-  EXPECT_FALSE(storage->HasCookiesForSite(baseDomain, nonPbPattern));
+  addCookie(pbAttrs, kFuture);
+  EXPECT_FALSE(HasCookiesForSite(storage, baseDomain, nonPbPattern));
   // And IS visible to a PB-matching pattern.
   OriginAttributesPattern pbPattern;
   pbPattern.mPrivateBrowsingId.Construct(1);
-  EXPECT_TRUE(storage->HasCookiesForSite(baseDomain, pbPattern));
+  EXPECT_TRUE(HasCookiesForSite(storage, baseDomain, pbPattern));
 
   // Partitioned-only cookie (non-default partitionKey) → true under
   // privateBrowsingId=0 pattern.
@@ -1409,6 +1431,16 @@ TEST(TestCookie, HasCookiesForSite)
   storage = partitionedOnly;
   OriginAttributes partAttrs;
   partAttrs.mPartitionKey = u"(http,other.test)"_ns;
-  addCookie(partAttrs);
-  EXPECT_TRUE(storage->HasCookiesForSite(baseDomain, nonPbPattern));
+  addCookie(partAttrs, kFuture);
+  EXPECT_TRUE(HasCookiesForSite(storage, baseDomain, nonPbPattern));
+
+  RefPtr<TestableCookieStorage> expiredOnly = TestableCookieStorage::Create();
+  storage = expiredOnly;
+  addCookie(defaultAttrs, kPast);
+  EXPECT_FALSE(HasCookiesForSite(storage, baseDomain, nonPbPattern));
+
+  OriginAttributes otherAttrs;
+  otherAttrs.mUserContextId = 2;
+  addCookie(otherAttrs, kFuture);
+  EXPECT_TRUE(HasCookiesForSite(storage, baseDomain, nonPbPattern));
 }

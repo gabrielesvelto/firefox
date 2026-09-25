@@ -71,9 +71,6 @@ class CookieStorage : public nsIObserver, public nsSupportsWeakReference {
                                       const nsACString& aName,
                                       const nsACString& aPath);
 
-  bool HasCookiesForSite(const nsACString& aBaseDomain,
-                         const OriginAttributesPattern& aPattern);
-
   uint32_t CountCookieBytesNotMatchingCookie(const Cookie& cookie,
                                              const nsACString& baseDomain);
 
@@ -85,6 +82,10 @@ class CookieStorage : public nsIObserver, public nsSupportsWeakReference {
 
   void ForEachCookie(const nsACString& aBaseDomain,
                      const OriginAttributes& aOriginAttributes,
+                     const std::function<bool(Cookie*)>& aCallback);
+
+  void ForEachCookie(const nsACString& aBaseDomain,
+                     const OriginAttributesPattern& aPattern,
                      const std::function<bool(Cookie*)>& aCallback);
 
   void GetCookiesWithOriginAttributes(const OriginAttributesPattern& aPattern,

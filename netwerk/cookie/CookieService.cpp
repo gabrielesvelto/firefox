@@ -1415,7 +1415,19 @@ CookieService::HasCookiesForSite(const nsACString& aHost,
   CookieStorage* storage = PickStorage(pattern);
   storage->EnsureInitialized();
 
-  *aResult = storage->HasCookiesForSite(baseDomain, pattern);
+  int64_t currentTimeInMSec = PR_Now() / PR_USEC_PER_MSEC;
+  bool hasCookies = false;
+
+  storage->ForEachCookie(baseDomain, pattern, [&](Cookie* aCookie) {
+    if (aCookie->IsExpired(currentTimeInMSec)) {
+      return true;
+    }
+
+    hasCookies = true;
+    return false;
+  });
+
+  *aResult = hasCookies;
   return NS_OK;
 }
 

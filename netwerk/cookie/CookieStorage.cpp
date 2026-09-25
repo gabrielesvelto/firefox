@@ -254,8 +254,9 @@ bool CookieStorage::FindSecureCookie(const nsACString& aBaseDomain,
   return false;
 }
 
-bool CookieStorage::HasCookiesForSite(const nsACString& aBaseDomain,
-                                      const OriginAttributesPattern& aPattern) {
+void CookieStorage::ForEachCookie(
+    const nsACString& aBaseDomain, const OriginAttributesPattern& aPattern,
+    const std::function<bool(Cookie*)>& aCallback) {
   for (auto iter = mHostTable.Iter(); !iter.Done(); iter.Next()) {
     CookieEntry* entry = iter.Get();
 
@@ -267,12 +268,12 @@ bool CookieStorage::HasCookiesForSite(const nsACString& aBaseDomain,
       continue;
     }
 
-    if (!entry->GetCookies().IsEmpty()) {
-      return true;
+    for (Cookie* cookie : entry->GetCookies()) {
+      if (!aCallback(cookie)) {
+        return;
+      }
     }
   }
-
-  return false;
 }
 
 uint32_t CookieStorage::CountCookieBytesNotMatchingCookie(
