@@ -494,8 +494,8 @@ CookieService::SetCookieStringFromHttp(nsIURI* aHostURI,
   CookieStorage* storage = PickStorage(storagePrincipalOriginAttributes);
 
   // check default prefs
-  uint32_t priorCookieCount = storage->CountCookiesFromHost(
-      baseDomainFromURI, storagePrincipalOriginAttributes.mPrivateBrowsingId);
+  bool hasExistingCookies =
+      HasExistingCookies(baseDomainFromURI, storagePrincipalOriginAttributes);
 
   nsCOMPtr<nsIConsoleReportCollector> crc = do_QueryInterface(aChannel);
 
@@ -505,7 +505,7 @@ CookieService::SetCookieStringFromHttp(nsIURI* aHostURI,
       result.contains(ThirdPartyAnalysis::IsThirdPartyTrackingResource),
       result.contains(ThirdPartyAnalysis::IsThirdPartySocialTrackingResource),
       result.contains(ThirdPartyAnalysis::IsStorageAccessPermissionGranted),
-      aCookieHeader, priorCookieCount, storagePrincipalOriginAttributes,
+      aCookieHeader, hasExistingCookies, storagePrincipalOriginAttributes,
       &rejectedReason);
 
   MOZ_ASSERT_IF(
@@ -968,14 +968,13 @@ void CookieService::GetCookiesForURI(
 
     // check default prefs
     uint32_t rejectedReason = aRejectedReason;
-    uint32_t priorCookieCount = storage->CountCookiesFromHost(
-        baseDomainFromURI, attrs.mPrivateBrowsingId);
+    bool hasExistingCookies = HasExistingCookies(baseDomainFromURI, attrs);
 
     CookieStatus cookieStatus = CheckPrefs(
         crc, cookieJarSettings, aHostURI, aIsForeign,
         aIsThirdPartyTrackingResource, aIsThirdPartySocialTrackingResource,
-        aStorageAccessPermissionGranted, VoidCString(), priorCookieCount, attrs,
-        &rejectedReason);
+        aStorageAccessPermissionGranted, VoidCString(), hasExistingCookies,
+        attrs, &rejectedReason);
 
     MOZ_ASSERT_IF(
         rejectedReason &&
@@ -988,7 +987,7 @@ void CookieService::GetCookiesForURI(
     switch (cookieStatus) {
       case STATUS_REJECTED:
         // If we don't have any cookies from this host, fail silently.
-        if (priorCookieCount) {
+        if (hasExistingCookies) {
           CookieCommons::NotifyRejected(aHostURI, aChannel, rejectedReason,
                                         OPERATION_READ);
         }
@@ -1153,7 +1152,7 @@ CookieStatus CookieService::CheckPrefs(
     nsIURI* aHostURI, bool aIsForeign, bool aIsThirdPartyTrackingResource,
     bool aIsThirdPartySocialTrackingResource,
     bool aStorageAccessPermissionGranted, const nsACString& aCookieHeader,
-    const int aNumOfCookies, const OriginAttributes& aOriginAttrs,
+    bool aHasExistingCookies, const OriginAttributes& aOriginAttrs,
     uint32_t* aRejectedReason) {
   nsresult rv;
 
@@ -1261,7 +1260,7 @@ CookieStatus CookieService::CheckPrefs(
     }
 
     if (aCookieJarSettings->GetLimitForeignContexts() &&
-        !aStorageAccessPermissionGranted && aNumOfCookies == 0) {
+        !aStorageAccessPermissionGranted && !aHasExistingCookies) {
       COOKIE_LOGFAILURE(!aCookieHeader.IsVoid(), aHostURI, aCookieHeader,
                         "context is third party");
       CookieLogging::LogMessageToConsole(
@@ -1363,7 +1362,15 @@ CookieService::CountCookiesFromHost(const nsACString& aHost,
 
   mPersistentStorage->EnsureInitialized();
 
-  *aCountFromHost = mPersistentStorage->CountCookiesFromHost(baseDomain, 0);
+  OriginAttributes attrs;
+  uint32_t count = 0;
+
+  mPersistentStorage->ForEachCookie(baseDomain, attrs, [&](Cookie*) {
+    ++count;
+    return true;
+  });
+
+  *aCountFromHost = count;
 
   return NS_OK;
 }
@@ -1809,8 +1816,20 @@ bool CookieService::HasExistingCookies(
   }
 
   CookieStorage* storage = PickStorage(aOriginAttributes);
-  return !!storage->CountCookiesFromHost(aBaseDomain,
-                                         aOriginAttributes.mPrivateBrowsingId);
+
+  int64_t currentTimeInMSec = PR_Now() / PR_USEC_PER_MSEC;
+  bool hasExistingCookies = false;
+
+  storage->ForEachCookie(aBaseDomain, aOriginAttributes, [&](Cookie* aCookie) {
+    if (aCookie->IsExpired(currentTimeInMSec)) {
+      return true;
+    }
+
+    hasExistingCookies = true;
+    return false;
+  });
+
+  return hasExistingCookies;
 }
 
 void CookieService::AddCookieFromDocument(

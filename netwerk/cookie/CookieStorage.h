@@ -71,9 +71,6 @@ class CookieStorage : public nsIObserver, public nsSupportsWeakReference {
                                       const nsACString& aName,
                                       const nsACString& aPath);
 
-  uint32_t CountCookiesFromHost(const nsACString& aBaseDomain,
-                                uint32_t aPrivateBrowsingId);
-
   bool HasCookiesForSite(const nsACString& aBaseDomain,
                          const OriginAttributesPattern& aPattern);
 
@@ -85,6 +82,12 @@ class CookieStorage : public nsIObserver, public nsSupportsWeakReference {
   void GetCookiesFromHost(const nsACString& aBaseDomain,
                           const OriginAttributes& aOriginAttributes,
                           nsTArray<RefPtr<Cookie>>& aCookies);
+
+  // Iterates the cookies stored for aBaseDomain in the aOriginAttributes jar.
+  // The iteration stops as soon as aCallback returns false.
+  void ForEachCookie(const nsACString& aBaseDomain,
+                     const OriginAttributes& aOriginAttributes,
+                     const std::function<bool(Cookie*)>& aCallback);
 
   void GetCookiesWithOriginAttributes(const OriginAttributesPattern& aPattern,
                                       const nsACString& aBaseDomain,

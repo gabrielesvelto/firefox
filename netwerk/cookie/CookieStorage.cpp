@@ -254,16 +254,6 @@ bool CookieStorage::FindSecureCookie(const nsACString& aBaseDomain,
   return false;
 }
 
-uint32_t CookieStorage::CountCookiesFromHost(const nsACString& aBaseDomain,
-                                             uint32_t aPrivateBrowsingId) {
-  OriginAttributes attrs;
-  attrs.mPrivateBrowsingId = aPrivateBrowsingId;
-
-  // Return a count of all cookies, including expired.
-  CookieEntry* entry = mHostTable.GetEntry(CookieKey(aBaseDomain, attrs));
-  return entry ? entry->GetCookies().Length() : 0;
-}
-
 bool CookieStorage::HasCookiesForSite(const nsACString& aBaseDomain,
                                       const OriginAttributesPattern& aPattern) {
   for (auto iter = mHostTable.Iter(); !iter.Done(); iter.Next()) {
@@ -325,6 +315,22 @@ void CookieStorage::GetCookiesFromHost(
   }
 
   aCookies = entry->GetCookies().Clone();
+}
+
+void CookieStorage::ForEachCookie(
+    const nsACString& aBaseDomain, const OriginAttributes& aOriginAttributes,
+    const std::function<bool(Cookie*)>& aCallback) {
+  CookieEntry* entry =
+      mHostTable.GetEntry(CookieKey(aBaseDomain, aOriginAttributes));
+  if (!entry) {
+    return;
+  }
+
+  for (Cookie* cookie : entry->GetCookies()) {
+    if (!aCallback(cookie)) {
+      return;
+    }
+  }
 }
 
 void CookieStorage::GetCookiesWithOriginAttributes(

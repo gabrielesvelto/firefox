@@ -96,11 +96,12 @@ interface nsICookieService : nsISupports
   [noscript, notxpcom, nostdcall] void staleCookies(in Array<CookieRefPtr> aCookies,
                                                     in int64_t aCurrentTimeInUsec);
 
-  /* Return true if there are existing cookies for the host and OriginAttributes. */
+  /* Return true if there are existing non-expired cookies for the host and
+   * OriginAttributes. */
   [noscript, notxpcom, nostdcall] boolean hasExistingCookies(in ACString aBaseDomain,
                                                              in const_OriginAttributes aOriginAttributes);
 
-  /* Return true if there are existing cookies for the host and OriginAttributes. */
+  /* Return true if there are existing non-expired cookies for the host and OriginAttributes. */
   [noscript, notxpcom, nostdcall] void addCookieFromDocument(in CookieParserPtr aCookieParser,
                                                              in ACString aBaseDomain,
                                                              in const_OriginAttributes aOriginAttributes,

@@ -425,7 +425,18 @@ bool CookieServiceChild::HasExistingCookies(
   CookieKey key(aBaseDomain, aOriginAttributes);
   mCookiesMap.Get(key, &cookiesList);
 
-  return cookiesList ? cookiesList->Length() : false;
+  if (!cookiesList) {
+    return false;
+  }
+
+  int64_t currentTimeInMSec = PR_Now() / PR_USEC_PER_MSEC;
+  for (Cookie* cookie : *cookiesList) {
+    if (!cookie->IsExpired(currentTimeInMSec)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 void CookieServiceChild::AddCookieFromDocument(
