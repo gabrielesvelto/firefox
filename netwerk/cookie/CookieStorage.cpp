@@ -72,8 +72,8 @@ class CookieStorage::CookieIterComparator {
       : mCurrentTimeInMSec(aTimeInMSec) {}
 
   bool LessThan(const CookieListIter& lhs, const CookieListIter& rhs) {
-    bool lExpired = lhs.Cookie()->ExpiryInMSec() <= mCurrentTimeInMSec;
-    bool rExpired = rhs.Cookie()->ExpiryInMSec() <= mCurrentTimeInMSec;
+    bool lExpired = lhs.Cookie()->IsExpired(mCurrentTimeInMSec);
+    bool rExpired = rhs.Cookie()->IsExpired(mCurrentTimeInMSec);
     if (lExpired && !rExpired) {
       return true;
     }
@@ -738,8 +738,8 @@ void CookieStorage::AddCookie(CookieParser* aCookieParser,
     // need to be careful about the semantics of removing it and adding the new
     // cookie: we want the behavior wrt adding the new cookie to be the same as
     // if it didn't exist, but we still want to fire a removal notification.
-    if (oldCookie->ExpiryInMSec() <= currentTimeInMSec) {
-      if (aCookie->ExpiryInMSec() <= currentTimeInMSec) {
+    if (oldCookie->IsExpired(currentTimeInMSec)) {
+      if (aCookie->IsExpired(currentTimeInMSec)) {
         // The new cookie has expired and the old one is stale. Nothing to do.
         COOKIE_LOGFAILURE(SET_COOKIE, aHostURI, aCookieHeader,
                           "cookie has already expired");
@@ -800,7 +800,7 @@ void CookieStorage::AddCookie(CookieParser* aCookieParser,
 
       // If the new cookie has expired -- i.e. the intent was simply to delete
       // the old cookie -- then we're done.
-      if (aCookie->ExpiryInMSec() <= currentTimeInMSec) {
+      if (aCookie->IsExpired(currentTimeInMSec)) {
         COOKIE_LOGFAILURE(SET_COOKIE, aHostURI, aCookieHeader,
                           "previously stored cookie was deleted");
         NotifyChanged(oldCookie, nsICookieNotification::COOKIE_DELETED,
@@ -838,7 +838,7 @@ void CookieStorage::AddCookie(CookieParser* aCookieParser,
     }
   } else {
     // check if cookie has already expired
-    if (aCookie->ExpiryInMSec() <= currentTimeInMSec) {
+    if (aCookie->IsExpired(currentTimeInMSec)) {
       COOKIE_LOGFAILURE(SET_COOKIE, aHostURI, aCookieHeader,
                         "cookie has already expired");
       return;
@@ -1009,7 +1009,7 @@ void CookieStorage::FindStaleCookies(CookieEntry* aEntry,
   for (CookieEntry::IndexType i = 0; i < cookies.Length(); ++i) {
     Cookie* cookie = cookies[i];
 
-    if (cookie->ExpiryInMSec() <= aCurrentTimeInMSec) {
+    if (cookie->IsExpired(aCurrentTimeInMSec)) {
       queue.Push(CookieListIter(aEntry, i));
       continue;
     }
@@ -1084,7 +1084,7 @@ already_AddRefed<nsIArray> CookieStorage::PurgeCookiesWithCallbacks(
       Cookie* cookie = cookies[i];
 
       // check if the cookie has expired
-      if (cookie->ExpiryInMSec() <= currentTimeInMSec) {
+      if (cookie->IsExpired(currentTimeInMSec)) {
         removedList->AppendElement(cookie);
         COOKIE_LOGEVICTED(cookie, "Cookie expired");
 

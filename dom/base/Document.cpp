@@ -6837,7 +6837,8 @@ void Document::GetCookie(nsAString& aCookie, ErrorResult& aRv) {
   nsTArray<RefPtr<Cookie>> cookieList;
   bool stale = false;
   int64_t currentTimeInUsec = PR_Now();
-  int64_t currentTimeInMSec = currentTimeInUsec / PR_USEC_PER_MSEC;
+  [[maybe_unused]] int64_t currentTimeInMSec =
+      currentTimeInUsec / PR_USEC_PER_MSEC;
 
   // not having a cookie service isn't an error
   nsCOMPtr<nsICookieService> service =
@@ -6916,10 +6917,7 @@ void Document::GetCookie(nsAString& aCookie, ErrorResult& aRv) {
         continue;
       }
 
-      // check if the cookie has expired
-      if (cookie->ExpiryInMSec() <= currentTimeInMSec) {
-        continue;
-      }
+      MOZ_DIAGNOSTIC_ASSERT(!cookie->IsExpired(currentTimeInMSec));
 
       // Skipping sending TCP cookies when the page has StorageAccess if
       // configured so that CHIPS doesn't affect TCP.

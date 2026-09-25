@@ -373,6 +373,8 @@ void CookieStoreParent::GetRequestOnMainThread(
   bool hasBothPartitionedAndUnpartitioned =
       aPartitionedOriginAttributes.isSome();
 
+  [[maybe_unused]] int64_t currentTimeInMSec = PR_Now() / PR_USEC_PER_MSEC;
+
   for (const OriginAttributes& attrs : attrsList) {
     nsTArray<RefPtr<Cookie>> cookies;
     service->GetCookiesFromHost(baseDomain, attrs, cookies);
@@ -384,6 +386,7 @@ void CookieStoreParent::GetRequestOnMainThread(
       if (cookie->IsHttpOnly()) {
         continue;
       }
+      MOZ_DIAGNOSTIC_ASSERT(!cookie->IsExpired(currentTimeInMSec));
 
       if (aThirdPartyContext &&
           !CookieCommons::ShouldIncludeCrossSiteCookie(
@@ -579,12 +582,15 @@ bool CookieStoreParent::DeleteRequestOnMainThread(
   NS_ConvertUTF16toUTF8 matchName(aName);
   NS_ConvertUTF16toUTF8 matchPath(aPath);
 
+  [[maybe_unused]] int64_t currentTimeInMSec = PR_Now() / PR_USEC_PER_MSEC;
+
   nsTArray<RefPtr<Cookie>> cookies;
   OriginAttributes attrs(aOriginAttributes);
   service->GetCookiesFromHost(baseDomain, attrs, cookies);
 
   for (Cookie* cookie : cookies) {
     MOZ_ASSERT(cookie);
+    MOZ_DIAGNOSTIC_ASSERT(!cookie->IsExpired(currentTimeInMSec));
     if (!matchName.Equals(cookie->Name())) {
       continue;
     }
