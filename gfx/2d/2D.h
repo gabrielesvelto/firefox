@@ -352,7 +352,7 @@ class LinearGradientPatternT : public Pattern {
   }
 
   bool IsWeak() const override {
-    return std::is_same<decltype(*this), Weak>::value;
+    return std::is_same<decltype(this), const Weak*>::value;
   }
 
   bool IsValid() const override { return IsRefValid(mStops); }
@@ -415,7 +415,7 @@ class RadialGradientPatternT : public Pattern {
   }
 
   bool IsWeak() const override {
-    return std::is_same<decltype(*this), Weak>::value;
+    return std::is_same<decltype(this), const Weak*>::value;
   }
 
   bool IsValid() const override { return IsRefValid(mStops); }
@@ -477,7 +477,7 @@ class ConicGradientPatternT : public Pattern {
   }
 
   bool IsWeak() const override {
-    return std::is_same<decltype(*this), Weak>::value;
+    return std::is_same<decltype(this), const Weak*>::value;
   }
 
   bool IsValid() const override { return IsRefValid(mStops); }
@@ -539,7 +539,7 @@ class SurfacePatternT : public Pattern {
   }
 
   bool IsWeak() const override {
-    return std::is_same<decltype(*this), Weak>::value;
+    return std::is_same<decltype(this), const Weak*>::value;
   }
 
   bool IsValid() const override { return IsRefValid(mSurface); }
