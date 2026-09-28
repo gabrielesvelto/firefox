@@ -66,6 +66,13 @@ add_task(async function test_http() {
       encodeURIComponent(SUPPORT_FILES_PATH + BLOCKED_PAGE),
     true
   );
+  await checkBlockedPage(
+    "about:reader?URL=" +
+      encodeURIComponent(SUPPORT_FILES_PATH + EXCEPTION_PAGE) +
+      "&url=" +
+      encodeURIComponent(SUPPORT_FILES_PATH + BLOCKED_PAGE),
+    true
+  );
   await checkBlockedPage(SUPPORT_FILES_PATH + EXCEPTION_PAGE, false);
 
   await checkBlockedPage(SUPPORT_FILES_PATH + "301.sjs", true);
