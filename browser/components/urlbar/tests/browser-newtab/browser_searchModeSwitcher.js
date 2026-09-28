@@ -68,6 +68,12 @@ add_task(async function switcherEntersSearchMode() {
 
   await NewtabSearchbarTestUtils.spawn(tab.linkedBrowser, [], async () => {
     let utils = NewtabSearchbarContentTestUtils;
+    let bar = utils.getUrlbar(content);
+    let viewOpened = false;
+    let observer = new content.MutationObserver(() => {
+      viewOpened ||= bar.view.isOpen;
+    });
+    observer.observe(bar, { attributeFilter: ["open"] });
     await utils.activateSearchModeSwitcherItem(
       content,
       "panel-item[data-engine-id=engine2]"
@@ -80,6 +86,11 @@ add_task(async function switcherEntersSearchMode() {
     });
 
     await utils.exitSearchMode(content, { waitForSearch: false });
+    observer.disconnect();
+    Assert.ok(
+      !viewOpened,
+      "The view never opened, since the engine had no results to show"
+    );
   });
 
   BrowserTestUtils.removeTab(tab);
