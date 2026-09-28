@@ -13,6 +13,7 @@ UNIFIED_SOURCES += [
     "TestConfigManager.cpp",
     "TestCoord.cpp",
     "TestCopyPlane.cpp",
+    "TestFilterNodeSoftware.cpp",
     "TestFontFallback.cpp",
     "TestFontOverlapPrevention.cpp",
     "TestGfxWidgets.cpp",
