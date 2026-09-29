@@ -195,9 +195,6 @@ NS_IMETHODIMP DeleteTextTransaction::UndoTransaction() {
   }
   const OwningNonNull<EditorBase> editorBase = *mEditorBase;
   nsresult rv = editorBase->DoInsertText(*textNode, mOffset, mDeletedText);
-  if (NS_FAILED(rv)) [[unlikely]] {
-    return rv;
-  }
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "EditorBase::DoInsertText() failed");
   return rv;
 }
