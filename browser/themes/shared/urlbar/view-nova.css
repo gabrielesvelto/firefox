@@ -33,6 +33,8 @@
      Larger icons should be left-aligned with rich search suggestion icons. */
   --urlbarView-rich-search-suggestion-icon-size: 28px;
   --urlbarView-rich-search-suggestion-icon-border-radius: var(--border-radius-small);
+
+  /* Keep `--urlbarView-top-pick-icon-size` in sync with `UrlbarShared.TOP_PICK_ICON_SIZE` */
   --urlbarView-top-pick-icon-size: 58px;
   --urlbarView-top-pick-icon-border-radius: calc(
     var(--urlbarView-row-border-radius) - min(var(--urlbarview-row-padding-block), var(--urlbarView-row-padding-inline))

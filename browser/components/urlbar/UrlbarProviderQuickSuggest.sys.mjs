@@ -393,13 +393,9 @@ export class UrlbarProviderQuickSuggest extends UrlbarProvider {
     result.payload.iconBlob ||= suggestion.icon_blob;
     result.payload.icon ||= suggestion.icon;
     if (result.payload.icon) {
-      // Leave the desired size undefined so that the image's intrinsic size is
-      // used and we can keep hardcoded icon sizes in CSS and out of JS. Note
-      // that the image load will fail if it's an SVG without an intrinsic size,
-      // i.e., if it doesn't have a `width` and `height` on its `<svg>`!
       result.payload.icon = UrlbarUtils.getRemoteIconUrl(
         result.payload.icon,
-        undefined,
+        lazy.UrlbarShared.TOP_PICK_ICON_SIZE,
         controller
       );
     }

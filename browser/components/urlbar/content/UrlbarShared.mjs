@@ -354,6 +354,10 @@ export const UrlbarShared = {
     DEFAULT: "chrome://global/skin/icons/defaultFavicon.svg",
   },
 
+  // Size in `px` of icons in top-pick rows in the view. Should be kept in sync
+  // with the `--urlbarView-top-pick-icon-size` CSS variable.
+  TOP_PICK_ICON_SIZE: 58,
+
   // The number of results by which Page Up/Down move the selection.
   PAGE_UP_DOWN_DELTA: 5,
 
