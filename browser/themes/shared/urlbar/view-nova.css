@@ -348,7 +348,10 @@
   margin-inline-start: calc(var(--urlbarView-icon-margin-start) + var(--urlbarView-favicon-mask-position));
   background-repeat: no-repeat;
   -moz-context-properties: fill, stroke;
-  fill: var(--toolbarbutton-icon-fill-attention);
+
+  .urlbarView-row:not([selected]) & {
+    fill: var(--link-color);
+  }
 
   /* The following badges are used for debugging purposes */
   @media -moz-pref("browser.urlbar.showDebuggingIcons") {
