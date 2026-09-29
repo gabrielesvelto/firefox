@@ -5445,17 +5445,18 @@ Result<SplitNodeResult, nsresult> HTMLEditor::DoSplitNode(
                            "Text::SubstringData() failed, but ignored");
       error.SuppressException();
 
-      // XXX This call may destroy us.
-      DoDeleteText(MOZ_KnownLive(*originalTextNode), cutStartOffset, cutLength,
-                   error);
-      NS_WARNING_ASSERTION(!error.Failed(),
-                           "EditorBase::DoDeleteText() failed, but ignored");
-      error.SuppressException();
-
-      // XXX This call may destroy us.
-      DoSetText(MOZ_KnownLive(*newTextNode), movingText, error);
-      NS_WARNING_ASSERTION(!error.Failed(),
-                           "EditorBase::DoSetText() failed, but ignored");
+      nsresult rvDeleteText = DoDeleteText(MOZ_KnownLive(*originalTextNode),
+                                           cutStartOffset, cutLength);
+      // To avoid dataloss, we should keep setting to the new node.
+      nsresult rvSetText = DoSetText(MOZ_KnownLive(*newTextNode), movingText);
+      if (NS_FAILED(rvDeleteText)) [[unlikely]] {
+        NS_WARNING("EditorBase::DoDeleteText() failed");
+        return rvDeleteText;
+      }
+      if (NS_FAILED(rvSetText)) [[unlikely]] {
+        NS_WARNING("EditorBase::DoSetText() failed");
+        return rvSetText;
+      }
       return NS_OK;
     }
 
@@ -5806,15 +5807,13 @@ nsresult HTMLEditor::DoJoinNodes(nsIContent& aContentToKeep,
       }
       // Even if we've already destroyed, let's update aContentToKeep for
       // avoiding a dataloss bug.
-      IgnoredErrorResult ignoredError;
-      DoInsertText(MOZ_KnownLive(*aContentToKeep.AsText()),
-                   aContentToKeep.AsText()->TextDataLength(), rightText,
-                   ignoredError);
-      if (NS_WARN_IF(Destroyed())) {
-        return NS_ERROR_EDITOR_DESTROYED;
+      nsresult rv =
+          DoInsertText(MOZ_KnownLive(*aContentToKeep.AsText()),
+                       aContentToKeep.AsText()->TextDataLength(), rightText);
+      if (NS_FAILED(rv)) [[unlikely]] {
+        NS_WARNING("EditorBase::DoSetText() failed");
+        return rv;
       }
-      NS_WARNING_ASSERTION(!ignoredError.Failed(),
-                           "EditorBase::DoSetText() failed, but ignored");
       return NS_OK;
     }
     // Otherwise it's an interior node, so shuffle around the children.

@@ -2010,23 +2010,23 @@ class EditorBase : public nsIEditor,
    */
   already_AddRefed<nsTextNode> CreateTextNode(const nsAString& aData) const;
 
+  class MOZ_STACK_CLASS AutoTextEditVerifier;
+
   /**
    * DoInsertText(), DoDeleteText(), DoReplaceText() and DoSetText() are
    * wrapper of `CharacterData::InsertData()`, `CharacterData::DeleteData()`,
    * `CharacterData::ReplaceData()` and `CharacterData::SetData()`.
    */
-  MOZ_CAN_RUN_SCRIPT void DoInsertText(dom::Text& aText, uint32_t aOffset,
-                                       const nsAString& aStringToInsert,
-                                       ErrorResult& aRv);
-  MOZ_CAN_RUN_SCRIPT void DoDeleteText(dom::Text& aText, uint32_t aOffset,
-                                       uint32_t aCount, ErrorResult& aRv);
-  MOZ_CAN_RUN_SCRIPT void DoReplaceText(dom::Text& aText, uint32_t aOffset,
-                                        uint32_t aCount,
-                                        const nsAString& aStringToInsert,
-                                        ErrorResult& aRv);
-  MOZ_CAN_RUN_SCRIPT void DoSetText(dom::Text& aText,
-                                    const nsAString& aStringToSet,
-                                    ErrorResult& aRv);
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult DoInsertText(
+      dom::Text& aText, uint32_t aOffset, const nsAString& aStringToInsert);
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult DoDeleteText(dom::Text& aText,
+                                                         uint32_t aOffset,
+                                                         uint32_t aCount);
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  DoReplaceText(dom::Text& aText, uint32_t aOffset, uint32_t aCount,
+                const nsAString& aStringToInsert);
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  DoSetText(dom::Text& aText, const nsAString& aStringToSet);
 
   /**
    * Delete text in the range in aTextNode.  Use
