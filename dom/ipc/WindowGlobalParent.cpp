@@ -334,17 +334,12 @@ already_AddRefed<WindowGlobalChild> WindowGlobalParent::GetChildActor() {
 }
 
 BrowserParent* WindowGlobalParent::GetBrowserParent() const {
-  if (IsInProcess() || !CanSend()) {
-    return nullptr;
-  }
-  return static_cast<BrowserParent*>(Manager());
+  return IsInProcess() ? nullptr : static_cast<BrowserParent*>(Manager());
 }
 
-ContentParent* WindowGlobalParent::GetContentParent() {
-  if (IsInProcess() || !CanSend()) {
-    return nullptr;
-  }
-  return static_cast<ContentParent*>(Manager()->Manager());
+ContentParent* WindowGlobalParent::GetContentParent() const {
+  BrowserParent* browserParent = GetBrowserParent();
+  return browserParent ? browserParent->Manager() : nullptr;
 }
 
 already_AddRefed<nsFrameLoader> WindowGlobalParent::GetRootFrameLoader() {
