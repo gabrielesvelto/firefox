@@ -109,22 +109,22 @@ class ModuleRecord final {
  * serialized from either representation into a common format over the wire.
  * Deserialization always uses the Vector representation.
  */
-struct ModuleIdentifiers final {
+struct ModulePaths final {
   using SetType = nsTHashtable<nsStringCaseInsensitiveHashKey>;
   using VecType = Vector<nsString>;
 
   Variant<SetType, VecType> mModuleNtPaths;
 
   template <typename T>
-  explicit ModuleIdentifiers(T&& aPaths)
+  explicit ModulePaths(T&& aPaths)
       : mModuleNtPaths(AsVariant(std::forward<T>(aPaths))) {}
 
-  ModuleIdentifiers() : mModuleNtPaths(VecType()) {}
+  ModulePaths() : mModuleNtPaths(VecType()) {}
 
-  ModuleIdentifiers(const ModuleIdentifiers& aOther) = delete;
-  ModuleIdentifiers(ModuleIdentifiers&& aOther) = default;
-  ModuleIdentifiers& operator=(const ModuleIdentifiers&) = delete;
-  ModuleIdentifiers& operator=(ModuleIdentifiers&&) = default;
+  ModulePaths(const ModulePaths& aOther) = delete;
+  ModulePaths(ModulePaths&& aOther) = default;
+  ModulePaths& operator=(const ModulePaths&) = delete;
+  ModulePaths& operator=(ModulePaths&&) = default;
 };
 
 class ProcessedModuleLoadEvent final {
@@ -392,8 +392,8 @@ struct ParamTraits<mozilla::ModulesMap> {
 };
 
 template <>
-struct ParamTraits<mozilla::ModuleIdentifiers> {
-  typedef mozilla::ModuleIdentifiers paramType;
+struct ParamTraits<mozilla::ModulePaths> {
+  typedef mozilla::ModulePaths paramType;
 
   static void Write(MessageWriter* aWriter, const paramType& aParam) {
     aParam.mModuleNtPaths.match(
@@ -409,8 +409,8 @@ struct ParamTraits<mozilla::ModuleIdentifiers> {
       return false;
     }
 
-    // As noted in the comments for ModuleIdentifiers, we only deserialize using
-    // the Vector representation.
+    // As noted in the comments for ModulePaths, we only deserialize using the
+    // Vector representation.
     auto& vec = aResult->mModuleNtPaths.as<paramType::VecType>();
     if (!vec.reserve(len)) {
       return false;
@@ -632,7 +632,7 @@ namespace mozilla {
 
 // For compiling IPDL on non-Windows platforms
 using UntrustedModulesData = uint32_t;
-using ModuleIdentifiers = uint32_t;
+using ModulePaths = uint32_t;
 using ModulesMapResult = uint32_t;
 
 }  // namespace mozilla
