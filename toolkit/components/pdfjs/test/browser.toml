@@ -91,6 +91,9 @@ skip-if = [
 
 ["browser_pdfjs_minimum_font_size.js"]
 
+["browser_pdfjs_mlguess_validation.js"]
+support-files = ["file_pdf_download_link.html"]
+
 ["browser_pdfjs_navigation.js"]
 
 ["browser_pdfjs_nonpdf_filename.js"]

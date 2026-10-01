@@ -55,6 +55,56 @@ let gFindTypes = [
   "finddiacriticmatchingchange",
 ];
 
+// Defence-in-depth validation for content-supplied alt-text IPC payloads
+// before they reach the ML engine. Exported for direct xpcshell coverage.
+
+// The four properties sent by the viewer for an ImageData buffer.
+const ML_GUESS_KEYS = ["data", "width", "height", "channels"];
+// RawImage supports one to four channels.
+const MAX_ML_GUESS_CHANNELS = 4;
+
+// `instanceof Uint8Array` is unreliable across realms (xpcshell exercises
+// these validators from another global); brand-check a byte view instead.
+const isBytes = x => ArrayBuffer.isView(x) && x.BYTES_PER_ELEMENT === 1;
+
+/**
+ * Validate an `mlGuess` IPC payload before forwarding it to the ML engine.
+ *
+ * The image-to-text pipeline calls `RawImage.fromURL()` when `url` is present,
+ * while the viewer sends only pixel data and geometry. Reject unknown
+ * properties and require the geometry to match `data`.
+ *
+ * @param {*} request Content-supplied object.
+ * @returns {boolean} `true` for a valid
+ *   `{data, width, height, channels}` request.
+ * Exported for unit tests.
+ * @internal
+ */
+export function validateMLGuessRequest(request) {
+  if (request === null || typeof request !== "object") {
+    return false;
+  }
+  const keys = Reflect.ownKeys(request);
+  if (
+    keys.length !== ML_GUESS_KEYS.length ||
+    !keys.every(key => ML_GUESS_KEYS.includes(key))
+  ) {
+    return false;
+  }
+  const { data, width, height, channels } = request;
+  return (
+    isBytes(data) &&
+    Number.isInteger(width) &&
+    width > 0 &&
+    Number.isInteger(height) &&
+    height > 0 &&
+    Number.isInteger(channels) &&
+    channels > 0 &&
+    channels <= MAX_ML_GUESS_CHANNELS &&
+    data.length === width * height * channels
+  );
+}
+
 export class PdfjsParent extends JSWindowActorParent {
   #signatureStorageChangedObserver = null;
 
@@ -326,8 +376,9 @@ export class PdfjsParent extends JSWindowActorParent {
     PdfJsTelemetry.report(data);
   }
 
-  async _mlGuess({ data: { service, request } }) {
-    if (service !== IMAGE_TO_TEXT_TASK) {
+  async _mlGuess({ data }) {
+    const { service, request } = data ?? {};
+    if (service !== IMAGE_TO_TEXT_TASK || !validateMLGuessRequest(request)) {
       return null;
     }
     try {
