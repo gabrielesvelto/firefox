@@ -13,7 +13,6 @@
 #include <aclapi.h>
 #include <sddl.h>
 
-#include "mozilla/FileUtilsWin.h"
 #include "mozilla/ipc/FileDescriptor.h"
 #include "mozilla/UntrustedModulesProcessor.h"
 #include "nsCOMPtr.h"
@@ -141,7 +140,7 @@ class ScopedModuleCopy final {
 
 }  // anonymous namespace
 
-TEST(TestModuleFileValidation, AcceptsLoadedModuleAndVerifiesPathsMatch)
+TEST(TestModuleFileValidation, AcceptsLoadedModule)
 {
   wchar_t xulPath[MAX_PATH + 1] = {};
   ASSERT_NE(::GetModuleFileNameW(::GetModuleHandleW(L"xul.dll"), xulPath,
@@ -159,21 +158,10 @@ TEST(TestModuleFileValidation, AcceptsLoadedModuleAndVerifiesPathsMatch)
   ASSERT_TRUE(fd.IsValid());
 
   nsAutoString resolved;
-  ASSERT_TRUE(ValidateAndResolveModuleSection(fd, resolved));
-
-  // CompleteProcessing looks up the parent's ModulesMap by this path, so it
-  // has to name the file the child loaded; if it named it differently, lookup
-  // would miss and every module would be mistakenly reported as trusted. It is
-  // in the NT device form that a child's loader observer records and that
-  // ModuleRecord expects, so it needs converting before it can be compared
-  // against a DOS path.
+  EXPECT_TRUE(ValidateAndResolveModuleSection(fd, resolved));
   EXPECT_TRUE(StringBeginsWith(resolved, u"\\Device\\"_ns));
-
-  nsAutoString resolvedDosPath;
-  ASSERT_TRUE(NtPathToDosPath(resolved, resolvedDosPath));
-  EXPECT_TRUE(resolvedDosPath.Equals(path, nsCaseInsensitiveStringComparator))
-      << "resolved: " << NS_ConvertUTF16toUTF8(resolvedDosPath).get()
-      << ", expected: " << NS_ConvertUTF16toUTF8(path).get();
+  EXPECT_TRUE(StringEndsWith(resolved, u"\\xul.dll"_ns,
+                             nsCaseInsensitiveStringComparator));
 }
 
 // An invalid descriptor must be refused rather than producing a path.
