@@ -1569,7 +1569,9 @@ void ScriptLoaderRunnable::CancelMainThread(nsresult aCancelResult) {
     mCancelMainThread = Some(aCancelResult);
 
     for (ThreadSafeRequestHandle* handle : mLoadingRequests) {
-      if (handle->IsEmpty()) {
+      // Finishing an earlier request can have scheduled execution of this one,
+      // handing it over to the worker thread.
+      if (handle->ExecutionScheduled()) {
         continue;
       }
 
@@ -1613,7 +1615,7 @@ void ScriptLoaderRunnable::DispatchProcessPendingRequests() {
     // unset.
     auto firstItToExecute = std::find_if(
         begin, end, [](const RefPtr<ThreadSafeRequestHandle>& requestHandle) {
-          return !requestHandle->mExecutionScheduled;
+          return !requestHandle->ExecutionScheduled();
         });
 
     if (firstItToExecute == end) {
@@ -1626,13 +1628,13 @@ void ScriptLoaderRunnable::DispatchProcessPendingRequests() {
     const auto firstItUnexecutable =
         std::find_if(firstItToExecute, end,
                      [](RefPtr<ThreadSafeRequestHandle>& requestHandle) {
-                       MOZ_ASSERT(!requestHandle->IsEmpty());
+                       MOZ_ASSERT(!requestHandle->ExecutionScheduled());
                        if (!requestHandle->Finished()) {
                          return true;
                        }
 
                        // We can execute this one.
-                       requestHandle->mExecutionScheduled = true;
+                       requestHandle->SetExecutionScheduled();
 
                        return false;
                      });
