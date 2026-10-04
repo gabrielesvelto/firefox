@@ -6365,6 +6365,7 @@ void HTMLMediaElement::UpdatePlayedRangesBeforeSeek(double aRangeEndTime) {
 }
 
 void HTMLMediaElement::SeekCompleted() {
+  RefPtr<HTMLMediaElement> kungFuDeathGrip(this);
   mPlayingBeforeSeek = false;
   SetPlayedOrSeeked(true);
   if (mTextTrackManager) {
