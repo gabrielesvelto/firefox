@@ -33,7 +33,7 @@ class PathOps {
   explicit PathOps(S& aStream);
 
   PathOps(const PathOps& aOther) {
-    MOZ_ALWAYS_TRUE(
+    MOZ_RELEASE_ASSERT(
         mPathData.append(aOther.mPathData.begin(), aOther.mPathData.length()));
   }
   PathOps& operator=(const PathOps&) = delete;  // assign using std::move()!
@@ -68,7 +68,7 @@ class PathOps {
 
   template <typename T>
   void AppendPathOp(const T& aOpData) {
-    MOZ_ALWAYS_TRUE(
+    MOZ_RELEASE_ASSERT(
         mPathData.append((const uint8_t*)(&aOpData), sizeof(aOpData)));
   }
 
