@@ -36,6 +36,8 @@ skip-if = [
 
 ["test_backspace_vs.html"]
 
+["test_blur_in_compositionend.html"]
+
 ["test_bug46555.html"]
 
 ["test_bug200416.html"]
