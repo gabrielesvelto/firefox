@@ -23,6 +23,9 @@ ChromeUtils.defineLazyGetter(lazy, "textEncoder", () => new TextEncoder());
 const NOTIFY_LISTENING = "marionette-listening";
 const SHARED_DATA_ACTIVE_KEY = "Marionette:Active";
 
+// Locked by the DisableDeveloperTools enterprise policy.
+const PREF_POLICY_DISABLED = "remote.policy.disabled";
+
 // Complements -marionette flag for starting the Marionette server.
 // We also set this if Marionette is running in order to start the server
 // again after a Firefox restart.
@@ -75,6 +78,11 @@ class MarionetteParentProcess {
     // Return early if Marionette is already marked as being enabled.
     // There is also no possibility to disable Marionette once it got enabled.
     if (this._enabled || !value) {
+      return;
+    }
+
+    if (Services.prefs.getBoolPref(PREF_POLICY_DISABLED, false)) {
+      lazy.logger.warn("Marionette is disabled by enterprise policy");
       return;
     }
 

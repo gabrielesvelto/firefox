@@ -1098,6 +1098,8 @@ export var Policies = {
       if (param) {
         setAndLockPref("devtools.policy.disabled", true);
         setAndLockPref("devtools.chrome.enabled", false);
+        // Covers Marionette and the Remote Agent.
+        setAndLockPref("remote.policy.disabled", true);
 
         manager.disallowFeature("devtools");
         blockAboutPage(manager, "about:debugging");

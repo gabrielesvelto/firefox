@@ -25,6 +25,9 @@ const ENV_ALLOW_SYSTEM_ACCESS = "MOZ_REMOTE_ALLOW_SYSTEM_ACCESS";
 
 const SHARED_DATA_ACTIVE_KEY = "RemoteAgent:Active";
 
+// Locked by the DisableDeveloperTools enterprise policy.
+const PREF_POLICY_DISABLED = "remote.policy.disabled";
+
 const isRemote =
   Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_CONTENT;
 
@@ -426,6 +429,12 @@ class RemoteAgentParentProcess {
 
       case "command-line-startup":
         Services.obs.removeObserver(this, topic);
+
+        // The flags are still consumed by nsICommandLineHandler::handle().
+        if (Services.prefs.getBoolPref(PREF_POLICY_DISABLED, false)) {
+          lazy.logger.warn("Remote Agent is disabled by enterprise policy");
+          break;
+        }
 
         this.#allowHosts = this.#handleAllowHostsFlag(subject);
         this.#allowOrigins = this.#handleAllowOriginsFlag(subject);
