@@ -269,7 +269,7 @@ mozilla::ipc::IPCResult FilePickerParent::RecvOpen(
     nsCOMPtr<nsIFile> localFile = do_CreateInstance(NS_LOCAL_FILE_CONTRACTID);
     if (localFile) {
       localFile->InitWithPath(aDisplayDirectory);
-      if (nsBaseFilePicker::IsPotentiallyReadableDirectory(*localFile)) {
+      if (nsBaseFilePicker::IsReadableDirectory(*localFile)) {
         mFilePicker->SetDisplayDirectory(localFile);
       }
     }
