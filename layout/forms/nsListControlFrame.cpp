@@ -296,6 +296,7 @@ bool nsListControlFrame::SingleSelection(int32_t aClickedIndex,
   nsCOMPtr<nsIContent> prevOption = Select().GetCurrentOption();
 #endif
   bool wasChanged = false;
+  AutoWeakFrame weakFrame(this);
   // Get Current selection
   if (aDoToggle) {
     wasChanged = ToggleOptionSelectedFromFrame(aClickedIndex);
@@ -303,7 +304,9 @@ bool nsListControlFrame::SingleSelection(int32_t aClickedIndex,
     wasChanged =
         SetOptionsSelectedFromFrame(aClickedIndex, aClickedIndex, true, true);
   }
-  AutoWeakFrame weakFrame(this);
+  if (!weakFrame.IsAlive()) {
+    return wasChanged;
+  }
   ScrollToIndex(aClickedIndex);
   if (!weakFrame.IsAlive()) {
     return wasChanged;
@@ -425,9 +428,12 @@ bool nsListControlFrame::PerformSelection(int32_t aClickedIndex, bool aIsShift,
       endIndex = mStartSelectionIndex;
     }
 
+    AutoWeakFrame weakFrame(this);
     // Clear only if control was not pressed
     wasChanged = ExtendedSelection(startIndex, endIndex, !aIsControl);
-    AutoWeakFrame weakFrame(this);
+    if (!weakFrame.IsAlive()) {
+      return wasChanged;
+    }
     ScrollToIndex(aClickedIndex);
     if (!weakFrame.IsAlive()) {
       return wasChanged;
@@ -671,6 +677,7 @@ bool nsListControlFrame::SetOptionsSelectedFromFrame(int32_t aStartIndex,
                                                      int32_t aEndIndex,
                                                      bool aValue,
                                                      bool aClearAll) {
+  nsAutoScriptBlocker scriptBlocker;
   using OptionFlag = HTMLSelectElement::OptionFlag;
   RefPtr<HTMLSelectElement> selectElement =
       HTMLSelectElement::FromNode(mContent);
@@ -687,6 +694,7 @@ bool nsListControlFrame::SetOptionsSelectedFromFrame(int32_t aStartIndex,
 }
 
 bool nsListControlFrame::ToggleOptionSelectedFromFrame(int32_t aIndex) {
+  nsAutoScriptBlocker scriptBlocker;
   RefPtr<HTMLOptionElement> option = GetOption(static_cast<uint32_t>(aIndex));
   NS_ENSURE_TRUE(option, false);
 

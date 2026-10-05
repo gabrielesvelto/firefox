@@ -586,6 +586,7 @@ nsresult nsXMLContentSink::CloseElement(nsIContent* aContent) {
   // properly (eg form state restoration).
   if (nsIContent::RequiresDoneAddingChildren(nodeInfo->NamespaceID(),
                                              nodeInfo->NameAtom())) {
+    nsAutoScriptBlocker scriptBlocker;
     aContent->DoneAddingChildren(HaveNotifiedForCurrentContent());
   }
 
