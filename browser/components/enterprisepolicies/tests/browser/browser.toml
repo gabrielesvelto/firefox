@@ -63,6 +63,8 @@ https_first_disabled = true
 
 ["browser_policy_disable_buttons.js"]
 
+["browser_policy_disable_developer_tools.js"]
+
 ["browser_policy_disable_feedback_commands.js"]
 
 ["browser_policy_disable_fxaccounts.js"]

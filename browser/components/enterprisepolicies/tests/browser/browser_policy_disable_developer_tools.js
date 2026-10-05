@@ -3,14 +3,15 @@
 
 "use strict";
 
-const { EnterprisePolicyTesting } = ChromeUtils.importESModule(
-  "resource://testing-common/EnterprisePolicyTesting.sys.mjs"
-);
-var updateService = Cc["@mozilla.org/updates/update-service;1"].getService(
-  Ci.nsIApplicationUpdateService
-);
+add_setup(async function () {
+  await setupPolicyEngineWithJson({
+    policies: {
+      DisableDeveloperTools: true,
+    },
+  });
+});
 
-add_task(async function test_updates_post_policy() {
+add_task(async function test_developer_tools_disabled() {
   is(
     Services.policies.isAllowed("devtools"),
     false,
@@ -30,11 +31,23 @@ add_task(async function test_updates_post_policy() {
     true,
     "devtools dedicated disabled pref can not be updated"
   );
+});
 
+add_task(async function test_remote_automation_disabled() {
+  is(
+    Services.prefs.getBoolPref("remote.policy.disabled"),
+    true,
+    "remote automation is disabled alongside the chrome debugger"
+  );
+});
+
+add_task(async function test_devtools_pages_blocked() {
   await testPageBlockedByPolicy("about:devtools-toolbox");
   await testPageBlockedByPolicy("about:debugging");
   await testPageBlockedByPolicy("about:profiling");
+});
 
+add_task(async function test_developer_tools_menu_trimmed() {
   let testURL = "data:text/html;charset=utf-8,test";
   let tab = await BrowserTestUtils.openNewForegroundTab(
     gBrowser,
@@ -45,8 +58,7 @@ add_task(async function test_updates_post_policy() {
   let menuButton = document.getElementById("PanelUI-menu-button");
   menuButton.click();
   await BrowserTestUtils.waitForEvent(window.PanelUI.mainView, "ViewShown");
-  let moreToolsButtonId = "appMenu-more-button2";
-  document.getElementById(moreToolsButtonId).click();
+  document.getElementById("appMenu-more-button2").click();
   await BrowserTestUtils.waitForEvent(
     document.getElementById("appmenu-moreTools"),
     "ViewShown"
@@ -60,28 +72,3 @@ add_task(async function test_updates_post_policy() {
 
   BrowserTestUtils.removeTab(tab);
 });
-
-// Copied from ../head.js. head.js was never intended to be used with tests
-// that use a JSON file versus calling setupPolicyEngineWithJson so I have
-// to copy this function here versus including it.
-async function testPageBlockedByPolicy(page, policyJSON) {
-  if (policyJSON) {
-    await EnterprisePolicyTesting.setupPolicyEngineWithJson(policyJSON);
-  }
-  await BrowserTestUtils.withNewTab(
-    { gBrowser, url: "about:blank" },
-    async browser => {
-      BrowserTestUtils.startLoadingURIString(browser, page);
-      await BrowserTestUtils.browserLoaded(browser, false, page, true);
-      await SpecialPowers.spawn(browser, [page], async function () {
-        ok(
-          content.document.documentURI.startsWith(
-            "about:neterror?e=blockedByPolicy"
-          ),
-          content.document.documentURI +
-            " should start with about:neterror?e=blockedByPolicy"
-        );
-      });
-    }
-  );
-}
