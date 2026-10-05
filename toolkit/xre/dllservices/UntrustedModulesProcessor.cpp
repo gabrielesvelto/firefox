@@ -379,7 +379,7 @@ RefPtr<UntrustedModulesPromise> UntrustedModulesProcessor::GetProcessedData() {
 }
 
 RefPtr<ModulesTrustPromise> UntrustedModulesProcessor::GetModulesTrust(
-    ModuleIdentifiers&& aModIdents, bool aRunAtNormalPriority) {
+    ModulePaths&& aModPaths, bool aRunAtNormalPriority) {
   MOZ_ASSERT(XRE_IsParentProcess() && NS_IsMainThread());
 
   if (!IsReadyForBackgroundProcessing()) {
@@ -388,9 +388,9 @@ RefPtr<ModulesTrustPromise> UntrustedModulesProcessor::GetModulesTrust(
   }
 
   RefPtr<UntrustedModulesProcessor> self(this);
-  auto run = [self = std::move(self), modIdents = std::move(aModIdents),
+  auto run = [self = std::move(self), modPaths = std::move(aModPaths),
               runNormal = aRunAtNormalPriority]() mutable {
-    return self->GetModulesTrustInternal(std::move(modIdents), runNormal);
+    return self->GetModulesTrustInternal(std::move(modPaths), runNormal);
   };
 
   if (aRunAtNormalPriority) {
@@ -733,14 +733,14 @@ void UntrustedModulesProcessor::ProcessModuleLoadQueue() {
 
 template <typename ActorT>
 static RefPtr<GetModulesTrustIpcPromise> SendGetModulesTrust(
-    ActorT* aActor, ModuleIdentifiers&& aModIdents, bool aRunAtNormalPriority) {
+    ActorT* aActor, ModulePaths&& aModPaths, bool aRunAtNormalPriority) {
   MOZ_ASSERT(NS_IsMainThread());
-  return aActor->SendGetModulesTrust(std::move(aModIdents),
+  return aActor->SendGetModulesTrust(std::move(aModPaths),
                                      aRunAtNormalPriority);
 }
 
 RefPtr<GetModulesTrustIpcPromise>
-UntrustedModulesProcessor::SendGetModulesTrust(ModuleIdentifiers&& aModules,
+UntrustedModulesProcessor::SendGetModulesTrust(ModulePaths&& aModules,
                                                Priority aPriority) {
   MOZ_ASSERT(NS_IsMainThread());
   bool runNormal = aPriority == Priority::Default;
@@ -833,7 +833,7 @@ UntrustedModulesProcessor::ProcessModuleLoadQueueChildProcess(
     return GetModulesTrustPromise::CreateAndResolve(Nothing(), __func__);
   }
 
-  ModuleIdentifiers moduleNtPaths(std::move(moduleNtPathSet));
+  ModulePaths moduleNtPaths(std::move(moduleNtPathSet));
 
   if (!IsReadyForBackgroundProcessing()) {
     return GetModulesTrustPromise::CreateAndReject(
@@ -992,7 +992,7 @@ void UntrustedModulesProcessor::CompleteProcessing(
 // The thread priority of this job should match the priority that the child
 // process is running with, as specified by |aRunAtNormalPriority|.
 RefPtr<ModulesTrustPromise> UntrustedModulesProcessor::GetModulesTrustInternal(
-    ModuleIdentifiers&& aModIdents, bool aRunAtNormalPriority) {
+    ModulePaths&& aModPaths, bool aRunAtNormalPriority) {
   MOZ_ASSERT(XRE_IsParentProcess());
   AssertRunningOnLazyIdleThread();
 
@@ -1002,18 +1002,18 @@ RefPtr<ModulesTrustPromise> UntrustedModulesProcessor::GetModulesTrustInternal(
   }
 
   if (aRunAtNormalPriority) {
-    return GetModulesTrustInternal(std::move(aModIdents));
+    return GetModulesTrustInternal(std::move(aModPaths));
   }
 
   BackgroundPriorityRegion bgRgn;
-  return GetModulesTrustInternal(std::move(aModIdents));
+  return GetModulesTrustInternal(std::move(aModPaths));
 }
 
-// For each module in |aModIdents|, evaluate its trustworthiness and only send
+// For each module in |aModPaths|, evaluate its trustworthiness and only send
 // ModuleRecords for untrusted modules back to the child process. We also save
 // XUL's ModuleRecord so that the child process may report XUL's load time.
 RefPtr<ModulesTrustPromise> UntrustedModulesProcessor::GetModulesTrustInternal(
-    ModuleIdentifiers&& aModIdents) {
+    ModulePaths&& aModPaths) {
   MOZ_ASSERT(XRE_IsParentProcess());
   AssertRunningOnLazyIdleThread();
 
@@ -1029,7 +1029,7 @@ RefPtr<ModulesTrustPromise> UntrustedModulesProcessor::GetModulesTrustInternal(
   }
 
   for (auto& resolvedNtPath :
-       aModIdents.mModuleNtPaths.as<ModuleIdentifiers::VecType>()) {
+       aModPaths.mModuleNtPaths.as<ModulePaths::VecType>()) {
     if (!IsReadyForBackgroundProcessing()) {
       return ModulesTrustPromise::CreateAndReject(
           NS_ERROR_ILLEGAL_DURING_SHUTDOWN, __func__);
