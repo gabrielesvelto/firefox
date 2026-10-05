@@ -560,3 +560,8 @@ void LogToOS(const NS_tchar* message) {
   os_log(updaterLogger, "%{public}s", message);
 #endif
 }
+
+bool EnvHasValue(const char* name) {
+  const char* val = getenv(name);
+  return (val && *val);
+}
