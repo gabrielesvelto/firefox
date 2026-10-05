@@ -25,8 +25,6 @@ struct ValueWithSize : LinkedListElement<ValueWithSize> {
 
   JS::Heap<JS::Value> mValue;
   double mSize = 0.0f;
-
-  void trace(JSTracer* aTrc) { TraceEdge(aTrc, &mValue, "value-with-size"); }
 };
 
 // This type is a little tricky lifetime wise: Despite the fact that we're
@@ -94,8 +92,7 @@ inline void DequeueValue(JSContext* aCx, QueueContainingClass aContainer,
 
   // Step 3+4
   // UniquePtr to ensure memory is freed.
-  JS::Rooted<UniquePtr<ValueWithSize>> valueWithSize(
-      aCx, aContainer->Queue().popFirst());
+  UniquePtr<ValueWithSize> valueWithSize(aContainer->Queue().popFirst());
 
   // Step 5.
   aContainer->SetQueueTotalSize(aContainer->QueueTotalSize() -
