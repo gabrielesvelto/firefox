@@ -10,6 +10,9 @@
 #include "mozilla/gmp/PGMPChild.h"
 
 namespace mozilla {
+#ifdef XP_WIN
+struct ModuleIdentifiers;
+#endif
 
 namespace ipc {
 class ByteBuf;
