@@ -10,6 +10,7 @@
 #include "ImageContainer.h"
 #include "ImageDecoderReadRequest.h"
 #include "MediaResult.h"
+#include "jsapi.h"
 #include "mozilla/Logging.h"
 #include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/dom/ImageTrack.h"
@@ -533,6 +534,11 @@ void ImageDecoder::CheckOutstandingDecodes() {
   // 10.2.2.19.1. Perform DetachArrayBuffer on transferable
   for (const auto& buffer : aInit.mTransfer) {
     JS::Rooted<JSObject*> obj(aGlobal.Context(), buffer.Obj());
+    if (!JS_WrapObject(aGlobal.Context(), &obj)) {
+      aRv.MightThrowJSException();
+      aRv.StealExceptionFromJSContext(aGlobal.Context());
+      return nullptr;
+    }
     JS::DetachArrayBuffer(aGlobal.Context(), obj);
   }
 
@@ -700,6 +706,11 @@ void ImageDecoder::Initialize(const GlobalObject& aGlobal,
     if (transferOwnership) {
       JS::Rooted<JSObject*> bufferObj(aGlobal.Context(), buffer.Obj());
       size_t length = JS::GetArrayBufferByteLength(bufferObj);
+      if (!JS_WrapObject(aGlobal.Context(), &bufferObj)) {
+        aRv.MightThrowJSException();
+        aRv.StealExceptionFromJSContext(aGlobal.Context());
+        return;
+      }
       void* data = JS::StealArrayBufferContents(aGlobal.Context(), bufferObj);
       fnSourceBufferFromSpan(Span(static_cast<uint8_t*>(data), length));
     } else {
