@@ -2492,6 +2492,11 @@ nsresult nsHttpTransaction::HandleContentStart() {
                                                   mResponseHead, &reset);
     NS_ENSURE_SUCCESS(rv, rv);
 
+    // OnHeadersAvailable can re-enter and set mConnection to null.
+    if (!mConnection) {
+      return NS_ERROR_NET_RESET;
+    }
+
     // looks like we should ignore this response, resetting...
     if (reset) {
       LOG(("resetting transaction's response head\n"));
