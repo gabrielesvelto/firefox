@@ -39,3 +39,4 @@ vendoring:
     - ots-lz4.patch
     - ots-rlbox.patch
     - ots-visibility.patch
+    - ots-cff-charstring-ops-limit.patch
