@@ -11196,6 +11196,12 @@
   mirror: always
   rust: true
 
+# Whether the CSS namespace is exposed in workers and worklets.
+- name: layout.css.namespace.exposed-in-workers-and-worklets
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Is -moz-osx-font-smoothing enabled? (Only supported in OSX builds)
 - name: layout.css.osx-font-smoothing.enabled
   type: bool
