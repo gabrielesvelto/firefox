@@ -1520,10 +1520,7 @@ void nsCocoaWindow::DispatchAPZWheelInputEvent(InputData& aEvent) {
         MOZ_CRASH("unsupported event type");
         return;
     }
-    if (event.mMessage == eWheel &&
-        (event.mDeltaX != 0 || event.mDeltaY != 0)) {
-      ProcessUntransformedAPZEvent(&event, result);
-    }
+    ProcessUntransformedAPZEvent(&event, result);
     return;
   }
 
@@ -1540,7 +1537,7 @@ void nsCocoaWindow::DispatchAPZWheelInputEvent(InputData& aEvent) {
       MOZ_CRASH("unexpected event type");
       return;
   }
-  if (event.mMessage == eWheel && (event.mDeltaX != 0 || event.mDeltaY != 0)) {
+  if (event.mMessage == eWheel) {
     DispatchEvent(&event);
   }
 }
