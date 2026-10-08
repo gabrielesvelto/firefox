@@ -1333,6 +1333,9 @@ class GeckoSessionTestRuleTest : BaseSessionTest(noErrorCollector = true) {
 
     @Test
     fun waitForPageStops_acrossSessionCreation() {
+        // TODO: Bug 1673953
+        assumeThat(sessionRule.env.isFission, equalTo(false))
+
         mainSession.loadTestPath(HELLO_HTML_PATH)
         val session = sessionRule.createOpenSession()
         mainSession.reload()
