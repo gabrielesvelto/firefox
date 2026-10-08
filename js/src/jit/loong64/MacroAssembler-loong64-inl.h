@@ -933,6 +933,37 @@ void MacroAssembler::rotateRight64(Imm32 count, Register64 src, Register64 dest,
   as_rotri_d(dest.reg, src.reg, count.value & 63);
 }
 
+// ===============================================================
+// Shift or rotate, then combine with another register
+
+void MacroAssembler::lshift32ThenAdd(Imm32 shift, Register rhs,
+                                     Register srcDest) {
+  MOZ_ASSERT(rhs != srcDest);
+  lshift32(shift, srcDest);
+  add32(rhs, srcDest);
+}
+
+void MacroAssembler::lshift32ThenOr(Imm32 shift, Register rhs,
+                                    Register srcDest) {
+  MOZ_ASSERT(rhs != srcDest);
+  lshift32(shift, srcDest);
+  or32(rhs, srcDest);
+}
+
+void MacroAssembler::rshiftPtrThenXor(Imm32 shift, Register rhs,
+                                      Register srcDest) {
+  MOZ_ASSERT(rhs != srcDest);
+  rshiftPtr(shift, srcDest);
+  xorPtr(rhs, srcDest);
+}
+
+void MacroAssembler::rotateLeft64ThenXor(Imm32 count, Register64 rhs,
+                                         Register64 srcDest) {
+  MOZ_ASSERT(rhs != srcDest);
+  rotateLeft64(count, srcDest, srcDest, InvalidReg);
+  xor64(rhs, srcDest);
+}
+
 // Bit counting functions
 
 void MacroAssembler::clz64(Register64 src, Register64 dest) {
