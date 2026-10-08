@@ -186,6 +186,14 @@ support-files = [
   "slow_loading_page_with_ads_on_load_event.html",
 ]
 
+["browser_search_telemetry_impression_scan.js"]
+support-files = [
+  "searchTelemetry.html",
+  "searchTelemetryAd.html",
+  "slow_loading_page_with_ads.html",
+  "slow_loading_page_with_ads.sjs",
+]
+
 ["browser_search_telemetry_post_engine.js"]
 support-files = ["searchTelemetryAd_post_result.sjs"]
 
