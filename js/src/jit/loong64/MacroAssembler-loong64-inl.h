@@ -945,6 +945,15 @@ void MacroAssembler::ctz64(Register64 src, Register64 dest) {
 
 void MacroAssembler::popcnt64(Register64 input, Register64 output,
                               Register tmp) {
+#if defined(ENABLE_JIT_SIMD)
+  if (LOONG64Flags::HasLsxExtension()) {
+    ScratchSimd128Scope scratch(asMasm());
+    as_vreplgr2vr_d(scratch, input.reg);
+    as_vpcnt_d(scratch, scratch);
+    as_vpickve2gr_d(output.reg, scratch, 0);
+    return;
+  }
+#endif
   UseScratchRegisterScope temps(asMasm());
   Register scratch = temps.Acquire();
   ma_move(output.reg, input.reg);
@@ -979,6 +988,15 @@ void MacroAssembler::ctz32(Register src, Register dest, bool knownNotZero) {
 }
 
 void MacroAssembler::popcnt32(Register input, Register output, Register tmp) {
+#if defined(ENABLE_JIT_SIMD)
+  if (LOONG64Flags::HasLsxExtension()) {
+    ScratchSimd128Scope scratch(asMasm());
+    as_vreplgr2vr_w(scratch, input);
+    as_vpcnt_w(scratch, scratch);
+    as_vpickve2gr_wu(output, scratch, 0);
+    return;
+  }
+#endif
   // Equivalent to GCC output of std::popcount()
   ma_move(output, input);
   as_srai_w(tmp, input, 1);
