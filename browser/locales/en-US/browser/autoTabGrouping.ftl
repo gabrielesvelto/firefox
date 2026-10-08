@@ -26,13 +26,16 @@ smartwindow-group-tabs-all-sorted = Nice work organizing your tabs
 smartwindow-group-tabs-create-all = Create All Groups
 smartwindow-group-tabs-suggested-heading = Suggested groups
 # Accessible name for the flyout that lists the tabs of one suggested group.
-# Activating a tab in the list switches to it. $groupLabel is the suggested
-# group's name.
+# Activating a tab in the list switches to it.
+# Variables:
+#   $groupLabel (String) - Name of the suggested group, generated automatically from the tab titles
 smartwindow-group-tabs-flyout-list =
     .aria-label = Tabs in { $groupLabel }
 # Accessible name for a suggested-group row. Activating the row creates the
-# group. $groupLabel is the suggested group's name, $tabCount the number of
-# tabs it would contain.
+# group.
+# Variables:
+#   $groupLabel (String) - Name of the suggested group, generated automatically from the tab titles
+#   $tabCount (Number) - Number of tabs the group would contain
 smartwindow-group-tabs-suggestion =
     .aria-label =
         { $tabCount ->
@@ -52,8 +55,9 @@ smartwindow-group-tabs-view-tab-groups = View Tab Groups
 smartwindow-group-tabs-groups-list =
     .aria-label = Tab groups
 # Action that closes this window's duplicate tabs, keeping the most recently
-# used tab of each set. Only shown when there are duplicates to close, and
-# $tabCount is exactly how many tabs activating it closes.
+# used tab of each set. Only shown when there are duplicates to close.
+# Variables:
+#   $tabCount (Number) - Number of duplicate tabs that activating it closes
 smartwindow-group-tabs-close-duplicates =
     { $tabCount ->
         [one] Close { $tabCount } Duplicate Tab

@@ -384,6 +384,12 @@ describe("Auto Tab Grouping toolbar button", () => {
         [openRow, "Open group"],
         [savedRow, "Saved group"],
       ]) {
+        // The row's label text can reach the accessibility tree after the row
+        // itself, so wait for the name instead of reading it right away.
+        await TestUtils.waitForCondition(
+          () => accService.getAccessibleFor(groupRow)?.name === name,
+          `${name} gets its accessible name`
+        );
         const acc = accService.getAccessibleFor(groupRow);
         Assert.equal(
           acc.role,
