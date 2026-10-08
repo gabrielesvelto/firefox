@@ -2879,6 +2879,18 @@ BufferOffset AssemblerLOONG64::as_vpcnt_b(FloatRegister vd, FloatRegister vj) {
   return emit(InstReg(op_vpcnt_b, vj, vd).encode());
 }
 
+BufferOffset AssemblerLOONG64::as_vpcnt_h(FloatRegister vd, FloatRegister vj) {
+  return emit(InstReg(op_vpcnt_h, vj, vd).encode());
+}
+
+BufferOffset AssemblerLOONG64::as_vpcnt_w(FloatRegister vd, FloatRegister vj) {
+  return emit(InstReg(op_vpcnt_w, vj, vd).encode());
+}
+
+BufferOffset AssemblerLOONG64::as_vpcnt_d(FloatRegister vd, FloatRegister vj) {
+  return emit(InstReg(op_vpcnt_d, vj, vd).encode());
+}
+
 BufferOffset AssemblerLOONG64::as_vneg_b(FloatRegister vd, FloatRegister vj) {
   return emit(InstReg(op_vneg_b, vj, vd).encode());
 }

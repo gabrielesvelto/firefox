@@ -883,6 +883,9 @@ enum OpcodeField {
   op_vbsll_v = 0xe51cU << 15,
   op_vbsrl_v = 0xe51dU << 15,
   op_vpcnt_b = 0x1ca708U << 10,
+  op_vpcnt_h = 0x1ca709U << 10,
+  op_vpcnt_w = 0x1ca70aU << 10,
+  op_vpcnt_d = 0x1ca70bU << 10,
   op_vneg_b = 0x1ca70cU << 10,
   op_vneg_h = 0x1ca70dU << 10,
   op_vneg_w = 0x1ca70eU << 10,
@@ -2015,6 +2018,9 @@ class AssemblerLOONG64 : public AssemblerShared {
   BufferOffset as_vbsll_v(FloatRegister vd, FloatRegister vj, uint32_t imm5);
   BufferOffset as_vbsrl_v(FloatRegister vd, FloatRegister vj, uint32_t imm5);
   BufferOffset as_vpcnt_b(FloatRegister vd, FloatRegister vj);
+  BufferOffset as_vpcnt_h(FloatRegister vd, FloatRegister vj);
+  BufferOffset as_vpcnt_w(FloatRegister vd, FloatRegister vj);
+  BufferOffset as_vpcnt_d(FloatRegister vd, FloatRegister vj);
   BufferOffset as_vneg_b(FloatRegister vd, FloatRegister vj);
   BufferOffset as_vneg_h(FloatRegister vd, FloatRegister vj);
   BufferOffset as_vneg_w(FloatRegister vd, FloatRegister vj);

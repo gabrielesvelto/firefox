@@ -1630,6 +1630,12 @@ bool Decoder::decodeOp22(const Instruction* instruction) const {
       return formatRdRj("revh.d", word);
     case op_vpcnt_b:
       return formatSimdVdVj("vpcnt.b", word);
+    case op_vpcnt_h:
+      return formatSimdVdVj("vpcnt.h", word);
+    case op_vpcnt_w:
+      return formatSimdVdVj("vpcnt.w", word);
+    case op_vpcnt_d:
+      return formatSimdVdVj("vpcnt.d", word);
     case op_vneg_b:
       return formatSimdVdVj("vneg.b", word);
     case op_vneg_h:
