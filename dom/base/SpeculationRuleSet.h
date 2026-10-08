@@ -44,8 +44,6 @@ class SpeculationRuleSet final {
                      const nsTArray<const Element*>& aLinks);
 
   void SetUseCounters(Document& aDocument) const;
-
-  bool HasDocumentRules() const;
 };
 
 }  // namespace mozilla::dom
