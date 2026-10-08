@@ -3133,6 +3133,26 @@ BufferOffset AssemblerLOONG64::as_vpickve2gr_wu(Register rd, FloatRegister vj,
   return emit(InstImm(op_vpickve2gr_wu, imm2, vj, rd, 2).encode());
 }
 
+BufferOffset AssemblerLOONG64::as_vreplvei_b(FloatRegister vd, FloatRegister vj,
+                                             uint32_t imm4) {
+  return emit(InstImm(op_vreplvei_b, imm4, vj, vd, 4).encode());
+}
+
+BufferOffset AssemblerLOONG64::as_vreplvei_h(FloatRegister vd, FloatRegister vj,
+                                             uint32_t imm3) {
+  return emit(InstImm(op_vreplvei_h, imm3, vj, vd, 3).encode());
+}
+
+BufferOffset AssemblerLOONG64::as_vreplvei_w(FloatRegister vd, FloatRegister vj,
+                                             uint32_t imm2) {
+  return emit(InstImm(op_vreplvei_w, imm2, vj, vd, 2).encode());
+}
+
+BufferOffset AssemblerLOONG64::as_vreplvei_d(FloatRegister vd, FloatRegister vj,
+                                             uint32_t imm1) {
+  return emit(InstImm(op_vreplvei_d, imm1, vj, vd, 1).encode());
+}
+
 BufferOffset AssemblerLOONG64::as_vsllwil_h_b(FloatRegister vd,
                                               FloatRegister vj, uint32_t imm3) {
   return emit(InstImm(op_vsllwil_h_b, imm3, vj, vd, 3).encode());
