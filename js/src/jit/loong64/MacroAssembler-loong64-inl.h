@@ -3298,9 +3298,10 @@ void MacroAssembler::anyTrueSimd128(FloatRegister src, Register dest) {
 
 void MacroAssembler::allTrueInt8x16(FloatRegister src, Register dest) {
   ScratchSimd128Scope scratch(*this);
-  as_vmsknz_b(scratch, src);
+  as_vslei_bu(scratch, src, 0);
+  as_vmsknz_b(scratch, scratch);
   as_vpickve2gr_wu(dest, scratch, 0);
-  cmp32Set(Assembler::Equal, dest, Imm32(0xFFFF), dest);
+  cmp32Set(Assembler::Equal, dest, Imm32(0), dest);
 }
 
 void MacroAssembler::allTrueInt16x8(FloatRegister src, Register dest) {
