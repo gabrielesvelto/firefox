@@ -6,7 +6,6 @@ support-files = [
   "annotation_second.html",
   "annotation_third.html",
   "head.js",
-  "link_open_stories.json",
   "redirect_to.sjs",
   "topstories.json",
   "file_pdf.PDF",
@@ -37,8 +36,6 @@ tags = "newtab"
 ["browser_attribution_actor.js"]
 
 ["browser_context_menu_item.js"]
-
-["browser_context_menu_link_open.js"]
 
 ["browser_customize_menu_content.js"]
 https_first_disabled = true
