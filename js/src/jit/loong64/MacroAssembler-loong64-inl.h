@@ -3030,11 +3030,9 @@ void MacroAssembler::q15MulrSatInt16x8(FloatRegister lhs, FloatRegister rhs,
                                        FloatRegister dest) {
   ScratchSimd128Scope scratch(*this);
   ScratchSimd128Scope2 scratch2(*this);
-  as_vxor_v(scratch, scratch, scratch);
-  as_vbitseti_w(scratch, scratch, 14);
+  loadConstantSimd128(SimdConstant::SplatX4(0x4000), scratch);
   as_vmaddwod_w_h(scratch, lhs, rhs);
-  as_vxor_v(scratch2, scratch2, scratch2);
-  as_vbitseti_w(scratch2, scratch2, 14);
+  loadConstantSimd128(SimdConstant::SplatX4(0x4000), scratch2);
   as_vmaddwev_w_h(scratch2, lhs, rhs);
   as_vssrani_h_w(scratch, scratch, 15);
   as_vssrani_h_w(scratch2, scratch2, 15);
