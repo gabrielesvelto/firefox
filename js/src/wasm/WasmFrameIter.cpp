@@ -33,7 +33,6 @@
 #include "wasm/WasmStubs.h"
 
 #include "jit/MacroAssembler-inl.h"
-#include "vm/JSContext-inl.h"
 #include "wasm/WasmInstance-inl.h"
 
 #ifdef XP_WIN
@@ -358,14 +357,8 @@ void WasmFrameIter::popFrame(bool isLeavingFrame) {
   // that only restores the caller instance and returns to the real caller. Skip
   // it by following the hidden frame's stored return address to the real
   // caller.
+  Frame* returnCallOriginalFP = fp_;
   if (!code_ && wasm::IsReturnCallTrampolineReturnAddress(returnAddress)) {
-    // The hidden frame restores the caller instance and realm. Recover them
-    // here so the interp-entry, jit-entry and cont-base branches below (which
-    // return before the Function-branch recovery) still see the caller.
-    instance_ = ExtractCallerInstanceFromFrameWithInstances(fp_);
-    if (isLeavingFrame) {
-      cx()->setRealmForJitExceptionHandler(instance_->realm());
-    }
     fp_ = fp_->wasmCaller();
     returnAddress = fp_->returnAddress();
     code_ = LookupCode(returnAddress, &codeRange);
@@ -490,9 +483,13 @@ void WasmFrameIter::popFrame(bool isLeavingFrame) {
   CallSite site;
   MOZ_ALWAYS_TRUE(code_->lookupCallSite(returnAddress, &site));
 
-  // instance_ was recovered above when the hidden return_call trampoline frame
-  // was skipped.
-  if (!skippedReturnCallTrampoline_ && site.mightBeCrossInstance()) {
+  if (skippedReturnCallTrampoline_) {
+    // The call site of the frame the hidden frame returned to may not be
+    // cross-instance, but the return_call callee's caller instance slot holds
+    // its instance.
+    instance_ =
+        ExtractCallerInstanceFromFrameWithInstances(returnCallOriginalFP);
+  } else if (site.mightBeCrossInstance()) {
     instance_ = ExtractCallerInstanceFromFrameWithInstances(prevFP);
   }
 
