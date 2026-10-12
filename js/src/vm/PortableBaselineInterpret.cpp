@@ -2304,7 +2304,7 @@ uint64_t ICInterpretOps(uint64_t arg0, uint64_t arg1, ICStub* stub,
         {
           PUSH_IC_FRAME();
 
-          if (!ctx.stack.check(sp, sizeof(StackVal) * (totalArgs + 6))) {
+          if (!ctx.stack.check(sp, sizeof(StackVal) * (totalArgs + 7))) {
             ReportOverRecursed(ctx.frameMgr.cxForLocalUseOnly());
             ctx.error = PBIResult::Error;
             return IC_ERROR_SENTINEL();
@@ -2374,6 +2374,7 @@ uint64_t ICInterpretOps(uint64_t arg0, uint64_t arg1, ICStub* stub,
           Value* args = reinterpret_cast<Value*>(sp);
 
           if (isNative) {
+            PUSHNATIVE(StackValNative(callee));
             PUSHNATIVE(StackValNative(argc));
             PUSHNATIVE(
                 StackValNative(MakeFrameDescriptor(FrameType::BaselineStub)));
