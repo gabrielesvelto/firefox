@@ -212,7 +212,8 @@ static bool CanFoldShiftIntoUse(MDefinition* shift) {
     return false;
   }
   MDefinition* use = node->toDefinition();
-  if (use->block() != shift->block() || use->type() != MIRType::Int32) {
+  if (use->block() != shift->block() || use->type() != MIRType::Int32 ||
+      use->isRecoveredOnBailout()) {
     return false;
   }
   if (!use->isAdd() && !use->isSub() && !use->isBitAnd() && !use->isBitOr() &&
