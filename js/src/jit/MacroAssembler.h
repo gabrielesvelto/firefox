@@ -4141,7 +4141,8 @@ class MacroAssembler : public MacroAssemblerSpecific {
                             uint32_t funcDefIndex,
                             const ReturnCallAdjustmentInfo& retCallInfo);
 
-  void wasmCollapseFrameSlow(const ReturnCallAdjustmentInfo& retCallInfo);
+  void wasmCollapseFrameSlow(const ReturnCallAdjustmentInfo& retCallInfo,
+                             wasm::CallSiteDesc desc);
 
   void wasmCollapseFrameFast(const ReturnCallAdjustmentInfo& retCallInfo);
 

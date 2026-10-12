@@ -1009,7 +1009,6 @@ class CodeRange {
     DebugStub,                 // calls C++ to handle debug event
     RequestTierUpStub,         // calls C++ to request tier-2 compilation
     UpdateCallRefMetricsStub,  // updates a CallRefMetrics
-    ReturnCallTrampoline,      // returns through a return_call's hidden frame
 #ifdef ENABLE_WASM_JSPI
     ContBaseFrame,  // base frame for a cont stack
 #endif
@@ -1082,7 +1081,6 @@ class CodeRange {
   bool isUpdateCallRefMetricsStub() const {
     return kind() == UpdateCallRefMetricsStub;
   }
-  bool isReturnCallTrampoline() const { return kind() == ReturnCallTrampoline; }
   bool isThunk() const { return kind() == FarJumpIsland; }
 
   // Functions, import exits, debug stubs and JitEntry stubs have standard
@@ -1092,7 +1090,7 @@ class CodeRange {
   bool hasReturn() const {
     return isFunction() || isImportExit() || isDebugStub() ||
            isRequestTierUpStub() || isUpdateCallRefMetricsStub() ||
-           isReturnCallTrampoline() || isJitEntry();
+           isJitEntry();
   }
   uint32_t ret() const {
     MOZ_ASSERT(hasReturn());
