@@ -24,6 +24,8 @@ support-files = [
   "../../mediasource/test/bipbop/bipbop_300-3s-no-audio.webm",
 ]
 
+["browser_eme_gmp_service_creation_race.js"]
+
 ["browser_encrypted_play_time_telemetry.js"]
 tags = "bleedover"
 
