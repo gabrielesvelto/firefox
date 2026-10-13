@@ -87,10 +87,7 @@ RTCEncodedFrameBase::RTCEncodedFrameBase(nsIGlobalObject* aGlobal,
   mData = aData;
 }
 
-RTCEncodedFrameBase::~RTCEncodedFrameBase() {
-  DetachData();
-  mozilla::DropJSObjects(this);
-}
+RTCEncodedFrameBase::~RTCEncodedFrameBase() { mozilla::DropJSObjects(this); }
 
 void RTCEncodedFrameBase::DetachData() {
   // We might have handled this in unlink already
