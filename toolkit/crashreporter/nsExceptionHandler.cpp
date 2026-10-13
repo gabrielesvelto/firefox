@@ -3392,8 +3392,9 @@ nsresult OOPInit(nsIFile* aXREDirectory) {
   // value of sIncludeContextHeap. Also pass the release channel so we can set
   // the appropriate type of minidump in the crash helper.
   crashHelperClient = crash_helper_launch(
-      (const BreakpadChar*)crashHelperPath.c_str(),
-      (const BreakpadChar*)NS_ConvertUTF8toUTF16(childCrashNotifyPipe).getW(),
+      mozilla::BitwiseCast<const BreakpadChar*>(crashHelperPath.c_str()),
+      mozilla::BitwiseCast<const BreakpadChar*>(
+          NS_ConvertUTF8toUTF16(childCrashNotifyPipe).getW()),
       mozilla::BitwiseCast<const BreakpadChar*>(tempPath.get()));
 #elif defined(XP_LINUX)
 #  if !defined(MOZ_WIDGET_ANDROID)
