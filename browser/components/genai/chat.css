@@ -256,6 +256,9 @@ browser {
     &.lechat {
       background-image: url(assets/brands/lechat.svg);
     }
+    &.scout {
+      background-image: url(assets/brands/scout.svg);
+    }
   }
 
   .text {
