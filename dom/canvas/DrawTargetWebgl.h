@@ -247,6 +247,9 @@ class SharedContextWebgl : public mozilla::RefCounted<SharedContextWebgl>,
 
   uint32_t mMaxTextureSize = 0;
   bool mRasterizationTruncates = false;
+  // Whether mUploadBuffer should be used for PBO uploads, or whether direct
+  // uploads should be used instead.
+  bool mUseUploadBuffer = true;
 
   // The current blending operation.
   CompositionOp mLastCompositionOp = CompositionOp::OP_SOURCE;

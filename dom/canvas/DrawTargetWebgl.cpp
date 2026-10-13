@@ -589,6 +589,19 @@ bool SharedContextWebgl::Initialize() {
 
   mMaxTextureSize = initResult.limits.maxTex2dSize;
 
+  // Disable PBO upload path on D3D ANGLE where testing has shown this to be a
+  // performance loss.
+  if (mWebgl->GL()->IsD3DANGLE()) {
+    mUseUploadBuffer = false;
+  }
+
+  // Disable PBO upload path on Intel GPUs on macOS with native GL driver due to
+  // broken uploads. See bug 2080436.
+  if (kIsMacOS && initResult.vendor == gl::GLVendor::Intel &&
+      !mWebgl->GL()->IsMetalANGLE()) {
+    mUseUploadBuffer = false;
+  }
+
   if (kIsMacOS) {
     mRasterizationTruncates = initResult.vendor == gl::GLVendor::ATI;
   }
@@ -2664,10 +2677,9 @@ bool SharedContextWebgl::UploadSurface(DataSourceSurface* aData,
     Span<const uint8_t> range(
         map->GetData() + srcRect.y * size_t(stride) + srcRect.x * bpp,
         std::max(srcRect.height - 1, 0) * size_t(stride) + srcRect.width * bpp);
-    // Use the shared upload PBO if the data can fit within it. We always use a
-    // fixed size to help allocation performance. Avoid on D3D ANGLE where
-    // testing has shown this to be a performance loss.
-    if (range.Length() <= kUploadBufferSize && !mWebgl->GL()->IsD3DANGLE()) {
+    // Use the shared upload PBO if enabled and the data can fit within it. We
+    // always use a fixed size to help allocation performance.
+    if (mUseUploadBuffer && range.Length() <= kUploadBufferSize) {
       CheckedInt<size_t> uploadOffset =
           RoundUpToMultipleOf(CheckedInt<size_t>(mUploadBufferOffset), 4);
       if (!uploadOffset.isValid()) {
