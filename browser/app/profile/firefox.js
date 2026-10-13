@@ -2015,31 +2015,30 @@ pref("browser.newtabpage.activity-stream.discoverystream.locale-weather-config",
 // Regions with no widgets at all. Everywhere else the container is available
 // and on, and each widget's own prefs decide what appears. Blank means no
 // restriction, so there is no allow list here. Nightly ignores every list
-// below -- see marketGate in ActivityStream.sys.mjs. Every list below is
-// ignored unless widgets.marketGate.enabled is true.
+// below -- see marketGate in ActivityStream.sys.mjs.
 pref("browser.newtabpage.activity-stream.widgets.system.region-block", "");
 
-// Lists is available everywhere the container is except PL, where only the
-// current Nimbus experiment reveals it. Off by default in the US, DE and FR,
-// where the engaged cohort is turned on through Nimbus instead.
+// Lists is available everywhere the container is except PL, and off by
+// default. The second region-block is unread until widgets.lists.enabled goes
+// back to marketGate.
 pref("browser.newtabpage.activity-stream.widgets.system.lists.region-block", "PL");
 pref("browser.newtabpage.activity-stream.widgets.lists.region-block", "DE,FR,PL,US");
 
-// Focus timer is available everywhere the container is except PL, where only
-// the current Nimbus experiment reveals it. Off by default in the US, DE and
-// FR, where the engaged cohort is turned on through Nimbus instead.
+// Focus timer is available everywhere the container is except PL, and off by
+// default. The second region-block is unread until widgets.focusTimer.enabled
+// goes back to marketGate.
 pref("browser.newtabpage.activity-stream.widgets.system.focusTimer.region-block", "PL");
 pref("browser.newtabpage.activity-stream.widgets.focusTimer.region-block", "DE,FR,PL,US");
 
-// Clocks is available everywhere the container is except PL, where only the
-// current Nimbus experiment reveals it. Off by default in the US, DE and FR,
-// where the engaged cohort is turned on through Nimbus instead.
+// Clocks is available everywhere the container is except PL, and off by
+// default. The second region-block is unread until widgets.clocks.enabled goes
+// back to marketGate.
 pref("browser.newtabpage.activity-stream.widgets.system.clocks.region-block", "PL");
 pref("browser.newtabpage.activity-stream.widgets.clocks.region-block", "DE,FR,PL,US");
 
-// Picture of the day is available everywhere the container is except PL, where
-// only the current Nimbus experiment reveals it. Off by default in the US, DE
-// and FR, where the engaged cohort is turned on through Nimbus instead.
+// Picture of the day is available everywhere the container is except PL, and
+// off by default. The second region-block is unread until
+// widgets.pictureOfTheDay.enabled goes back to marketGate.
 pref("browser.newtabpage.activity-stream.widgets.system.pictureOfTheDay.region-block", "PL");
 pref("browser.newtabpage.activity-stream.widgets.pictureOfTheDay.region-block", "DE,FR,PL,US");
 
