@@ -151,6 +151,9 @@ const COMMON_PREFERENCES = new Map([
   // Make sure Topsites doesn't hit the network to retrieve sponsored tiles.
   ["browser.newtabpage.activity-stream.showSponsoredTopSites", false],
 
+  // Do not render or load any New Tab widget
+  ["browser.newtabpage.activity-stream.widgets.enabled", false],
+
   // Background thumbnails in particular cause grief, and disabling
   // thumbnails in general cannot hurt
   ["browser.pagethumbnails.capturing_disabled", true],
