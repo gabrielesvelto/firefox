@@ -1390,6 +1390,11 @@ wr::WrSpatialId DisplayListBuilder::DefineStickyFrame(
   return spatialId;
 }
 
+wr::LayoutVector2D DisplayListBuilder::CurrentAccumulatedScrollOffset() {
+  return wr_dp_get_accumulated_scroll_offset(mWrState,
+                                             mCurrentSpaceAndClipChain.space);
+}
+
 Maybe<wr::WrSpatialId> DisplayListBuilder::GetSpatialIdForDefinedLayer(
     const ActiveScrolledRoot* aASR) const {
   if (aASR == nullptr) {

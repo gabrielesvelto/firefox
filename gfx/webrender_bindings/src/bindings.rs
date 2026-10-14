@@ -3464,6 +3464,17 @@ pub extern "C" fn wr_dp_define_rect_clip(
 }
 
 #[no_mangle]
+pub extern "C" fn wr_dp_get_accumulated_scroll_offset(
+    state: &mut WrState,
+    space: WrSpatialId,
+) -> LayoutVector2D {
+    debug_assert!(unsafe { is_in_main_thread() });
+
+    let space = space.to_webrender(state.pipeline_id);
+    state.frame_builder.dl_builder.accumulated_scroll_offset_px(space)
+}
+
+#[no_mangle]
 pub extern "C" fn wr_dp_define_sticky_frame(
     state: &mut WrState,
     parent_spatial_id: WrSpatialId,

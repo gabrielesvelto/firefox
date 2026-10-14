@@ -647,6 +647,11 @@ class DisplayListBuilder final {
   Maybe<wr::WrSpatialId> GetSpatialIdForDefinedLayer(
       const ActiveScrolledRoot* aASR) const;
 
+  // The external scroll offset WebRender adds to items pushed into the current
+  // space, moving them from the pre-scrolled coordinates they are authored in
+  // to the scroll-invariant ones they are snapped in.
+  wr::LayoutVector2D CurrentAccumulatedScrollOffset();
+
   wr::WrSpatialId DefineScrollLayer(
       const ActiveScrolledRoot* aAsr,
       const layers::ScrollableLayerGuid::ViewID& aViewId,
