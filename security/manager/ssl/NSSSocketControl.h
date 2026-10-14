@@ -223,6 +223,8 @@ class NSSSocketControl final : public CommonSocketControl {
     return static_cast<const uint8_t*>(data) + mMaybeShortWrite->Length() - 1;
   }
 
+  void SetSharedOwningReference(mozilla::psm::SharedSSLState* ref);
+
   nsresult SetResumptionTokenFromExternalCache(PRFileDesc* fd);
 
   void SetPreliminaryHandshakeInfo(const SSLChannelInfo& channelInfo,
