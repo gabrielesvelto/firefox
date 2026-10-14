@@ -3802,6 +3802,7 @@ void HTMLMediaElement::Pause(ErrorResult& aRv) {
 }
 
 void HTMLMediaElement::PauseInternal() {
+  RefPtr<HTMLMediaElement> kungFuDeathGrip(this);
   if (mDecoder && mNetworkState != NETWORK_EMPTY) {
     mDecoder->Pause();
   }
@@ -6916,6 +6917,8 @@ void HTMLMediaElement::ChangeReadyState(nsMediaReadyState aState) {
     return;
   }
 
+  RefPtr<HTMLMediaElement> kungFuDeathGrip(this);
+
   nsMediaReadyState oldState = mReadyState;
   mReadyState = aState;
   LOG(LogLevel::Debug, ("{} Ready state changed to {}", fmt::ptr(this),
@@ -7791,6 +7794,7 @@ bool HTMLMediaElement::ShouldQueueTimeupdateAsyncTask(
 
 void HTMLMediaElement::FireTimeUpdate(TimeupdateType aType) {
   NS_ASSERTION(NS_IsMainThread(), "Should be on main thread.");
+  RefPtr<HTMLMediaElement> kungFuDeathGrip(this);
 
   if (ShouldQueueTimeupdateAsyncTask(aType)) {
     RefPtr<nsMediaEventRunner> runner =
