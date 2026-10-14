@@ -898,6 +898,7 @@ class XPCShellTestThread(Thread):
                     if line.get("action") == "test_status" and "expected" in line:
                         # Ensure the 'expected' field matches the 'status' to avoid failing the job
                         line["expected"] = line.get("status")
+                        line.setdefault("extra", {})["will_retry"] = True
                     elif line.get("action") == "log" and line.get("level") == "ERROR":
                         # Convert ERROR log to test_status so it gets colored
                         # properly without causing a test failure.

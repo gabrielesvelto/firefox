@@ -1505,9 +1505,12 @@ class SystemResourceMonitor:
             status = (data.get("status") or data.get("level")).upper()
             # mozlog omits "expected" when the result was the expected one, so
             # an absent key is what marks a todo(), a fails-if, or a hit on an
-            # expectation file.
+            # expectation file. Harnesses that will retry a failing test rewrite
+            # "expected" to match, and flag it with "will_retry".
             expected = data.get("expected")
-            as_expected = expected is None or expected.upper() == status
+            as_expected = (
+                expected is None or expected.upper() == status
+            ) and not data.get("extra", {}).get("will_retry")
             marker_name = status
 
             # Determine color based on status

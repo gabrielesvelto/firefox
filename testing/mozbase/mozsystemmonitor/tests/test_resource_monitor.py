@@ -545,6 +545,12 @@ class TestResourceMonitor(unittest.TestCase):
         self._test_status(
             monitor, status="PASS", expected="FAIL", message="a todo that passed"
         )
+        self._test_status(
+            monitor,
+            status="FAIL",
+            message="a failure that will be retried",
+            extra={"will_retry": True},
+        )
         monitor.stop()
 
         by_message = {
@@ -552,7 +558,7 @@ class TestResourceMonitor(unittest.TestCase):
             for _, name, data in monitor.events
             if data and data.get("type") == "TestStatus"
         }
-        self.assertEqual(len(by_message), 4)
+        self.assertEqual(len(by_message), 5)
 
         name, data = by_message["a todo"]
         self.assertEqual(name, "KNOWN-FAIL")
@@ -568,6 +574,10 @@ class TestResourceMonitor(unittest.TestCase):
 
         name, data = by_message["a todo that passed"]
         self.assertEqual(name, "UNEXPECTED-PASS")
+        self.assertEqual(data["color"], "orange")
+
+        name, data = by_message["a failure that will be retried"]
+        self.assertEqual(name, "FAIL")
         self.assertEqual(data["color"], "orange")
 
     def _process_output(self, monitor, line, process=None):
