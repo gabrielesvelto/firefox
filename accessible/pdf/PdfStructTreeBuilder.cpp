@@ -90,6 +90,9 @@ void PdfStructTreeBuilder::Done(uint64_t aInnerWindowId) {
 
 /* static */
 int PdfStructTreeBuilder::GetPdfId(uint64_t aInnerWindowId, uint64_t aAccId) {
+  if (NS_WARN_IF(!NS_IsMainThread())) {
+    return SkPDF::NodeID::Nothing;
+  }
   if (!sBuilders || sBuilders->IsEmpty()) {
     return SkPDF::NodeID::Nothing;
   }
