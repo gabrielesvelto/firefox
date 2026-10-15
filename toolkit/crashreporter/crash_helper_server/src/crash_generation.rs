@@ -12,7 +12,7 @@ mod linux;
 #[cfg(any(target_os = "android", target_os = "linux"))]
 pub(crate) use linux::get_auxv_info;
 #[cfg(any(target_os = "android", target_os = "linux"))]
-use linux::create_platform_specific_annotations;
+use linux::{create_platform_specific_annotations, process_uptime};
 
 #[cfg(any(target_os = "ios", target_os = "macos"))]
 mod macos;
@@ -22,7 +22,7 @@ use macos::create_platform_specific_annotations;
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
-use windows::create_platform_specific_annotations;
+use windows::{create_platform_specific_annotations, process_uptime};
 
 use anyhow::{Context, Result};
 use crash_helper_common::{
@@ -187,7 +187,7 @@ impl CrashGenerator {
         let annotations = retrieve_annotations(process, process_type);
         let annotations = [
             STATIC_ANNOTATIONS.get().cloned().context("MissingStaticAnnotations"),
-            Ok(self.crash_time_annotations()),
+            Ok(self.crash_time_annotations(process)),
             global_annotations.context("MissingMainProcessAnnotations"),
             annotations.context("MissingChildProcessAnnotations"),
             Ok(extra_annotations),
@@ -228,13 +228,15 @@ impl CrashGenerator {
         )
     }
 
-    fn crash_time_annotations(&self) -> Vec<CAnnotation> {
+    fn crash_time_annotations(&self, process: RawProcessHandle) -> Vec<CAnnotation> {
         let crash_event_id = new_unique_crash_event_id();
         let crash_time = crash_time();
+        let uptime_ts = process_uptime_ts(process);
 
         vec![
             make_annotation(CrashAnnotation::CrashEventID, &crash_event_id),
             make_annotation(CrashAnnotation::CrashTime, &crash_time),
+            make_annotation(CrashAnnotation::UptimeTS, &uptime_ts),
         ]
     }
 }
@@ -255,6 +257,11 @@ fn crash_time() -> String {
         .unwrap_or(Duration::from_secs(0u64))
         .as_secs()
         .to_string()
+}
+
+fn process_uptime_ts(process: RawProcessHandle) -> String {
+    // Ensure we never return negative values
+    process_uptime(process).max(0.0).to_string()
 }
 
 /******************************************************************************
