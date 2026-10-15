@@ -21516,6 +21516,12 @@
   value: false
   mirror: always
 
+# Whether to provide haptic feedback when crossing the swipe navigation threshold.
+- name: widget.swipe.haptic-feedback.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Various metrics to control SwipeTracker.
 - name: widget.swipe.velocity-twitch-tolerance
   type: float
