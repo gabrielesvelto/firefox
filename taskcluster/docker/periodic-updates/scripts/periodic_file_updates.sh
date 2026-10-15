@@ -26,7 +26,6 @@ PLATFORM_EXT="tar.bz2"
 UNPACK_CMD="tar jxf"
 CLOSED_TREE=false
 DONTBUILD=false
-APPROVAL=false
 COMMIT_AUTHOR='ffxbld <ffxbld@mozilla.com>'
 REPODIR=''
 HGHOST="hg.mozilla.org"
@@ -469,7 +468,6 @@ while [ $# -gt 0 ]; do
     -n) DRY_RUN=true ;;
     -c) CLOSED_TREE=true ;;
     -d) DONTBUILD=true ;;
-    -a) APPROVAL=true ;;
     --pinset) DO_PRELOAD_PINSET=true ;;
     --hsts) DO_HSTS=true ;;
     --hpkp) DO_HPKP=true ;;
@@ -613,9 +611,6 @@ if [ ${DONTBUILD} == true ]; then
 fi
 if [ ${CLOSED_TREE} == true ]; then
   COMMIT_MESSAGE="${COMMIT_MESSAGE} - CLOSED TREE"
-fi
-if [ ${APPROVAL} == true ]; then
-  COMMIT_MESSAGE="${COMMIT_MESSAGE} - a=repo-update"
 fi
 
 
