@@ -2616,17 +2616,6 @@ void MergeCrashAnnotations(AnnotationTable& aDst, const AnnotationTable& aSrc) {
   }
 }
 
-// Adds the uptime annotations
-static void AddCommonAnnotations(AnnotationTable& aAnnotations) {
-  // ToSeconds preserves the full precision of the TimeDuration. It is assumed
-  // that visualizations of this value will format/truncate it to their needs.
-  double uptimeTS =
-      (TimeStamp::NowLoRes() - TimeStamp::ProcessCreation()).ToSeconds();
-  nsAutoCString uptimeStr;
-  uptimeStr.AppendFloat(uptimeTS);
-  aAnnotations[Annotation::UptimeTS] = std::move(uptimeStr);
-}
-
 nsresult SetGarbageCollecting(bool collecting) {
   if (!GetEnabled()) return NS_ERROR_NOT_INITIALIZED;
 
@@ -3515,8 +3504,6 @@ bool TakeMinidumpForChild(GeckoChildID aChildId, nsIFile** dump,
     return false;
   }
 
-  AddCommonAnnotations(aAnnotations);
-
   if (error.Length() > 0) {
     aAnnotations[Annotation::DumperError] = std::move(error);
   }
@@ -3682,8 +3669,6 @@ bool CreateMinidumpsAndPair(GeckoChildID aId, ThreadId aTargetBlamedThread,
     // crash that we won't be able to submit. Clean everything up instead?
     return false;
   }
-
-  AddCommonAnnotations(aTargetAnnotations);
 
   if (error.Length() > 0) {
     aTargetAnnotations[Annotation::DumperError] = std::move(error);
