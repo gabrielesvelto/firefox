@@ -168,6 +168,11 @@ impl CrashGenerator {
         }
     }
 
+    // This function assumes that the crashing process remains alive for the
+    // entire duration of the call. This is currently guaranteed by calling
+    // it from the Breakpad minidump callback which is guaranteed to run
+    // synchronously before the process is killed. If the process has already
+    // been killed this function will encounter and produce a partial report.
     fn finalize_crash_report(
         &self,
         process: RawProcessHandle,
@@ -224,26 +229,32 @@ impl CrashGenerator {
     }
 
     fn crash_time_annotations(&self) -> Vec<CAnnotation> {
-        // Add a unique identifier for this crash event.
-        let crash_event_id = uuid::Uuid::new_v4()
-            .as_hyphenated()
-            .encode_lower(&mut uuid::Uuid::encode_buffer())
-            .to_string();
-
-        // This is unlikely to fail, but in the odd case use 0 as a crash time,
-        // it will stick out like a sore thumb among the other crash reports so
-        // we'll notice.
-        let crash_time = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or(Duration::from_secs(0u64))
-            .as_secs()
-            .to_string();
+        let crash_event_id = new_unique_crash_event_id();
+        let crash_time = crash_time();
 
         vec![
             make_annotation(CrashAnnotation::CrashEventID, &crash_event_id),
             make_annotation(CrashAnnotation::CrashTime, &crash_time),
         ]
     }
+}
+
+fn new_unique_crash_event_id() -> String {
+    uuid::Uuid::new_v4()
+        .as_hyphenated()
+        .encode_lower(&mut uuid::Uuid::encode_buffer())
+        .to_string()
+}
+
+fn crash_time() -> String {
+    // This is unlikely to fail, but in the odd case use 0 as a crash time,
+    // it will stick out like a sore thumb among the other crash reports so
+    // we'll notice.
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or(Duration::from_secs(0u64))
+        .as_secs()
+        .to_string()
 }
 
 /******************************************************************************
