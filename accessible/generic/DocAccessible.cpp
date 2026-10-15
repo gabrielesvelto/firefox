@@ -2627,6 +2627,15 @@ void DocAccessible::ContentRemoved(LocalAccessible* aChild) {
                     aChild, nullptr);
 #endif
 
+  if (aChild->IsRelocated()) {
+    nsTArray<RefPtr<LocalAccessible>>* owned = mARIAOwnsHash.Get(parent);
+    MOZ_ASSERT(owned, "IsRelocated flag is out of sync with mARIAOwnsHash");
+    owned->RemoveElement(aChild);
+    if (owned->Length() == 0) {
+      mARIAOwnsHash.Remove(parent);
+    }
+  }
+
   // XXX: event coalescence may kill us
   RefPtr<LocalAccessible> kungFuDeathGripChild(aChild);
 
@@ -2639,17 +2648,7 @@ void DocAccessible::ContentRemoved(LocalAccessible* aChild) {
     return;
   }
 
-  MOZ_DIAGNOSTIC_ASSERT(aChild->LocalParent(), "Alive but unparented #1");
-
-  if (aChild->IsRelocated()) {
-    nsTArray<RefPtr<LocalAccessible>>* owned = mARIAOwnsHash.Get(parent);
-    MOZ_ASSERT(owned, "IsRelocated flag is out of sync with mARIAOwnsHash");
-    owned->RemoveElement(aChild);
-    if (owned->Length() == 0) {
-      mARIAOwnsHash.Remove(parent);
-    }
-  }
-  MOZ_DIAGNOSTIC_ASSERT(aChild->LocalParent(), "Unparented #2");
+  MOZ_DIAGNOSTIC_ASSERT(aChild->LocalParent(), "Alive but unparented");
   UncacheChildrenInSubtree(aChild);
   parent->RemoveChild(aChild);
 
