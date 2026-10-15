@@ -2648,8 +2648,16 @@ bool IMContextWrapper::DispatchCompositionChangeEvent(
   const uint32_t caretOffsetInCompositionString =
       rangeArray->HasCaret() ? rangeArray->GetCaretPosition()
                              : mDispatchedCompositionString.Length();
-  mContentSelection->Collapse(mCompositionStart +
-                              caretOffsetInCompositionString);
+  if (mContentSelection) {
+    mContentSelection->Collapse(mCompositionStart +
+                                caretOffsetInCompositionString);
+  } else {
+    mContentSelection.emplace(ContentSelection(
+        mCompositionStart + caretOffsetInCompositionString,
+        // OnSelectionChange() will assign the actual WritingMode. So, it should
+        // be fine to use the default writing mode temporarily.
+        WritingMode{}));
+  }
 
   RefPtr<nsWindow> lastFocusedWindow(mLastFocusedWindow);
   nsEventStatus status;
