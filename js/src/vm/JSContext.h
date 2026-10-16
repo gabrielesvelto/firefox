@@ -435,19 +435,10 @@ struct JS_PUBLIC_API JSContext : public JS::RootingContext,
     return runtime_->gc.atomReferences;
   }
 
-  void recordRef(JSAtom* atom) { atomReferences().recordRef(this, atom); }
-  bool wrapOrRecordRef(JS::MutableHandle<JS::Symbol*> symbol) {
-    atomReferences().recordRef(this, symbol.get());
-    return true;
-  }
-  bool wrapOrRecordRefToId(JS::MutableHandle<jsid> id) {
-    atomReferences().recordRefToId(this, id);
-    return true;
-  }
-  bool wrapOrRecordRefToValue(JS::MutableHandle<JS::Value> value) {
-    atomReferences().recordRefToValue(this, value);
-    return true;
-  }
+  void recordRef(JSAtom* atom);
+  bool wrapOrRecordRef(JS::MutableHandle<JS::Symbol*> symbol);
+  bool wrapOrRecordRefToId(JS::MutableHandle<jsid> id);
+  bool wrapOrRecordRefToValue(JS::MutableHandle<JS::Value> value);
 
   // Interface for recording telemetry metrics.
   js::Metrics metrics() { return js::Metrics(runtime_); }

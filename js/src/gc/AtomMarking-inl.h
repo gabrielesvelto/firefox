@@ -216,6 +216,17 @@ MOZ_ALWAYS_INLINE bool AtomRefRuntime::inlinedRecordRefFallible(Zone* zone,
   return inlinedRecordRefInternal(zone, thing, lock);
 }
 
+template <typename T>
+void AtomRefRuntime::recordRef(JSContext* cx, T* thing) {
+  // Trigger a read barrier on the atom, in case there is an incremental
+  // GC in progress. This is necessary if the atom is being marked
+  // because a reference to it was obtained from another zone which is
+  // not being collected by the incremental GC.
+  ReadBarrier(thing);
+
+  inlinedRecordRefInfallible(cx->zone(), thing);
+}
+
 }  // namespace gc
 }  // namespace js
 

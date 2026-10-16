@@ -105,9 +105,6 @@ class AtomRefRuntime {
   [[nodiscard]] MOZ_ALWAYS_INLINE bool inlinedRecordRefFallible(Zone* zone,
                                                                 T* thing);
 
-  void recordRefToId(JSContext* cx, jsid id);
-  void recordRefToValue(JSContext* cx, const Value& value);
-
   // Get the reference color of |thing| in the atom reference bitmap for |zone|.
   template <typename T>
   CellColor getRefColor(Zone* zone, T* thing);

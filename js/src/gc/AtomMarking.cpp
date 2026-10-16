@@ -360,45 +360,8 @@ void AtomRefRuntime::unmarkAllGrayReferences(GCRuntime* gc) {
   }
 }
 
-template <typename T>
-void AtomRefRuntime::recordRef(JSContext* cx, T* thing) {
-  // Trigger a read barrier on the atom, in case there is an incremental
-  // GC in progress. This is necessary if the atom is being marked
-  // because a reference to it was obtained from another zone which is
-  // not being collected by the incremental GC.
-  ReadBarrier(thing);
-
-  inlinedRecordRefInfallible(cx->zone(), thing);
-}
-
 template void AtomRefRuntime::recordRef(JSContext* cx, JSAtom* thing);
 template void AtomRefRuntime::recordRef(JSContext* cx, JS::Symbol* thing);
-
-void AtomRefRuntime::recordRefToId(JSContext* cx, jsid id) {
-  if (id.isAtom()) {
-    recordRef(cx, id.toAtom());
-    return;
-  }
-  if (id.isSymbol()) {
-    recordRef(cx, id.toSymbol());
-    return;
-  }
-  MOZ_ASSERT(!id.isGCThing());
-}
-
-void AtomRefRuntime::recordRefToValue(JSContext* cx, const Value& value) {
-  if (value.isString()) {
-    if (value.toString()->isAtom()) {
-      recordRef(cx, &value.toString()->asAtom());
-    }
-    return;
-  }
-  if (value.isSymbol()) {
-    recordRef(cx, value.toSymbol());
-    return;
-  }
-  MOZ_ASSERT(!value.isGCThing());
-}
 
 template <typename T>
 CellColor AtomRefRuntime::getRefColor(Zone* zone, T* thing) {
