@@ -1567,11 +1567,6 @@ void JSContext::recordRef(JSAtom* atom) {
   atomReferences().recordRef(this, atom);
 }
 
-bool JSContext::wrapOrRecordRef(JS::MutableHandle<JS::Symbol*> symbol) {
-  atomReferences().recordRef(this, symbol.get());
-  return true;
-}
-
 bool JSContext::wrapOrRecordRefToId(JS::MutableHandle<jsid> id) {
   if (id.isAtom()) {
     atomReferences().recordRef(this, id.toAtom());
@@ -1579,7 +1574,12 @@ bool JSContext::wrapOrRecordRefToId(JS::MutableHandle<jsid> id) {
   }
 
   if (id.isSymbol()) {
-    atomReferences().recordRef(this, id.toSymbol());
+    Rooted<JS::Symbol*> symbol(this, id.toSymbol());
+    if (!wrapOrRecordRef(&symbol)) {
+      return false;
+    }
+
+    id.set(jsid::Symbol(symbol));
     return true;
   }
 
@@ -1596,12 +1596,36 @@ bool JSContext::wrapOrRecordRefToValue(JS::MutableHandle<JS::Value> value) {
   }
 
   if (value.isSymbol()) {
-    atomReferences().recordRef(this, value.toSymbol());
+    Rooted<JS::Symbol*> symbol(this, value.toSymbol());
+    if (!wrapOrRecordRef(&symbol)) {
+      return false;
+    }
+
+    value.setSymbol(symbol);
     return true;
   }
 
   MOZ_ASSERT(!value.isGCThing());
   return true;
+}
+
+bool JSContext::wrapOrRecordRef(JS::MutableHandle<JS::Symbol*> symbol) {
+  MOZ_ASSERT_IF(!symbol->isUnique(), symbol->isShared());
+
+  if (!symbol->isUnique()) {
+    MOZ_ASSERT(symbol->isShared());
+    atomReferences().recordRef(this, symbol.get());
+    return true;
+  }
+
+  if (symbol->zone() == zone()) {
+    return true;
+  }
+
+  // Unwrap and re-wrap into current zone.
+  symbol.set(UnwrapSymbol(symbol));
+  symbol.set(JS::Symbol::wrap(this, symbol));
+  return bool(symbol);
 }
 
 #ifdef JS_CRASH_DIAGNOSTICS

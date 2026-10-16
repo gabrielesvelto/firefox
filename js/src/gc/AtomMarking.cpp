@@ -457,54 +457,49 @@ CellColor AtomRefRuntime::getRefColor(Zone* zone, TenuredCell* thing) {
   MOZ_CRASH("Unexpected atom kind");
 }
 
-bool AtomRefRuntime::hasRefToId(Zone* zone, jsid id) {
-  if (id.isAtom()) {
-    return hasRef(zone, id.toAtom());
-  }
-
-  if (id.isSymbol()) {
-    return hasRef(zone, id.toSymbol());
-  }
-
-  MOZ_ASSERT(!id.isGCThing());
-  return true;
-}
-
-bool AtomRefRuntime::hasRefToValue(Zone* zone, const Value& value) {
-  if (value.isString()) {
-    if (value.toString()->isAtom()) {
-      return hasRef(zone, &value.toString()->asAtom());
-    }
-    return true;
-  }
-
-  if (value.isSymbol()) {
-    return hasRef(zone, value.toSymbol());
-  }
-
-  MOZ_ASSERT_IF(value.isGCThing(), value.isObject() ||
-                                       value.isPrivateGCThing() ||
-                                       value.isBigInt());
-  return true;
-}
-
 #endif  // DEBUG
 
 }  // namespace gc
 
 #ifdef DEBUG
 
+bool ZoneHasRef(Zone* zone, jsid id) {
+  if (id.isAtom()) {
+    return ZoneHasRef(zone, id.toAtom());
+  }
+  if (id.isSymbol()) {
+    return ZoneHasRef(zone, id.toSymbol());
+  }
+  return true;
+}
+
+bool ZoneHasRef(Zone* zone, const Value& value) {
+  if (value.isString()) {
+    if (value.toString()->isAtom()) {
+      return ZoneHasRef(zone, &value.toString()->asAtom());
+    }
+    return true;
+  }
+  if (value.isSymbol()) {
+    return ZoneHasRef(zone, value.toSymbol());
+  }
+  return true;
+}
+
 bool ZoneHasRef(Zone* zone, JSAtom* atom) {
   return zone->runtimeFromAnyThread()->gc.atomReferences.hasRef(zone, atom);
 }
 
-bool ZoneHasRef(Zone* zone, jsid id) {
-  return zone->runtimeFromAnyThread()->gc.atomReferences.hasRefToId(zone, id);
-}
+bool ZoneHasRef(Zone* zone, JS::Symbol* symbol) {
+  MOZ_ASSERT(symbol->isUnique() == symbol->isLocal());
 
-bool ZoneHasRef(Zone* zone, const Value& value) {
-  return zone->runtimeFromAnyThread()->gc.atomReferences.hasRefToValue(zone,
-                                                                       value);
+  if (symbol->isLocal()) {
+    MOZ_ASSERT(symbol->zone() == zone);
+    MOZ_ASSERT(zone->hasLocalSymbol(symbol));
+    return true;
+  }
+
+  return zone->runtimeFromAnyThread()->gc.atomReferences.hasRef(zone, symbol);
 }
 
 #endif  // DEBUG

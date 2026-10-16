@@ -43,6 +43,10 @@ MOZ_ALWAYS_INLINE bool AtomRefRuntime::inlinedRecordRefInternal(
   js::gc::TenuredCell* cell = &thing->asTenured();
   MOZ_ASSERT(cell->zoneFromAnyThread()->isAtomsZone());
 
+  if constexpr (std::is_same_v<T, JS::Symbol>) {
+    MOZ_ASSERT(thing->isShared());
+  }
+
   if (thing->isPermanentAndMayBeShared()) {
     return true;
   }
@@ -140,6 +144,10 @@ inline void GCRuntime::maybeMarkWeaklyHeldAtom(T* atom) {
   // the reference.
 
   static_assert(std::is_same_v<T, JSAtom> || std::is_same_v<T, JS::Symbol>);
+  if constexpr (std::is_same_v<T, JS::Symbol>) {
+    MOZ_ASSERT(atom->isShared());
+    MOZ_ASSERT(!atom->isUnique());
+  }
 
   Zone* zone = atom->zoneFromAnyThread();
   MOZ_ASSERT(zone->isAtomsZone());
@@ -158,7 +166,6 @@ inline void GCRuntime::maybeMarkWeaklyHeldAtom(T* atom) {
   MarkColor color = AsMarkColor(refColor);
   (void)atom->asTenured().markIfUnmarked(color);
   if constexpr (std::is_same_v<T, JS::Symbol>) {
-    MOZ_ASSERT(atom->isShared());
     if (JSAtom* description = atom->description()) {
       (void)description->asTenured().markIfUnmarked(color);
     }
@@ -199,6 +206,12 @@ inline CellColor GCRuntime::isAtomReferencedByUncollectedZone(
 template <typename T>
 MOZ_ALWAYS_INLINE void AtomRefRuntime::inlinedRecordRefInfallible(Zone* zone,
                                                                   T* thing) {
+  if constexpr (std::is_same_v<T, JS::Symbol>) {
+    if (thing->isLocal()) {
+      return;
+    }
+  }
+
   // TODO: The main thread only needs to take the lock (here and in the next
   // method) if it expands the bitmap but that's hard to arrange currently. This
   // only affects concurrent marking builds.
@@ -213,6 +226,12 @@ MOZ_ALWAYS_INLINE void AtomRefRuntime::inlinedRecordRefInfallible(Zone* zone,
 template <typename T>
 MOZ_ALWAYS_INLINE bool AtomRefRuntime::inlinedRecordRefFallible(Zone* zone,
                                                                 T* thing) {
+  if constexpr (std::is_same_v<T, JS::Symbol>) {
+    if (thing->isLocal()) {
+      return true;
+    }
+  }
+
   AutoMarkingLock lock(zone->runtimeFromMainThread(), atomRefLock);
 
   return inlinedRecordRefInternal(zone, thing, lock);

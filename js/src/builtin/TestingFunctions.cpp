@@ -3338,7 +3338,8 @@ static bool IsAtomMarked(JSContext* cx, unsigned argc, Value* vp) {
   Maybe<bool> result;
   gc::GCRuntime* gc = &cx->runtime()->gc;
   if (args[1].isSymbol()) {
-    result = Some(gc->atomReferences.hasRef(zone, args[1].toSymbol()));
+    JS::Symbol* symbol = UnwrapSymbol(args[1].toSymbol());
+    result = Some(gc->atomReferences.hasRef(zone, symbol));
   } else if (args[1].isString()) {
     JSString* str = args[1].toString();
     if (str->isAtom()) {

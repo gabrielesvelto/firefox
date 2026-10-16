@@ -393,7 +393,8 @@ bool FinalizationRegistryObject::register_(JSContext* cx, unsigned argc,
     // If the target is a DOM wrapper, preserve it.
     MaybePreserveDOMWrapper(cx, object);
   } else {
-    JS::Symbol* symbol = target.toSymbol();
+    JS::Symbol* symbol = UnwrapSymbol(target.toSymbol());
+    target = SymbolValue(symbol);
     isPermanent = symbol->isPermanentAndMayBeShared();
   }
 

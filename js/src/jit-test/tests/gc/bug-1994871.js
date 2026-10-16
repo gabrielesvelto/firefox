@@ -5,7 +5,7 @@
 gczeal(0);
 
 // We'll track the state of a symbol in two zones, |this| and |other|.
-let s = Symbol();
+let s = Symbol.for("foo");
 addMarkObservers([s]);
 let other = newGlobal({newCompartment: true});
 

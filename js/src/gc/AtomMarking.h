@@ -122,11 +122,6 @@ class AtomRefRuntime {
   // Called during (possibly parallel) marking to unmark possibly-gray symbols.
   // CONSIDER: maybePromoteGrayRefsAtomically
   void maybeUnmarkGrayAtomically(Zone* zone, JS::Symbol* symbol);
-
-#ifdef DEBUG
-  bool hasRefToId(Zone* zone, jsid id);
-  bool hasRefToValue(Zone* zone, const Value& value);
-#endif
 };
 
 }  // namespace gc

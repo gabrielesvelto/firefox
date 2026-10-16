@@ -9016,6 +9016,13 @@ static bool AddMarkObservers(JSContext* cx, unsigned argc, Value* vp) {
       cx->runtime()->gc.evictNursery();
     }
 
+    if (value.isSymbol()) {
+      JS::Symbol* symbol = value.toSymbol();
+      if (symbol->isLocal()) {
+        value.setSymbol(symbol->sharedSymbol());
+      }
+    }
+
     if (!markObservers->get().append(value)) {
       ReportOutOfMemory(cx);
       return false;
