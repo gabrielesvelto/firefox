@@ -554,29 +554,10 @@ JS_PUBLIC_API void* JS_GetCompartmentPrivate(JS::Compartment* compartment) {
   return compartment->data;
 }
 
-// TODO: Callers will be updated and this shim API removed in a later patch.
-JS_PUBLIC_API void JS_MarkCrossZoneId(JSContext* cx, jsid id) {
-  RootedId idCopy(cx, id);
-  MOZ_RELEASE_ASSERT(JS_WrapId(cx, &idCopy));
-  MOZ_RELEASE_ASSERT(idCopy == id);
-}
-JS_PUBLIC_API void JS_MarkCrossZoneIdValue(JSContext* cx, const Value& value) {
-  RootedValue valueCopy(cx, value);
-  MOZ_RELEASE_ASSERT(JS_WrapIdValue(cx, &valueCopy));
-  MOZ_RELEASE_ASSERT(valueCopy == value);
-}
-
 JS_PUBLIC_API bool JS_WrapId(JSContext* cx, MutableHandleId id) {
   AssertHeapIsIdle();
   CHECK_THREAD(cx);
   return cx->wrapOrRecordRefToId(id);
-}
-
-JS_PUBLIC_API bool JS_WrapIdValue(JSContext* cx, MutableHandleValue value) {
-  AssertHeapIsIdle();
-  CHECK_THREAD(cx);
-  MOZ_ASSERT(value.isString() || value.isSymbol());
-  return cx->wrapOrRecordRefToValue(value);
 }
 
 JS_PUBLIC_API void JS_SetZoneUserData(JS::Zone* zone, void* data) {

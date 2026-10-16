@@ -143,16 +143,6 @@ extern JS_PUBLIC_API bool JS_WrapValue(JSContext* cx,
  */
 extern JS_PUBLIC_API bool JS_WrapId(JSContext* cx, JS::MutableHandle<jsid> id);
 
-/**
- * For a value containing a jsid (an atomized string or symbol), mark that id as
- * for JS_WrapId.
- *
- * This should not be called on generic values. If you need to do that consider
- * using JS_WrapValue instead.
- */
-extern JS_PUBLIC_API bool JS_WrapIdValue(JSContext* cx,
-                                         JS::MutableHandle<JS::Value> value);
-
 extern JS_PUBLIC_API JSObject* JS_TransplantObject(JSContext* cx,
                                                    JS::HandleObject origobj,
                                                    JS::HandleObject target);
