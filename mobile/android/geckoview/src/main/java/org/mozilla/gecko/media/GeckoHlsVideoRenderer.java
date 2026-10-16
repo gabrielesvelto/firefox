@@ -51,8 +51,6 @@ public class GeckoHlsVideoRenderer extends GeckoHlsRendererBase {
   private boolean mRendererReconfigured;
   private RECONFIGURATION_STATE mRendererReconfigurationState = RECONFIGURATION_STATE.NONE;
 
-  // A list of the formats which may be included in the bitstream.
-  private Format[] mStreamFormats;
   // The max width/height/inputBufferSize for specific codec format.
   private CodecMaxValues mCodecMaxValues;
   // A temporary queue for samples whose duration is not calculated yet.
@@ -130,7 +128,11 @@ public class GeckoHlsVideoRenderer extends GeckoHlsRendererBase {
     assertTrue(mFormats.size() > 0);
     // Calculate maximum size which might be used for target format.
     final Format currentFormat = mFormats.get(mFormats.size() - 1);
-    mCodecMaxValues = getCodecMaxValues(currentFormat, mStreamFormats);
+    mCodecMaxValues = getCodecMaxValues(currentFormat, getStreamFormats());
+    if (mCodecMaxValues.inputSize == Format.NO_VALUE) {
+      mInputBuffer = null;
+      return;
+    }
     // Create a buffer with maximal size for reading source.
     // Note : Though we are able to dynamically enlarge buffer size by
     // creating DecoderInputBuffer with specific BufferReplacementMode, we
@@ -442,23 +444,16 @@ public class GeckoHlsVideoRenderer extends GeckoHlsRendererBase {
     return nextKeyFrameTime;
   }
 
-  protected void onStreamChanged(final Format[] formats, final long offsetUs) {
-    mStreamFormats = formats;
-  }
-
   private static CodecMaxValues getCodecMaxValues(
       final Format format, final Format[] streamFormats) {
     int maxWidth = format.width;
     int maxHeight = format.height;
     int maxInputSize = getMaxInputSize(format);
-    if (streamFormats != null) {
-      // Stream changed. Re-calculate new max values for new codec config.
-      for (final Format streamFormat : streamFormats) {
-        if (areAdaptationCompatible(format, streamFormat)) {
-          maxWidth = Math.max(maxWidth, streamFormat.width);
-          maxHeight = Math.max(maxHeight, streamFormat.height);
-          maxInputSize = Math.max(maxInputSize, getMaxInputSize(streamFormat));
-        }
+    for (final Format streamFormat : streamFormats) {
+      if (areAdaptationCompatible(format, streamFormat)) {
+        maxWidth = Math.max(maxWidth, streamFormat.width);
+        maxHeight = Math.max(maxHeight, streamFormat.height);
+        maxInputSize = Math.max(maxInputSize, getMaxInputSize(streamFormat));
       }
     }
     return new CodecMaxValues(maxWidth, maxHeight, maxInputSize);
