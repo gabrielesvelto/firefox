@@ -1818,6 +1818,10 @@ static ExceptionHandler::FilterResult Filter(void* context,
     return ExceptionHandler::FilterResult::ContinueSearch;
   }
 
+  if (gEncounteredException.exchange(true)) {
+    return ExceptionHandler::FilterResult::AbortWithoutMinidump;
+  }
+
   PrepareForMinidump(/* isChildProcess */ false);
   return ExceptionHandler::FilterResult::HandleException;
 }
@@ -2096,7 +2100,7 @@ nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force /*=false*/) {
       /* callback_context */ nullptr,
 #ifdef XP_WIN
       google_breakpad::ExceptionHandler::HANDLER_ALL, GetMinidumpType(),
-      (const wchar_t*)nullptr, nullptr);
+      (const wchar_t*)NS_ConvertUTF8toUTF16(GetChildNotificationPipe()).get(), nullptr);
 #else
       true
 #  ifdef XP_MACOSX
@@ -2172,7 +2176,7 @@ nsresult SetMinidumpPath(const nsAString& aPath) {
 #else
   path = NS_ConvertUTF16toUTF8(aPath);
 #endif
-
+/*
   // Set the path for the in-process exception handler
 #ifdef XP_WIN
   gExceptionHandler->set_dump_path(std::wstring(path.getW()));
@@ -2181,7 +2185,7 @@ nsresult SetMinidumpPath(const nsAString& aPath) {
 #else
   gExceptionHandler->set_dump_path(path.get());
 #endif
-
+*/
   // Set the path used by the crash helper for out-of-process crash generation
   StaticMutexAutoLock lock(gCrashHelperClientMutex);
   if (gCrashHelperClient) {
