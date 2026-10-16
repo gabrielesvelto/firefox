@@ -5703,6 +5703,9 @@ void PresShell::AddCanvasBackgroundColorItem(nsDisplayListBuilder* aBuilder,
 
   nsDisplaySolidColor* item =
       MakeDisplayItem<nsDisplaySolidColor>(aBuilder, aFrame, aBounds, bgcolor);
+  if (!item) {
+    return;
+  }
   if (canvasBg.mCSSSpecified && isRootContentDocumentCrossProcess) {
     item->SetIsCheckerboardBackground();
   }
