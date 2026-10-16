@@ -3744,8 +3744,13 @@ JS_PUBLIC_API JS::Symbol* JS::GetSymbolFor(JSContext* cx, HandleString key) {
   return Symbol::for_(cx, key);
 }
 
-JS_PUBLIC_API JSString* JS::GetSymbolDescription(HandleSymbol symbol) {
-  return symbol->description();
+JS_PUBLIC_API JSString* JS::GetSymbolDescription(JSContext* cx,
+                                                 HandleSymbol symbol) {
+  JSAtom* description = symbol->description();
+  if (description) {
+    cx->recordRef(description);
+  }
+  return description;
 }
 
 JS_PUBLIC_API JS::SymbolCode JS::GetSymbolCode(Handle<Symbol*> symbol) {
