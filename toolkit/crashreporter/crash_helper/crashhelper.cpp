@@ -41,24 +41,9 @@ static BreakpadRawData parse_breakpad_data(const BreakpadChar* aArg) {
 #if defined(XP_MACOSX)
   return aArg;
 #elif defined(XP_WIN)
-  // This is always a wide string from program arguments, so we don't need a
-  // proper conversion.
-  size_t len = wcslen(BitwiseCast<const wchar_t*>(aArg));
-  uint16_t* data = new uint16_t[len + 1];
-  for (size_t i = 0; i < len; i++) {
-    data[i] = aArg[i];
-  }
-  data[len] = 0;
-
-  return data;
+  return reinterpret_cast<HANDLE>(parse_int_or_exit(aArg));
 #else  // Linux and friends
   return parse_int_or_exit(aArg);
-#endif
-}
-
-static void free_breakpad_data(BreakpadRawData aData) {
-#if defined(XP_WIN)
-  delete aData;
 #endif
 }
 
@@ -103,6 +88,5 @@ int main(int argc, char* argv[])
   int res = crash_generator_logic_desktop(client_pid, client_handle,
                                           breakpad_data, minidump_path,
                                           build_id, listener, connector);
-  free_breakpad_data(breakpad_data);
   exit(res);
 }

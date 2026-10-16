@@ -3245,14 +3245,15 @@ nsresult OOPInit(nsIFile* aXREDirectory, bool force /*=false*/) {
 #if defined(XP_WIN)
   childCrashNotifyPipe = nsCString("\\\\.\\pipe\\gecko-crash-server-pipe.");
   childCrashNotifyPipe.AppendInt(static_cast<int>(::GetCurrentProcessId()));
+  auto notifyPipeName = NS_ConvertUTF8toUTF16(GetChildNotificationPipe());
+  HANDLE notifyPipe = CrashGenerationServer::CreateReportPipe((const wchar_t*)notifyPipeName.get());
 
   // TODO: Create the crash server and set include_context_heap based on the
   // value of sIncludeContextHeap. Also pass the release channel so we can set
   // the appropriate type of minidump in the crash helper.
   crashHelperClient = crash_helper_launch(
       mozilla::BitwiseCast<const BreakpadChar*>(crashHelperPath.c_str()),
-      mozilla::BitwiseCast<const BreakpadChar*>(
-          NS_ConvertUTF8toUTF16(childCrashNotifyPipe).getW()),
+      notifyPipe,
       mozilla::BitwiseCast<const BreakpadChar*>(tempPath.get()),
       gToolkitBuildID);
 #elif defined(XP_LINUX)

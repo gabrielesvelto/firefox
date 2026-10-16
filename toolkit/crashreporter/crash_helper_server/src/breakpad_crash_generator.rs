@@ -29,7 +29,7 @@ use std::{
 };
 
 #[cfg(target_os = "windows")]
-type BreakpadInitType = *const u16;
+type BreakpadInitType = std::os::windows::io::RawHandle;
 #[cfg(target_os = "windows")]
 type NativeProcessId = windows_sys::Win32::Foundation::HANDLE;
 
