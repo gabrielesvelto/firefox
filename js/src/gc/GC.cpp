@@ -4263,7 +4263,6 @@ GCRuntime::IncrementalResult GCRuntime::resetIncrementalGC(
 void GCRuntime::setGrayBitsInvalid() {
   waitBackgroundSweepEnd();
   grayBitsValid = false;
-  atomReferences.unmarkAllGrayReferences(this);
 }
 
 void GCRuntime::disableIncrementalBarriers() {

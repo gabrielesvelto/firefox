@@ -224,6 +224,16 @@ static void CheckMarkedThing(GCMarker* gcMarker, T* thing) {
                 gcMarker->tracingCompartment == comp);
   MOZ_ASSERT_IF(gcMarker->tracingZone,
                 gcMarker->tracingZone == zone || zone->isAtomsZone());
+
+  if constexpr (std::is_same_v<T, JS::Symbol>) {
+    if (!thing->isUnique()) {
+      MOZ_ASSERT(zone->isAtomsZone());
+      if (gcMarker->tracingZone && !gcMarker->tracingZone->isAtomsZone()) {
+        AtomRefRuntime& atomReferences = gcMarker->runtime()->gc.atomReferences;
+        MOZ_ASSERT(atomReferences.hasRef(gcMarker->tracingZone, thing));
+      }
+    }
+  }
 }
 
 namespace js {
@@ -882,29 +892,6 @@ MOZ_ALWAYS_INLINE const GCMarker* MarkingTracerT<opts>::gcMarker() const {
   return GCMarker::fromTracer(const_cast<MarkingTracerT<opts>*>(this));
 }
 
-// Unmark gray symbols in incremental GC: gray unmarking doesn't proceed through
-// zones which are currently being marked incrementally because the marking
-// state isn't consistent, and we handle this later as part of marking.
-static inline void MaybeUnmarkGraySymbol(JSRuntime* runtime,
-                                         JS::Zone* sourceZone,
-                                         JS::Symbol* target) {
-  // Ignore edges from self-hosted JitCode that lives in the atoms zone.
-  if (sourceZone->isAtomsZone()) {
-    return;
-  }
-
-  AtomRefRuntime& atomReferences = runtime->gc.atomReferences;
-  if (target->isUnique()) {
-    // Marked via Zone::localSymbolMap().
-    MOZ_ASSERT_IF(target->zone()->isAtomsZone(),
-                  !atomReferences.hasRef(sourceZone, target));
-    return;
-  }
-
-  MOZ_ASSERT(atomReferences.hasRef(sourceZone, target));
-  atomReferences.maybeUnmarkGrayAtomically(sourceZone, target);
-}
-
 template <uint32_t opts>
 template <typename T>
 bool MarkingTracerT<opts>::onEdge(T** thingp, const char* name) {
@@ -928,13 +915,6 @@ bool MarkingTracerT<opts>::onEdge(T** thingp, const char* name) {
 
   MOZ_ASSERT_IF(IsOwnedByOtherRuntime(this->runtime(), thing),
                 thing->isMarkedBlack());
-
-  if constexpr (std::is_same_v<T, JS::Symbol>) {
-    Zone* zone = tracingZone();
-    if (markColor() == MarkColor::Black && zone) {
-      MaybeUnmarkGraySymbol(this->runtime(), zone, thing);
-    }
-  }
 
 #ifdef DEBUG
   CheckMarkedThing(gcMarker(), thing);
@@ -1271,8 +1251,7 @@ inline void GCMarker::checkTraversedEdge(S source, T* target) {
       targetZone->isAtomsZone()) {
     GCRuntime* gc = &target->runtimeFromAnyThread()->gc;
     TenuredCell* atom = &target->asTenured();
-    MOZ_ASSERT(gc->atomReferences.getRefColor(sourceZone, atom) >=
-               AsCellColor(markColor()));
+    MOZ_ASSERT(gc->atomReferences.hasRef(sourceZone, atom));
   }
 
   // If we have access to a compartment pointer for both things, they must
@@ -1285,13 +1264,6 @@ inline void GCMarker::checkTraversedEdge(S source, T* target) {
 template <uint32_t opts>
 template <typename S, typename T>
 void MarkingTracerT<opts>::markAndTraverseEdge(S* source, T* target) {
-  if constexpr (std::is_same_v<T, JS::Symbol>) {
-    if (markColor() == MarkColor::Black) {
-      Zone* zone = source->asTenured().zone();
-      MaybeUnmarkGraySymbol(this->runtime(), zone, target);
-    }
-  }
-
   gcMarker()->checkTraversedEdge(source, target);
   markAndTraverse(target);
 }
@@ -3423,11 +3395,13 @@ bool UnmarkGrayTracer<opts>::onChild(T* thing) {
   // atom reference bitmap for symbols to record that |sourceZone| now has a
   // black edge to |thing|.
   if constexpr (std::is_same_v<T, JS::Symbol>) {
-    if (thing->isShared() && !thing->isUnique() && sourceZone) {
-      MOZ_ASSERT(zone->isAtomsZone());
+#ifdef DEBUG
+    if (sourceZone && zone->isAtomsZone()) {
       GCRuntime* gc = &this->runtime()->gc;
-      gc->atomReferences.maybeUnmarkGrayAtomically(sourceZone, thing);
+      MOZ_ASSERT(gc->atomReferences.hasRef(sourceZone, thing) ==
+                 !thing->isUnique());
     }
+#endif
   }
 
   // If the cell is in a zone whose mark bits are being cleared, then it will
