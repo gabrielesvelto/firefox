@@ -80,6 +80,7 @@ MOZ_ALWAYS_INLINE bool AtomRefRuntime::inlinedRecordRefInternal(
   // We don't have a JSTracer for this so manually handle the cases in which
   // an atom can reference other atoms.
   if constexpr (std::is_same_v<T, JS::Symbol>) {
+    MOZ_ASSERT(thing->isShared());
     if (JSAtom* description = thing->description()) {
       if (!inlinedRecordRefInternal(zone, description, lock)) {
         return false;
@@ -157,6 +158,7 @@ inline void GCRuntime::maybeMarkWeaklyHeldAtom(T* atom) {
   MarkColor color = AsMarkColor(refColor);
   (void)atom->asTenured().markIfUnmarked(color);
   if constexpr (std::is_same_v<T, JS::Symbol>) {
+    MOZ_ASSERT(atom->isShared());
     if (JSAtom* description = atom->description()) {
       (void)description->asTenured().markIfUnmarked(color);
     }

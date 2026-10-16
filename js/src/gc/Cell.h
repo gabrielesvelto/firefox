@@ -572,7 +572,11 @@ MOZ_ALWAYS_INLINE void PreWriteBarrierImpl(Cell* thing) {
 template <typename T>
 MOZ_ALWAYS_INLINE void PreWriteBarrier(T* thing) {
   static_assert(std::is_base_of_v<Cell, T>);
-  static_assert(!std::is_same_v<Cell, T> && !std::is_same_v<TenuredCell, T>);
+
+  // We'd like to assert that T != TenuredCell here too but Symbol's use of
+  // CellWithTenuredGCPointer instantiates this with that template parameter,
+  // even though it's never used.
+  static_assert(!std::is_same_v<Cell, T>);
 
   if (thing) {
     PreWriteBarrierImpl(thing);
