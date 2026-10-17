@@ -1342,7 +1342,7 @@ static MOZ_ALWAYS_INLINE bool AddOrChangeProperty(
       return false;
     }
   } else {
-    if (!CallAddPropertyHook(cx, obj, id, UndefinedHandleValue)) { 
+    if (!CallAddPropertyHook(cx, obj, id, UndefinedHandleValue)) {
       return false;
     }
   }
