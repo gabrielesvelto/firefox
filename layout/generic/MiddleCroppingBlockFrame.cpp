@@ -32,8 +32,6 @@ MiddleCroppingBlockFrame::~MiddleCroppingBlockFrame() = default;
 void MiddleCroppingBlockFrame::UpdateDisplayedValue(const nsAString& aValue,
                                                     bool aNotify) {
   // If we notify, we might be dead after SetText().
-  mCropped = aIsCropped;
-
   RefPtr text = mTextNode;
   uint32_t oldLength = aNotify ? 0 : text->TextLength();
   text->SetText(aValue, aNotify);
