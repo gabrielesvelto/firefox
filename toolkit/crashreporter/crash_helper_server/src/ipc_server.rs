@@ -328,6 +328,9 @@ impl IPCServer {
                 generator.set_minidump_path(&message.path);
                 self.breakpad_server.set_path(message.path);
             }
+            PathType::MemoryReport => {
+                generator.set_memory_report_path(&message.path);
+            }
         }
     }
 
@@ -335,6 +338,7 @@ impl IPCServer {
         let generator = self.generator.lock().unwrap();
         match message.path_type {
             PathType::CrashReports => generator.get_minidump_path(),
+            PathType::MemoryReport => generator.get_memory_report_path(),
         }
     }
 

@@ -282,6 +282,25 @@ pub unsafe extern "C" fn release_path(path: *mut BreakpadChar) {
     let _string = <OsString as BreakpadString>::from_raw(path);
 }
 
+/// Changes the path where the memory report is found.
+///
+/// # Safety
+///
+/// The `client` parameter must be a valid pointer to the crash helper client
+/// object returned by the [`crash_helper_launch()`] or
+/// [`crash_helper_connect()`] functions.
+#[no_mangle]
+pub unsafe extern "C" fn set_memory_report_path(
+    client: *const CrashHelperClient,
+    path: *const BreakpadChar,
+) -> bool {
+    let client = client.as_ref().unwrap();
+    let path = <OsString as BreakpadString>::from_ptr(path);
+    client
+        .set_path(messages::PathType::MemoryReport, path)
+        .is_ok()
+}
+
 /// Creates a new IPC channel to connect a soon-to-be-created child process
 /// with the crash helper client. The server-side endpoint of this channel
 /// will be sent to the crash helper, and the client-side endpoint will be

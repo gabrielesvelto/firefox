@@ -259,6 +259,8 @@ impl Header {
 pub enum PathType {
     /// The folder where crash reports are generated.
     CrashReports = 1,
+    /// The path to a file where a memory report is potentially stored.
+    MemoryReport = 2,
 }
 
 pub struct SetPath {
