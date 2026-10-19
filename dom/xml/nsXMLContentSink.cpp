@@ -518,7 +518,7 @@ nsresult nsXMLContentSink::CreateElement(
       HasCustomElementRegistryAttr(aAtts);
 
   // Step 7: Look up a custom element definition.
-  CustomElementDefinition* customElementDefinition = nullptr;
+  RefPtr<CustomElementDefinition> customElementDefinition;
   nsAtom* nameAtom = ni->NameAtom();
   if (!hasCustomElementRegistryAttr && mDocument &&
       !mDocument->IsLoadedAsData() && isXHTMLOrXUL &&
