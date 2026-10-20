@@ -8369,8 +8369,8 @@ bool nsIFrame::ContainsReplicatedFixedPosPlaceholders() const {
   }
   // Assumption here is that, in the common case, this will be faster than a
   // whole subtree walk.
-  auto* ancestorPageContent =
-      nsLayoutUtils::GetClosestFrameOfType(this, LayoutFrameType::PageContent);
+  auto* ancestorPageContent = nsLayoutUtils::GetClosestFrameOfType(
+      const_cast<nsIFrame*>(this), LayoutFrameType::PageContent);
   if (!ancestorPageContent || !IsFragmentedPageContent(ancestorPageContent)) {
     return false;
   }
