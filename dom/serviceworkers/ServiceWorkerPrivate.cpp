@@ -457,14 +457,10 @@ nsresult MaybeStoreStreamForBackgroundThread(nsIInterceptedChannel* aChannel,
     RefPtr<net::HttpBaseChannel> httpBase = do_QueryObject(channel);
     if (httpBase && httpBase->UploadStreamIsStreaming()) {
       // Transfer streaming uploads to the worker; fallback returns its unread
-      // body instead of replaying a clone. AddStream() below starts draining
-      // this stream into a cloneable replacement pipe, so the channel's own
-      // mUploadStream is consumed from here on and can only be reset if the
-      // worker returns the stream.
-      nsCOMPtr<nsIUploadChannel> uploadChannel1 = do_QueryInterface(channel);
-      if (uploadChannel1) {
-        MOZ_TRY(uploadChannel1->GetUploadStream(getter_AddRefs(uploadStream)));
-      }
+      // body instead of replaying a clone. The channel gives up its reference
+      // so that the stream, which serialization may drain and close
+      // It is only restored if the worker returns it.
+      uploadStream = httpBase->TakeUploadStream();
       // The length is only known once the stream ends.
       aIPCRequest.bodySize() = -1;
       aIPCRequest.hasStreamBody() = !!uploadStream;

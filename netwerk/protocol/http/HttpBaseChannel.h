@@ -539,6 +539,12 @@ class HttpBaseChannel : public nsHashPropertyBag,
   }
   bool UploadStreamIsStreaming() const { return LoadUploadStreamIsStreaming(); }
 
+  // Transfers ownership of the upload stream to the caller, leaving the
+  // request method and headers untouched.
+  already_AddRefed<nsIInputStream> TakeUploadStream() {
+    return mUploadStream.forget();
+  }
+
   virtual nsresult SetReferrerHeader(const nsACString& aReferrer,
                                      bool aRespectBeforeConnect = true) {
     if (aRespectBeforeConnect) {
