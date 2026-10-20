@@ -7817,7 +7817,7 @@ JS::loader::ModuleLoaderBase* nsGlobalWindowInner::GetModuleLoader(
 
 void nsGlobalWindowInner::HoldOldPrincipal(nsIPrincipal* aPrincipal) {
   mOldPrincipals.AppendElement(aPrincipal);
-  Dispatch(NewRunnableMethod(
+  Dispatch(TaskCategory::Other, NewRunnableMethod(
       "nsGlobalWindowInner::ClearOldPrincipalsIfNotNestedEventLoop", this,
       &nsGlobalWindowInner::ClearOldPrincipalsIfNotNestedEventLoop));
 }
