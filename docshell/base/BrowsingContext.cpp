@@ -4037,6 +4037,10 @@ void BrowsingContext::DidSet(FieldIndex<IDX_CurrentInnerWindowId>) {
         Canonical()->MaybeScheduleSessionStoreUpdate();
         mCurrentWindowContext->Canonical()->DidBecomeCurrentWindowGlobal(true);
       }
+      if (prevWindowContext && mCurrentWindowContext) {
+        Canonical()->MaybeRebindActiveEntry(prevWindowContext->Canonical(),
+                                            mCurrentWindowContext->Canonical());
+      }
     }
     BrowserParent::UpdateFocusFromBrowsingContext();
   }
@@ -4471,8 +4475,8 @@ void BrowsingContext::SetActiveSessionHistoryEntry(
       }
     }
     ContentChild::GetSingleton()->SendSetActiveSessionHistoryEntry(
-        this, aPreviousScrollPos, *aInfo, aLoadType, aUpdatedCacheKey,
-        changeID);
+        GetCurrentWindowContext(), aPreviousScrollPos, *aInfo, aLoadType,
+        aUpdatedCacheKey, changeID, aInfo->NewSharedStateRequest());
   } else {
     Canonical()->SetActiveSessionHistoryEntry(
         aPreviousScrollPos, aInfo, aLoadType, aUpdatedCacheKey, nsID());
@@ -4482,8 +4486,8 @@ void BrowsingContext::SetActiveSessionHistoryEntry(
 void BrowsingContext::ReplaceActiveSessionHistoryEntry(
     SessionHistoryInfo* aInfo) {
   if (XRE_IsContentProcess()) {
-    ContentChild::GetSingleton()->SendReplaceActiveSessionHistoryEntry(this,
-                                                                       *aInfo);
+    ContentChild::GetSingleton()->SendReplaceActiveSessionHistoryEntry(
+        GetCurrentWindowContext(), *aInfo, aInfo->NewSharedStateRequest());
   } else {
     Canonical()->ReplaceActiveSessionHistoryEntry(aInfo);
   }
