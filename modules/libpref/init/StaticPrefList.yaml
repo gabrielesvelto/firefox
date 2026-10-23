@@ -18126,6 +18126,13 @@
   type: bool
   value: false
   mirror: always
+
+# Whether we set com.apple.print.PrintSettings.PMTotalBeginPages to work around
+# driver bugs.
+- name: print.macos.driver-workarounds.begin-pages
+  type: bool
+  value: true
+  mirror: always
 #endif
 
 # The default DPI for printing.

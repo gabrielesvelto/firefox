@@ -194,9 +194,17 @@ nsresult nsDeviceContextSpecX::DoEndDocument() {
       if (status != noErr) {
         return NS_ERROR_FAILURE;
       }
-      CFStringRef mimeType = CFSTR("application/pdf");
-      status = ::PMPrinterPrintWithFile(currentPrinter, mPMPrintSettings,
-                                        mPageFormat, mimeType, pdfURL);
+      // Some drivers output extra sheets unless we specify the right BeginPage
+      // count, see bug 2084053.
+      if (StaticPrefs::print_macos_driver_workarounds_begin_pages()) {
+        AutoCFTypeRef<CFNumberRef> n(
+            CFNumberCreate(nullptr, kCFNumberSInt32Type, &mCurrentPageCount));
+        ::PMPrintSettingsSetValue(mPMPrintSettings, kPMTotalBeginPagesKey, n,
+                                  false);
+      }
+      status = ::PMPrinterPrintWithFile(
+          currentPrinter, mPMPrintSettings, mPageFormat,
+          /* mimeType = */ CFSTR("application/pdf"), pdfURL);
       break;
     }
     case kPMDestinationFile: {

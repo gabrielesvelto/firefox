@@ -30,6 +30,11 @@ class nsDeviceContextSpecX : public nsIDeviceContextSpec {
   void GetPaperRect(double* aTop, double* aLeft, double* aBottom,
                     double* aRight);
 
+  nsresult BeginPage(const IntSize&) final {
+    mCurrentPageCount++;
+    return NS_OK;
+  }
+
  protected:
   virtual ~nsDeviceContextSpecX();
 
@@ -43,6 +48,8 @@ class nsDeviceContextSpecX : public nsIDeviceContextSpec {
   nsCOMPtr<nsIFile> mOutputFile;
   // Whether the output file is the final destination.
   bool mOutputFileIsFinal = false;
+  // The number of pages of the document at a given point in time.
+  int32_t mCurrentPageCount = 0;
 
  private:
   nsresult DoEndDocument();
