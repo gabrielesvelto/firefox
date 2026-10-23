@@ -18111,6 +18111,16 @@
   value: @IS_NOT_ANDROID@
   mirror: always
 
+#ifdef XP_MACOSX
+# Whether, when saving to a PDF file via the system print dialog, we write the
+# PDF directly to the destination file rather than to a temporary file which is
+# then moved into place.
+- name: print.macos.stream_to_destination_file.enabled
+  type: bool
+  value: true
+  mirror: always
+#endif
+
 # The default DPI for printing.
 #
 # For PDF-based output, DPI should ideally be irrelevant, but in fact it is not

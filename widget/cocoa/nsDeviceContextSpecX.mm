@@ -161,12 +161,12 @@ RefPtr<PrintEndDocumentPromise> nsDeviceContextSpecX::EndDocument() {
 nsresult nsDeviceContextSpecX::DoEndDocument() {
   NS_OBJC_BEGIN_TRY_BLOCK_RETURN;
 
-  if (mOutputStream) {
+  if (mOutputStream || mOutputFileIsFinal) {
     // Nothing to do. PrintTargetSkPDF will flush the stream.
     return NS_OK;
   }
 
-  nsCOMPtr<nsILocalFileMac> tmpPDFFile = do_QueryInterface(mTempFile);
+  nsCOMPtr<nsILocalFileMac> tmpPDFFile = do_QueryInterface(mOutputFile);
   if (!tmpPDFFile) {
     return NS_ERROR_FAILURE;
   }
@@ -340,20 +340,40 @@ already_AddRefed<PrintTarget> nsDeviceContextSpecX::MakePrintTarget() {
     if (mOutputStream) {
       return mOutputStream;
     }
-    nsresult rv =
-        NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(mTempFile));
-    NS_ENSURE_SUCCESS(rv, nullptr);
-    // FIXME(emilio): We don't seem to remove this file anywhere, and also it
-    // seems its name could collide, should we use a UUID or something, if we
-    // need it to be named?
-    nsAutoCString tempPath("tmp-printing.pdf");
-    mTempFile->AppendNative(tempPath);
-    rv = mTempFile->CreateUnique(nsIFile::NORMAL_FILE_TYPE, 0600);
-    NS_ENSURE_SUCCESS(rv, nullptr);
+    if (StaticPrefs::print_macos_stream_to_destination_file_enabled()) {
+      AutoCFTypeRef<CFURLRef> destURL(nullptr);
+      PMDestinationType destination;
+      if (::PMSessionGetDestinationType(mPrintSession, mPMPrintSettings,
+                                        &destination) == noErr &&
+          destination == kPMDestinationFile &&
+          ::PMSessionCopyDestinationLocation(mPrintSession, mPMPrintSettings,
+                                             destURL.Receive()) == noErr &&
+          destURL && IsPDFFileURL(destURL)) {
+        nsCOMPtr<nsILocalFileMac> destFile;
+        nsresult rv =
+            NS_NewLocalFileWithCFURL(destURL, getter_AddRefs(destFile));
+        NS_ENSURE_SUCCESS(rv, nullptr);
+        mOutputFile = std::move(destFile);
+        mOutputFileIsFinal = true;
+      }
+    }
+    if (!mOutputFileIsFinal) {
+      nsresult rv =
+          NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(mOutputFile));
+      NS_ENSURE_SUCCESS(rv, nullptr);
+      // FIXME(emilio): We don't seem to remove this file anywhere, and also it
+      // seems its name could collide, should we use a UUID or something, if we
+      // need it to be named?
+      nsAutoCString tempPath("tmp-printing.pdf");
+      mOutputFile->AppendNative(tempPath);
+      rv = mOutputFile->CreateUnique(nsIFile::NORMAL_FILE_TYPE, 0600);
+      NS_ENSURE_SUCCESS(rv, nullptr);
+    }
 
-    nsCOMPtr<nsIFileOutputStream> stream =
-        do_CreateInstance("@mozilla.org/network/file-output-stream;1");
-    if (NS_FAILED(stream->Init(mTempFile, -1, -1, 0))) {
+    nsCOMPtr<nsIFileOutputStream> stream = do_CreateInstance(
+        mOutputFileIsFinal ? "@mozilla.org/network/atomic-file-output-stream;1"
+                           : "@mozilla.org/network/file-output-stream;1");
+    if (NS_FAILED(stream->Init(mOutputFile, -1, -1, 0))) {
       return nullptr;
     }
     return stream;

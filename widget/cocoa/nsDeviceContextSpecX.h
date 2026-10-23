@@ -38,8 +38,11 @@ class nsDeviceContextSpecX : public nsIDeviceContextSpec {
   PMPageFormat mPageFormat = nullptr;
   PMPrintSettings mPMPrintSettings = nullptr;
   nsCOMPtr<nsIOutputStream> mOutputStream;  // Output stream from settings.
-  // file "print" output generated if printing via PDF
-  nsCOMPtr<nsIFile> mTempFile;
+  // The temporary PDF we post-process in EndDocument, or the final destination
+  // file if mOutputFileIsFinal.
+  nsCOMPtr<nsIFile> mOutputFile;
+  // Whether the output file is the final destination.
+  bool mOutputFileIsFinal = false;
 
  private:
   nsresult DoEndDocument();
