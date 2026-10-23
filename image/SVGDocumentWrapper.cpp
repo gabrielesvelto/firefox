@@ -54,7 +54,7 @@ SVGDocumentWrapper::~SVGDocumentWrapper() {
   }
 }
 
-static MOZ_CAN_RUN_SCRIPT void DoDestroyViewer(nsIDocumentViewer* aViewer) {
+static void DoDestroyViewer(nsIDocumentViewer* aViewer) {
   if (RefPtr doc = aViewer->GetDocument()) {
     doc->OnPageHide(false, nullptr);
   }
@@ -74,8 +74,7 @@ void SVGDocumentWrapper::DestroyViewer() {
   } else {
     nsContentUtils::AddScriptRunner(NS_NewRunnableFunction(
         "DestroyViewer",
-        [viewer = std::move(viewer)]()
-            MOZ_CAN_RUN_SCRIPT_BOUNDARY_LAMBDA { DoDestroyViewer(viewer); }));
+        [viewer = std::move(viewer)] { DoDestroyViewer(viewer); }));
   }
 }
 
