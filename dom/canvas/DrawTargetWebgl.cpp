@@ -2747,6 +2747,7 @@ void SharedContextWebgl::BindAndInitRenderTex(const RefPtr<WebGLTexture>& aTex,
                                               SurfaceFormat aFormat,
                                               const IntSize& aSize) {
   mWebgl->BindTexture(LOCAL_GL_TEXTURE_2D, aTex);
+  mWebgl->HintTexRenderTarget(LOCAL_GL_TEXTURE_2D);
   mWebgl->TexStorage(
       LOCAL_GL_TEXTURE_2D, 1,
       aFormat == SurfaceFormat::A8 ? LOCAL_GL_R8 : LOCAL_GL_RGBA8,
