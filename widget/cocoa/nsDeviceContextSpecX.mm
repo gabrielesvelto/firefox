@@ -176,6 +176,10 @@ nsresult nsDeviceContextSpecX::DoEndDocument() {
   // naming conventions here (the method should've been called CopyCFURL).
   MOZ_TRY(tmpPDFFile->GetCFURL(pdfURL.Receive()));
 
+  if (StaticPrefs::print_macos_prefer_print_session()) {
+    return PrintPDFViaPrintSession(pdfURL);
+  }
+
   PMDestinationType destination;
   if (::PMSessionGetDestinationType(mPrintSession, mPMPrintSettings,
                                     &destination) != noErr) {
