@@ -77,6 +77,9 @@ support-files = [
   "page_size_zero_width.html",
 ]
 
+["browser_print_page_size_output.js"]
+support-files = ["page_size_mixed.html"]
+
 ["browser_print_paper_sizes.js"]
 
 ["browser_print_pdf_on_frame_load.js"]

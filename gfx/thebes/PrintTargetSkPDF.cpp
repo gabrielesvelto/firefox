@@ -281,7 +281,11 @@ nsresult PrintTargetSkPDF::BeginPrinting(const nsAString& aTitle,
 }
 
 nsresult PrintTargetSkPDF::BeginPage(const IntSize& aSizeInPoints) {
-  mState->mCanvas = mState->mDoc->beginPage(mSize.width, mSize.height);
+  const IntSize pageSize =
+      StaticPrefs::print_save_as_pdf_use_page_rule_size_as_paper_size_enabled()
+          ? aSizeInPoints
+          : mSize;
+  mState->mCanvas = mState->mDoc->beginPage(pageSize.width, pageSize.height);
   if (!mState->mCanvas) {
     return NS_ERROR_FAILURE;
   }
@@ -314,7 +318,6 @@ already_AddRefed<DrawTarget> PrintTargetSkPDF::MakeDrawTarget(
   if (aRecorder) {
     return PrintTarget::MakeDrawTarget(aSize, aRecorder);
   }
-  // MOZ_ASSERT(aSize == mSize, "Should mPageCanvas size match?");
   if (!mState->mCanvas) {
     return nullptr;
   }
