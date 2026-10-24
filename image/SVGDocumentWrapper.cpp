@@ -54,11 +54,11 @@ SVGDocumentWrapper::~SVGDocumentWrapper() {
   }
 }
 
-static void DoDestroyViewer(nsIDocumentViewer* aViewer) {
+static void DoDestroyViewer(nsIContentViewer* aViewer) {
   if (RefPtr doc = aViewer->GetDocument()) {
     doc->OnPageHide(false, nullptr);
   }
-  aViewer->Close();
+  aViewer->Close(nullptr);
   aViewer->Destroy();
 }
 
