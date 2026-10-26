@@ -6340,6 +6340,13 @@ nsresult Document::EditingStateChanged() {
   bool spellRecheckAll = false;
   bool putOffToRemoveScriptBlockerUntilModifyingEditingState = false;
 
+  if (makeWindowEditable && NS_WARN_IF(!IsHTMLOrXHTML())) {
+    // Don't allow editing on non-HTML/XHTML documents.
+    // Return NS_OK so that the setter of designMode on non-HTML documents
+    // does not fail.
+    return NS_OK;
+  }
+
   RefPtr<HTMLEditor> htmlEditor;
   {
     nsAutoEditingState push(this, EditingState::eSettingUp);
@@ -6408,14 +6415,8 @@ nsresult Document::EditingStateChanged() {
 
     // XXX Need to call TearDownEditorOnWindow for all failures.
     htmlEditor = docshell->GetHTMLEditor();
-    if (!htmlEditor) {
-      // Return NS_OK even though we've failed to create an editor here.  This
-      // is so that the setter of designMode on non-HTML documents does not
-      // fail.
-      // This is OK to do because in nsEditingSession::SetupEditorOnWindow() we
-      // would detect that we can't support the mimetype if appropriate and
-      // would fall onto the eEditorErrorCantEditMimeType path.
-      return NS_OK;
+    if (NS_WARN_IF(!htmlEditor)) {
+      return NS_ERROR_FAILURE;
     }
 
     if (collapseSelectionAtBeginningOfDocument) {
@@ -6438,19 +6439,6 @@ nsresult Document::EditingStateChanged() {
   }
 
   if (makeWindowEditable) {
-    // TODO: We should do this earlier in this method.
-    //       Previously, we called `ExecCommand` with `insertBrOnReturn` command
-    //       whose argument is false here.  Then, if it returns error, we
-    //       stopped making it editable.  However, after bug 1697078 fixed,
-    //       `ExecCommand` returns error only when the document is not XHTML's
-    //       nor HTML's.  Therefore, we use same error handling for now.
-    if (MOZ_UNLIKELY(NS_WARN_IF(!IsHTMLOrXHTML()))) {
-      // Editor setup failed. Editing is not on after all.
-      // XXX Should we reset the editable flag on nodes?
-      editSession->TearDownEditorOnWindow(window);
-      mEditingState = EditingState::eOff;
-      return NS_ERROR_DOM_INVALID_STATE_ERR;
-    }
     // Set the editor to not insert <br> elements on return when in <p> elements
     // by default.
     htmlEditor->SetReturnInParagraphCreatesNewParagraph(true);

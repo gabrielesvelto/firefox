@@ -707,6 +707,9 @@ skip-if = [
 
 ["test_state_change_on_reframe.html"]
 
+["test_svg_designMode_blur.html"]
+support-files = ["file_svg_designMode_blur.svg"]
+
 ["test_tb_htmlmail_reply_below_quote.html"]
 
 ["test_textarea_value_not_include_cr.html"]
