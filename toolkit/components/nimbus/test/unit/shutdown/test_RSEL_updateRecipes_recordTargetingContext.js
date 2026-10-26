@@ -22,7 +22,6 @@ add_task(async function test() {
     submitted = true;
   });
 
-
   const updatePromise = loader.updateRecipes("test");
   await blocker.promise;
 
