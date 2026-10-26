@@ -658,7 +658,12 @@ void js::TraceManuallyBarrieredGenericPointerEdge(JSTracer* trc, Cell** thingp,
 
 void js::TraceGCCellPtrRoot(JSTracer* trc, JS::GCCellPtr* thingp,
                             const char* name) {
+#ifdef JS_GC_CONCURRENT_MARKING
+  Cell* thing = thingp->atomicGet().asCell();
+#else
   Cell* thing = thingp->asCell();
+#endif
+
   if (!thing) {
     return;
   }
@@ -675,7 +680,12 @@ void js::TraceGCCellPtrRoot(JSTracer* trc, JS::GCCellPtr* thingp,
 
 void js::TraceManuallyBarrieredGCCellPtr(JSTracer* trc, JS::GCCellPtr* thingp,
                                          const char* name) {
+#ifdef JS_GC_CONCURRENT_MARKING
+  Cell* thing = thingp->atomicGet().asCell();
+#else
   Cell* thing = thingp->asCell();
+#endif
+
   if (!thing) {
     return;
   }
