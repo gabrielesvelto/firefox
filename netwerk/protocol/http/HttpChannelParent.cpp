@@ -453,7 +453,25 @@ bool HttpChannelParent::DoAsyncOpen(
     const bool& aIsUserAgentHeaderModified, const nsString& aInitiatorType) {
   MOZ_ASSERT(aURI, "aURI should not be NULL");
 
-  if (aEarlyHintPreloaderId) {
+  nsAutoCString remoteType;
+  nsresult rv = GetRemoteType(remoteType);
+  if (NS_FAILED(rv)) {
+    return SendFailedAsyncOpen(rv);
+  }
+
+  nsCOMPtr<nsILoadInfo> loadInfo;
+  rv = mozilla::ipc::LoadInfoArgsToLoadInfo(aLoadInfoArgs, remoteType,
+                                            getter_AddRefs(loadInfo));
+  if (NS_FAILED(rv)) {
+    return SendFailedAsyncOpen(rv);
+  }
+
+  // If the early hint preload is gone or was made for a different request,
+  // ignore it and load the resource normally.
+  RefPtr<EarlyHintRegistrar> registrar =
+      aEarlyHintPreloaderId ? EarlyHintRegistrar::GetOrCreate() : nullptr;
+  if (registrar &&
+      registrar->MatchesRequest(aEarlyHintPreloaderId, aURI, loadInfo)) {
     // Wait for HttpBackgrounChannel to continue the async open procedure.
     mEarlyHintPreloaderId = aEarlyHintPreloaderId;
     RefPtr<HttpChannelParent> self = this;
@@ -485,20 +503,6 @@ bool HttpChannelParent::DoAsyncOpen(
   PROFILER_MARKER("Receive AsyncOpen in Parent", NETWORK,
                   MarkerThreadId::MainThread(), ChannelMarker,
                   aURI->GetSpecOrDefault(), aChannelId);
-
-  nsresult rv;
-  nsAutoCString remoteType;
-  rv = GetRemoteType(remoteType);
-  if (NS_FAILED(rv)) {
-    return SendFailedAsyncOpen(rv);
-  }
-
-  nsCOMPtr<nsILoadInfo> loadInfo;
-  rv = mozilla::ipc::LoadInfoArgsToLoadInfo(aLoadInfoArgs, remoteType,
-                                            getter_AddRefs(loadInfo));
-  if (NS_FAILED(rv)) {
-    return SendFailedAsyncOpen(rv);
-  }
 
   // Document, subdocument and object/embed loads go through DocumentChannel,
   // never PHttpChannel. Reject content-process attempts to open such a channel,
