@@ -36,7 +36,10 @@ add_setup(async function () {
   // Raise AITab's log verbosity for the duration of this file so a failing run
   // surfaces the module's debug/error output. Reverted automatically at teardown.
   await SpecialPowers.pushPrefEnv({
-    set: [["browser.smartwindow.conversation.logLevel", "Debug"]],
+    set: [
+      ["browser.smartwindow.conversation.logLevel", "Debug"],
+      ["browser.smartwindow.aitab.enabled", true],
+    ],
   });
 });
 
