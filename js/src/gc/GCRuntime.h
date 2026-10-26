@@ -765,7 +765,7 @@ class GCRuntime {
   static void* refillFreeList(JS::Zone* zone, AllocKind thingKind);
   void attemptLastDitchGC();
 
-  // Return the mark color for |sym| in the atom marking state for uncollected
+  // Return the mark color for |sym| in the atom reference state for uncollected
   // zones, or MarkColor::White if it's not referenced.
   CellColor isAtomReferencedByUncollectedZone(TenuredCell* atom);
   template <typename T>
@@ -1164,7 +1164,7 @@ class GCRuntime {
   HelperThreadLockData<size_t> dispatchedParallelTasks;
   HelperThreadLockData<GCParallelTaskList> queuedParallelTasks;
 
-  // State used for managing atom mark bitmaps in each zone.
+  // State used for managing atom reference bitmaps in each zone.
   AtomMarkingRuntime atomMarking;
   MainThreadOrGCTaskData<UniquePtr<DenseBitmap>> atomsUsedByUncollectedZones;
 

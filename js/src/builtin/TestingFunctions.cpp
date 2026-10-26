@@ -3336,13 +3336,13 @@ static bool GetAtomMarkIndex(JSContext* cx, unsigned argc, Value* vp) {
       (atom->is<JS::Symbol>() &&
        atom->as<JS::Symbol>()->isPermanentAndMayBeShared())) {
     ReportUsageErrorASCII(
-        cx, callee, "Atom marking bitmap is not used for permanent atoms");
+        cx, callee, "Atom reference bitmap is not used for permanent atoms");
     return false;
   }
 
   if (atom->is<JSString>() && atom->as<JSString>()->asAtom().isPinned()) {
     ReportUsageErrorASCII(cx, callee,
-                          "Atom marking bitmap is not used for pinned atoms");
+                          "Atom reference bitmap is not used for pinned atoms");
     return false;
   }
 
@@ -10740,11 +10740,11 @@ gc::ZealModeHelpText),
 
     JS_FN_HELP("getAtomMarkIndex", GetAtomMarkIndex, 1, 0,
 "getAtomMarkIndex(atom)",
-"  Return the atom marking bitmap's index for |atom|."),
+"  Return the atom reference bitmap's index for |atom|."),
 
     JS_FN_HELP("getAtomMarkColor", GetAtomMarkColor, 2, 0,
 "getAtomMarkColor(obj, index)",
-"  Return the atom marking bitmap's mark color for |index| relative to the zone containing |obj|."),
+"  Return the atom reference bitmap's color for |index| relative to the zone containing |obj|."),
 
     JS_FN_HELP("setMallocMaxDirtyPageModifier", SetMallocMaxDirtyPageModifier, 1, 0,
 "setMallocMaxDirtyPageModifier(value)",

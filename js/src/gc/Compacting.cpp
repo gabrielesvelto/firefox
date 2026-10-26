@@ -890,7 +890,7 @@ void GCRuntime::clearRelocatedArenas(Arena* arenaList) {
     Zone* zone = arena->zone();
     zone->gcHeapSize.removeBytes(ArenaSize, updateRetainedSize, heapSize);
 
-    // There is no atom marking bitmap index to free.
+    // There is no atom reference bitmap index to free.
     MOZ_ASSERT(!zone->isAtomsZone());
 
     // Release the arena but don't return it to the chunk yet.
