@@ -104,7 +104,7 @@ class ContextChecks {
     bool isGCMarking =
         gc->state() >= gc::State::Prepare && gc->state() <= gc::State::Sweep;
     if (zone() && !isGCMarking) {
-      gc::CellColor color = gc->atomMarking.getAtomMarkColor(zone(), thing);
+      gc::CellColor color = gc->atomReferences.getRefColor(zone(), thing);
       if (color != gc::CellColor::Black) {
         MOZ_CRASH_UNSAFE_PRINTF(
             "*** Atom is marked %s for zone %p at argument %d",

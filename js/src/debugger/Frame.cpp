@@ -993,7 +993,7 @@ static WithEnvironmentObject* CreateBindingsEnv(
   JS::Rooted<JS::Value> val(cx);
   for (size_t i = 0; i < bindingKeys.length(); i++) {
     id = bindingKeys[i];
-    cx->markId(id);
+    cx->recordRefToId(id);
     val = bindingValues[i];
     if (!cx->compartment()->wrap(cx, &val) ||
         !NativeDefineDataProperty(cx, bindingsObj, id, val, 0)) {

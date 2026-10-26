@@ -1744,7 +1744,7 @@ bool DebuggerObject::name(JSContext* cx,
     if (!fun->isAccessorWithLazyName()) {
       result.set(fun->fullExplicitName());
       if (result) {
-        cx->markAtom(result);
+        cx->recordRef(result);
       }
       return true;
     }
@@ -1758,7 +1758,7 @@ bool DebuggerObject::name(JSContext* cx,
         return false;
       }
     }
-    cx->markAtom(result);
+    cx->recordRef(result);
     return true;
   }
 
@@ -1786,7 +1786,7 @@ bool DebuggerObject::name(JSContext* cx,
     }
   }
 
-  cx->markAtom(result);
+  cx->recordRef(result);
   return true;
 }
 
@@ -1804,7 +1804,7 @@ bool DebuggerObject::displayName(JSContext* cx,
       }
     }
     if (result) {
-      cx->markAtom(result);
+      cx->recordRef(result);
     }
     return true;
   }
@@ -2106,7 +2106,7 @@ bool DebuggerObject::getOwnPropertyNames(JSContext* cx,
   }
 
   for (size_t i = 0; i < result.length(); i++) {
-    cx->markId(result[i]);
+    cx->recordRefToId(result[i]);
   }
 
   return true;
@@ -2168,7 +2168,7 @@ bool DebuggerObject::getOwnPropertySymbols(JSContext* cx,
   }
 
   for (size_t i = 0; i < result.length(); i++) {
-    cx->markAtom(result[i].toSymbol());
+    cx->recordRef(result[i].toSymbol());
   }
 
   return true;
@@ -2202,7 +2202,7 @@ bool DebuggerObject::getOwnPrivateProperties(JSContext* cx,
   });
 
   for (size_t i = 0; i < result.length(); i++) {
-    cx->markAtom(result[i].toSymbol());
+    cx->recordRef(result[i].toSymbol());
   }
 
   return true;
@@ -2220,7 +2220,7 @@ bool DebuggerObject::getOwnPropertyDescriptor(
     Maybe<AutoRealm> ar;
     EnterDebuggeeObjectRealm(cx, ar, referent);
 
-    cx->markId(id);
+    cx->recordRefToId(id);
 
     ErrorCopier ec(ar);
     if (!GetOwnPropertyDescriptor(cx, referent, id, desc_)) {
@@ -2311,7 +2311,7 @@ bool DebuggerObject::defineProperty(JSContext* cx,
   if (!cx->compartment()->wrap(cx, &desc)) {
     return false;
   }
-  cx->markId(id);
+  cx->recordRefToId(id);
 
   ErrorCopier ec(ar);
   return DefineProperty(cx, referent, id, desc);
@@ -2343,7 +2343,7 @@ bool DebuggerObject::defineProperties(JSContext* cx,
     if (!cx->compartment()->wrap(cx, descs[i])) {
       return false;
     }
-    cx->markId(ids[i]);
+    cx->recordRefToId(ids[i]);
   }
 
   ErrorCopier ec(ar);
@@ -2365,7 +2365,7 @@ bool DebuggerObject::deleteProperty(JSContext* cx,
   Maybe<AutoRealm> ar;
   EnterDebuggeeObjectRealm(cx, ar, referent);
 
-  cx->markId(id);
+  cx->recordRefToId(id);
 
   ErrorCopier ec(ar);
   return DeleteProperty(cx, referent, id, result);
@@ -2395,7 +2395,7 @@ Result<Completion> DebuggerObject::getProperty(JSContext* cx,
       !cx->compartment()->wrap(cx, &receiver)) {
     return cx->alreadyReportedError();
   }
-  cx->markId(id);
+  cx->recordRefToId(id);
 
   LeaveDebuggeeNoExecute nnx(cx);
 
@@ -2431,7 +2431,7 @@ Result<Completion> DebuggerObject::setProperty(JSContext* cx,
       !cx->compartment()->wrap(cx, &receiver)) {
     return cx->alreadyReportedError();
   }
-  cx->markId(id);
+  cx->recordRefToId(id);
 
   LeaveDebuggeeNoExecute nnx(cx);
 

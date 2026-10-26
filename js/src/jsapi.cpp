@@ -554,11 +554,11 @@ JS_PUBLIC_API void* JS_GetCompartmentPrivate(JS::Compartment* compartment) {
 }
 
 JS_PUBLIC_API void JS_MarkCrossZoneId(JSContext* cx, jsid id) {
-  cx->markId(id);
+  cx->recordRefToId(id);
 }
 
 JS_PUBLIC_API void JS_MarkCrossZoneIdValue(JSContext* cx, const Value& value) {
-  cx->markAtomValue(value);
+  cx->recordRefToValue(value);
 }
 
 JS_PUBLIC_API void JS_SetZoneUserData(JS::Zone* zone, void* data) {

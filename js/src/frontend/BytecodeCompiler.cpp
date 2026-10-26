@@ -550,7 +550,7 @@ static bool CreateExtraBindingInfoVector(
     bool isShadowed = false;
 
     id = unwrappedBindingKeys[i];
-    cx->markId(id);
+    cx->recordRefToId(id);
 
     bool found;
     if (!HasProperty(cx, cx->global(), id, &found)) {
@@ -595,7 +595,7 @@ static WithEnvironmentObject* CreateExtraBindingsEnvironment(
     }
 
     id = unwrappedBindingKeys[i];
-    cx->markId(id);
+    cx->recordRefToId(id);
     JS::Rooted<JS::Value> val(cx, unwrappedBindingValues[i]);
     if (!cx->compartment()->wrap(cx, &val) ||
         !NativeDefineDataProperty(cx, extraBindingsObj, id, val, 0)) {

@@ -899,9 +899,9 @@ static inline void MaybeUnmarkGraySymbol(JSRuntime* runtime,
     return;
   }
 
-  AtomMarkingRuntime& atomMarking = runtime->gc.atomMarking;
-  MOZ_ASSERT(atomMarking.atomIsMarked(sourceZone, target));
-  atomMarking.maybeUnmarkGrayAtomically(sourceZone, target);
+  AtomRefRuntime& atomReferences = runtime->gc.atomReferences;
+  MOZ_ASSERT(atomReferences.hasRef(sourceZone, target));
+  atomReferences.maybeUnmarkGrayAtomically(sourceZone, target);
 }
 
 template <uint32_t opts>
@@ -1261,7 +1261,7 @@ inline void GCMarker::checkTraversedEdge(S source, T* target) {
       targetZone->isAtomsZone()) {
     GCRuntime* gc = &target->runtimeFromAnyThread()->gc;
     TenuredCell* atom = &target->asTenured();
-    MOZ_ASSERT(gc->atomMarking.getAtomMarkColor(sourceZone, atom) >=
+    MOZ_ASSERT(gc->atomReferences.getRefColor(sourceZone, atom) >=
                AsCellColor(markColor()));
   }
 
@@ -3348,7 +3348,7 @@ bool UnmarkGrayTracer<opts>::onChild(T* thing) {
     MOZ_ASSERT(zone->isAtomsZone());
     if (sourceZone) {
       GCRuntime* gc = &this->runtime()->gc;
-      gc->atomMarking.maybeUnmarkGrayAtomically(sourceZone, thing);
+      gc->atomReferences.maybeUnmarkGrayAtomically(sourceZone, thing);
     }
   }
 

@@ -3301,11 +3301,11 @@ static bool IsAtomMarked(JSContext* cx, unsigned argc, Value* vp) {
   Maybe<bool> result;
   gc::GCRuntime* gc = &cx->runtime()->gc;
   if (args[1].isSymbol()) {
-    result = Some(gc->atomMarking.atomIsMarked(zone, args[1].toSymbol()));
+    result = Some(gc->atomReferences.hasRef(zone, args[1].toSymbol()));
   } else if (args[1].isString()) {
     JSString* str = args[1].toString();
     if (str->isAtom()) {
-      result = Some(gc->atomMarking.atomIsMarked(zone, &str->asAtom()));
+      result = Some(gc->atomReferences.hasRef(zone, &str->asAtom()));
     }
   }
 
@@ -3346,7 +3346,7 @@ static bool GetAtomMarkIndex(JSContext* cx, unsigned argc, Value* vp) {
     return false;
   }
 
-  size_t index = gc::AtomMarkingRuntime::getAtomBit(atom);
+  size_t index = gc::AtomRefRuntime::getAtomBit(atom);
   MOZ_RELEASE_ASSERT(index <= INT32_MAX);
   args.rval().setInt32(index);
   return true;
@@ -3376,7 +3376,7 @@ static bool GetAtomMarkColor(JSContext* cx, unsigned argc, Value* vp) {
   size_t index = args[1].toInt32();
 
   gc::GCRuntime* gc = &cx->runtime()->gc;
-  gc::CellColor color = gc->atomMarking.getAtomMarkColorForIndex(zone, index);
+  gc::CellColor color = gc->atomReferences.getRefColorForIndex(zone, index);
   RootedString name(cx, JS_NewStringCopyZ(cx, gc::CellColorName(color)));
   if (!name) {
     return false;

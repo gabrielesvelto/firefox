@@ -9152,7 +9152,7 @@ static bool CopyExpandoProperties(JSContext* cx, HandleObject target,
     MOZ_ASSERT(desc.isSome());
 
     JSAutoRealm dstRealm(cx, target);
-    cx->markId(id);
+    cx->recordRefToId(id);
     RootedId wrappedId(cx, id);
     if (!cx->compartment()->wrap(cx, &desc)) {
       return false;

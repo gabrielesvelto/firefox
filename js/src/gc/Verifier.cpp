@@ -1257,7 +1257,7 @@ bool js::gc::CheckWeakMapEntryMarking(const WeakMapBase* map, Cell* key,
   GCRuntime* gc = &mapRuntime->gc;
   if (key->is<JS::Symbol>()) {
     auto* symbol = key->as<JS::Symbol>();
-    CellColor keyRefColor = gc->atomMarking.getAtomMarkColor(mapZone, symbol);
+    CellColor keyRefColor = gc->atomReferences.getRefColor(mapZone, symbol);
     if (keyRefColor == CellColor::White) {
       fprintf(stderr,
               "Symbol key %p in map %p is not present in the atom reference "
@@ -1269,7 +1269,7 @@ bool js::gc::CheckWeakMapEntryMarking(const WeakMapBase* map, Cell* key,
 
   if (maybeValue && maybeValue->is<JS::Symbol>()) {
     auto* symbol = maybeValue->as<JS::Symbol>();
-    CellColor valueRefColor = gc->atomMarking.getAtomMarkColor(mapZone, symbol);
+    CellColor valueRefColor = gc->atomReferences.getRefColor(mapZone, symbol);
     if (valueRefColor == CellColor::White) {
       fprintf(stderr,
               "Symbol value %p in map %p is not present in the atom reference "

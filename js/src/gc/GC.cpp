@@ -3414,7 +3414,7 @@ void GCRuntime::beginMarkPhase(AutoGCSession& session) {
 
     if (atomsZone()->wasGCStarted() && HasUncollectedNonAtomZones(this)) {
       atomsUsedByUncollectedZones =
-          atomMarking.getOrMarkAtomsUsedByUncollectedZones(this);
+          atomReferences.getOrMarkAtomsUsedByUncollectedZones(this);
     }
   }
 
@@ -4209,7 +4209,7 @@ GCRuntime::IncrementalResult GCRuntime::resetIncrementalGC(
 void GCRuntime::setGrayBitsInvalid() {
   waitBackgroundSweepEnd();
   grayBitsValid = false;
-  atomMarking.unmarkAllGrayReferences(this);
+  atomReferences.unmarkAllGrayReferences(this);
 }
 
 void GCRuntime::disableIncrementalBarriers() {
@@ -4533,7 +4533,7 @@ void GCRuntime::incrementalSlice(SliceBudget& budget, JS::GCReason reason,
         }
       }
 
-      atomMarking.mergePendingFreeArenaIndexes(this);
+      atomReferences.mergePendingFreeArenaIndexes(this);
 
       {
         AutoLockGC lock(this);
