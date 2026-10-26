@@ -64,7 +64,7 @@ MOZ_ALWAYS_INLINE bool AtomMarkingRuntime::inlinedMarkAtomInternal(Zone* zone,
       oomUnsafe.emplace();
     }
 
-    SparseBitmap& bitmap = zone->markedAtoms();
+    SparseBitmap& bitmap = zone->referencedAtoms();
     if (!bitmap.ensureBitExists(grayOrBlackBit)) {
       if constexpr (!Fallible) {
         oomUnsafe->crash("AtomMarkingRuntime::inlinedMarkAtomInternal");
@@ -111,7 +111,7 @@ inline void AtomMarkingRuntime::maybeUnmarkGrayAtomically(Zone* zone,
   // previously gray.
   size_t blackBit = getAtomBit(symbol) + size_t(ColorBit::BlackBit);
   MOZ_ASSERT(blackBit / JS_BITS_PER_WORD < allocatedWords);
-  zone->markedAtoms().atomicSetExistingBit(blackBit);
+  zone->referencedAtoms().atomicSetExistingBit(blackBit);
 
   MOZ_ASSERT(getAtomMarkColor(zone, symbol) == CellColor::Black);
 }
