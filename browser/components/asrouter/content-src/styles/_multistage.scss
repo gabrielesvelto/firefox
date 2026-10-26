@@ -25,6 +25,29 @@ $small-secondary-section-height: 100px;
 $noodle-buffer: 106px;
 $double-section-width: 800px;
 
+// The card-stack's width comes from the newtab column it renders in, which
+// depends on the newtab layout rather than the viewport, so for breakpoints
+// we query the card's own width instead of the viewport's width
+$card-stack-narrow-width: 640px;
+$card-stack-stacked-width: 520px;
+
+// The face of the front card. The first back card also takes it on as the
+// front card leaves, so the two can swap without a flash.
+@mixin card-stack-front-surface {
+  background-color: color-mix(in srgb, var(--background-color-box) 40%, var(--card-stack-color-1));
+  background-image: radial-gradient(circle 125px at var(--card-stack-flare-x) center, var(--card-stack-flare) 0%, transparent 100%);
+  background-repeat: no-repeat;
+
+  &:dir(rtl) {
+    background-image: radial-gradient(circle 125px at calc(100% - var(--card-stack-flare-x)) center, var(--card-stack-flare) 0%, transparent 100%);
+  }
+
+  @container card-stack (width <= #{$card-stack-stacked-width}) {
+    background-position-y: calc(var(--card-stack-secondary-height) / -2);
+    background-image: radial-gradient(circle 100px at center, var(--card-stack-flare) 0%, transparent 100%);
+  }
+}
+
 html {
   height: 100%;
 }
@@ -1209,12 +1232,6 @@ html {
       }
     }
 
-    // The card-stack's width comes from the newtab column it renders in, which
-    // depends on the newtab layout rather than the viewport, so for breakpoints
-    // we query the card's own width instead of the viewport's width
-    $card-stack-narrow-width: 640px;
-    $card-stack-stacked-width: 520px;
-
     @at-root .onboardingContainer:has(> .screen[pos='card-stack']) {
       container: card-stack / inline-size;
     }
@@ -1267,6 +1284,10 @@ html {
       --card-stack-layer-2-offset: 16px;
       // Keep in sync with CARD_STACK_TRANSITION_OUT_TIME in MultiStageAboutWelcome.jsx.
       --card-stack-duration: 400ms;
+      --card-stack-exit-easing: cubic-bezier(0.4, 0, 0.55, 1);
+      --card-stack-promote-duration: 380ms;
+      --card-stack-promote-easing: cubic-bezier(0.22, 1, 0.36, 1);
+      --card-stack-content-duration: 380ms;
       // Distances go through --translate so that prefers-reduced-motion,
       // which zeroes it, collapses the motion to an opacity change.
       --card-stack-fly-block: calc(2 * var(--translate));
@@ -1296,8 +1317,8 @@ html {
       }
 
       .card-stack-front,
-      &::before,
-      &::after {
+      .card-stack-layer-1,
+      .card-stack-layer-2 {
         position: absolute;
         box-sizing: border-box;
         border: var(--card-stack-border);
@@ -1305,38 +1326,27 @@ html {
       }
 
       .card-stack-front {
+        @include card-stack-front-surface;
+
         inset: 0;
-        background-color: color-mix(in srgb, var(--background-color-box) 40%, var(--card-stack-color-1));
-        background-image: radial-gradient(circle 125px at var(--card-stack-flare-x) center, var(--card-stack-flare) 0%, transparent 100%);
-        background-repeat: no-repeat;
         pointer-events: none;
         z-index: -1;
-
-        &:dir(rtl) {
-          background-image: radial-gradient(circle 125px at calc(100% - var(--card-stack-flare-x)) center, var(--card-stack-flare) 0%, transparent 100%);
-        }
-
-        @container card-stack (width <= #{$card-stack-stacked-width}) {
-          background-position-y: calc(var(--card-stack-secondary-height) / -2);
-          background-image: radial-gradient(circle 100px at center, var(--card-stack-flare) 0%, transparent 100%);
-        }
       }
 
-      &::before,
-      &::after {
-        content: '';
+      .card-stack-layer-1,
+      .card-stack-layer-2 {
         inset-block-start: 0;
         block-size: 100%;
       }
 
-      &::before {
+      .card-stack-layer-1 {
         inset-inline: 18px;
         background-color: var(--card-stack-color-2);
         translate: 0 var(--card-stack-layer-1-offset);
         z-index: -2;
       }
 
-      &::after {
+      .card-stack-layer-2 {
         inset-inline: 42px;
         background-color: var(--card-stack-color-3);
         translate: 0 var(--card-stack-layer-2-offset);
@@ -1344,17 +1354,17 @@ html {
       }
 
       @media (prefers-reduced-motion: no-preference) {
-        &::before,
-        &::after {
+        .card-stack-layer-1,
+        .card-stack-layer-2 {
           transition: translate 150ms ease;
         }
       }
 
-      &:hover::before {
+      &:hover .card-stack-layer-1 {
         translate: 0 12px;
       }
 
-      &:hover::after {
+      &:hover .card-stack-layer-2 {
         translate: 0 24px;
       }
 
@@ -1587,10 +1597,28 @@ html {
         }
       }
 
+      // The card holds its opacity for the first half of the drop, so the card
+      // taking its place stays hidden until it is well on its way.
       @keyframes card-stack-exit {
-        to {
+        50% {
+          opacity: 1;
+        }
+
+        100% {
           opacity: 0;
           translate: 0 var(--card-stack-fly-block);
+        }
+      }
+
+      @keyframes card-stack-fade-out {
+        100% {
+          opacity: 0;
+        }
+      }
+
+      @keyframes card-stack-content-enter {
+        from {
+          opacity: 0;
         }
       }
 
@@ -4973,15 +5001,39 @@ html {
 
     @include card-stack-moves-as-one-piece;
 
+    // Only the front card and its content leave. Behind it, each back card
+    // moves up a slot so the stack is already in place for the next screen.
     .screen[pos='card-stack'] {
-      animation: card-stack-exit var(--card-stack-duration) ease-in forwards;
-
-      &::before {
-        animation: card-stack-layer-1 var(--card-stack-duration) ease-in forwards;
+      .card-stack-front,
+      .section-secondary,
+      .section-main {
+        animation: card-stack-exit var(--card-stack-duration) var(--card-stack-exit-easing) forwards;
       }
 
-      &::after {
-        animation: card-stack-layer-2 var(--card-stack-duration) ease-in forwards;
+      // Snaps into the front slot right away, while still hidden behind the
+      // departing front card, so no back card color shows through it.
+      .card-stack-layer-1 {
+        @include card-stack-front-surface;
+
+        inset-inline: 0;
+        translate: none;
+        transition: none;
+      }
+
+      .card-stack-layer-2 {
+        inset-inline: 18px;
+        background-color: var(--card-stack-color-2);
+        translate: 0 var(--card-stack-layer-1-offset);
+
+        @media (prefers-reduced-motion: no-preference) {
+          transition-property: inset-inline, translate, background-color;
+          transition-duration: var(--card-stack-promote-duration);
+          transition-timing-function: var(--card-stack-promote-easing);
+        }
+      }
+
+      &:hover .card-stack-layer-2 {
+        translate: 0 12px;
       }
     }
   }

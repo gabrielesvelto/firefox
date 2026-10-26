@@ -693,6 +693,20 @@ export class ProtonScreen extends React.PureComponent {
     );
   }
 
+  // Draws the front card plus one back card for each screen still to come, up
+  // to two.
+  renderCardStackLayers() {
+    const { order = 0, totalNumberOfScreens = 1 } = this.props;
+    const cardsBehind = totalNumberOfScreens - order - 1;
+    return (
+      <>
+        <div className="card-stack-front" />
+        {cardsBehind >= 1 ? <div className="card-stack-layer-1" /> : null}
+        {cardsBehind >= 2 ? <div className="card-stack-layer-2" /> : null}
+      </>
+    );
+  }
+
   renderCornerImage(anchor) {
     const cornerImage = this.props.content.corner_image;
     const position = resolveCornerImagePosition(cornerImage.position);
@@ -1184,10 +1198,18 @@ export class ProtonScreen extends React.PureComponent {
           this.mainContentHeader = input;
         }}
         no-rdm={content.no_rdm ? "" : null}
+        // eslint-disable-next-line react/no-unknown-property
+        initial-card={
+          content.position === "card-stack" &&
+          this.props.isFirstScreen &&
+          this.props.previousOrder < 0
+            ? ""
+            : null
+        }
       >
-        {content.position === "card-stack" ? (
-          <div className="card-stack-front" />
-        ) : null}
+        {content.position === "card-stack"
+          ? this.renderCardStackLayers()
+          : null}
         {cornerImageAnchor === "screen"
           ? this.renderCornerImage("screen")
           : null}

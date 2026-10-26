@@ -5000,6 +5000,23 @@ class ProtonScreen extends (external_React_default()).PureComponent {
       className: "center-image"
     }) : null);
   }
+
+  // Draws the front card plus one back card for each screen still to come, up
+  // to two.
+  renderCardStackLayers() {
+    const {
+      order = 0,
+      totalNumberOfScreens = 1
+    } = this.props;
+    const cardsBehind = totalNumberOfScreens - order - 1;
+    return /*#__PURE__*/external_React_default().createElement((external_React_default()).Fragment, null, /*#__PURE__*/external_React_default().createElement("div", {
+      className: "card-stack-front"
+    }), cardsBehind >= 1 ? /*#__PURE__*/external_React_default().createElement("div", {
+      className: "card-stack-layer-1"
+    }) : null, cardsBehind >= 2 ? /*#__PURE__*/external_React_default().createElement("div", {
+      className: "card-stack-layer-2"
+    }) : null);
+  }
   renderCornerImage(anchor) {
     const cornerImage = this.props.content.corner_image;
     const position = resolveCornerImagePosition(cornerImage.position);
@@ -5334,9 +5351,10 @@ class ProtonScreen extends (external_React_default()).PureComponent {
         this.mainContentHeader = input;
       },
       "no-rdm": content.no_rdm ? "" : null
-    }, content.position === "card-stack" ? /*#__PURE__*/external_React_default().createElement("div", {
-      className: "card-stack-front"
-    }) : null, cornerImageAnchor === "screen" ? this.renderCornerImage("screen") : null, isCenterPosition ? null : this.renderSecondarySection(content), /*#__PURE__*/external_React_default().createElement("div", {
+      // eslint-disable-next-line react/no-unknown-property
+      ,
+      "initial-card": content.position === "card-stack" && this.props.isFirstScreen && this.props.previousOrder < 0 ? "" : null
+    }, content.position === "card-stack" ? this.renderCardStackLayers() : null, cornerImageAnchor === "screen" ? this.renderCornerImage("screen") : null, isCenterPosition ? null : this.renderSecondarySection(content), /*#__PURE__*/external_React_default().createElement("div", {
       className: `section-main ${isEmbeddedMigration ? "embedded-migration" : ""}${isSystemPromptStyleSpotlight ? "system-prompt-spotlight" : ""}`,
       "hide-secondary-section": content.hide_secondary_section ? String(content.hide_secondary_section) : null,
       role: "document",

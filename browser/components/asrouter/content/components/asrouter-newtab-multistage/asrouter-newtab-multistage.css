@@ -2232,6 +2232,10 @@ html {
   --card-stack-layer-1-offset: 8px;
   --card-stack-layer-2-offset: 16px;
   --card-stack-duration: 400ms;
+  --card-stack-exit-easing: cubic-bezier(0.4, 0, 0.55, 1);
+  --card-stack-promote-duration: 380ms;
+  --card-stack-promote-easing: cubic-bezier(0.22, 1, 0.36, 1);
+  --card-stack-content-duration: 380ms;
   --card-stack-fly-block: calc(2 * var(--translate));
   --card-stack-slot-shift: var(--card-stack-layer-1-offset);
   border-radius: var(--border-radius-medium);
@@ -2317,17 +2321,19 @@ html {
     --card-stack-flare-x: calc(var(--card-stack-secondary-width) / 3) ;
   }
 }
-.onboardingContainer .screen[pos=card-stack] .card-stack-front, .onboardingContainer .screen[pos=card-stack]::before, .onboardingContainer .screen[pos=card-stack]::after {
+.onboardingContainer .screen[pos=card-stack] .card-stack-front,
+.onboardingContainer .screen[pos=card-stack] .card-stack-layer-1,
+.onboardingContainer .screen[pos=card-stack] .card-stack-layer-2 {
   position: absolute;
   box-sizing: border-box;
   border: var(--card-stack-border);
   border-radius: var(--border-radius-medium);
 }
 .onboardingContainer .screen[pos=card-stack] .card-stack-front {
-  inset: 0;
   background-color: color-mix(in srgb, var(--background-color-box) 40%, var(--card-stack-color-1));
   background-image: radial-gradient(circle 125px at var(--card-stack-flare-x) center, var(--card-stack-flare) 0%, transparent 100%);
   background-repeat: no-repeat;
+  inset: 0;
   pointer-events: none;
   z-index: -1;
 }
@@ -2340,32 +2346,33 @@ html {
     background-image: radial-gradient(circle 100px at center, var(--card-stack-flare) 0%, transparent 100%);
   }
 }
-.onboardingContainer .screen[pos=card-stack]::before, .onboardingContainer .screen[pos=card-stack]::after {
-  content: "";
+.onboardingContainer .screen[pos=card-stack] .card-stack-layer-1,
+.onboardingContainer .screen[pos=card-stack] .card-stack-layer-2 {
   inset-block-start: 0;
   block-size: 100%;
 }
-.onboardingContainer .screen[pos=card-stack]::before {
+.onboardingContainer .screen[pos=card-stack] .card-stack-layer-1 {
   inset-inline: 18px;
   background-color: var(--card-stack-color-2);
   translate: 0 var(--card-stack-layer-1-offset);
   z-index: -2;
 }
-.onboardingContainer .screen[pos=card-stack]::after {
+.onboardingContainer .screen[pos=card-stack] .card-stack-layer-2 {
   inset-inline: 42px;
   background-color: var(--card-stack-color-3);
   translate: 0 var(--card-stack-layer-2-offset);
   z-index: -3;
 }
 @media (prefers-reduced-motion: no-preference) {
-  .onboardingContainer .screen[pos=card-stack]::before, .onboardingContainer .screen[pos=card-stack]::after {
+  .onboardingContainer .screen[pos=card-stack] .card-stack-layer-1,
+  .onboardingContainer .screen[pos=card-stack] .card-stack-layer-2 {
     transition: translate 150ms ease;
   }
 }
-.onboardingContainer .screen[pos=card-stack]:hover::before {
+.onboardingContainer .screen[pos=card-stack]:hover .card-stack-layer-1 {
   translate: 0 12px;
 }
-.onboardingContainer .screen[pos=card-stack]:hover::after {
+.onboardingContainer .screen[pos=card-stack]:hover .card-stack-layer-2 {
   translate: 0 24px;
 }
 @container card-stack (width <= 520px) {
@@ -2580,9 +2587,22 @@ html {
   }
 }
 @keyframes card-stack-exit {
-  to {
+  50% {
+    opacity: 1;
+  }
+  100% {
     opacity: 0;
     translate: 0 var(--card-stack-fly-block);
+  }
+}
+@keyframes card-stack-fade-out {
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes card-stack-content-enter {
+  from {
+    opacity: 0;
   }
 }
 @keyframes card-stack-enter {
@@ -5887,14 +5907,42 @@ html {
   translate: none;
   transition-delay: 0s;
 }
-.onboardingContainer.transition-out .screen[pos=card-stack] {
-  animation: card-stack-exit var(--card-stack-duration) ease-in forwards;
+.onboardingContainer.transition-out .screen[pos=card-stack] .card-stack-front,
+.onboardingContainer.transition-out .screen[pos=card-stack] .section-secondary,
+.onboardingContainer.transition-out .screen[pos=card-stack] .section-main {
+  animation: card-stack-exit var(--card-stack-duration) var(--card-stack-exit-easing) forwards;
 }
-.onboardingContainer.transition-out .screen[pos=card-stack]::before {
-  animation: card-stack-layer-1 var(--card-stack-duration) ease-in forwards;
+.onboardingContainer.transition-out .screen[pos=card-stack] .card-stack-layer-1 {
+  background-color: color-mix(in srgb, var(--background-color-box) 40%, var(--card-stack-color-1));
+  background-image: radial-gradient(circle 125px at var(--card-stack-flare-x) center, var(--card-stack-flare) 0%, transparent 100%);
+  background-repeat: no-repeat;
+  inset-inline: 0;
+  translate: none;
+  transition: none;
 }
-.onboardingContainer.transition-out .screen[pos=card-stack]::after {
-  animation: card-stack-layer-2 var(--card-stack-duration) ease-in forwards;
+.onboardingContainer.transition-out .screen[pos=card-stack] .card-stack-layer-1:dir(rtl) {
+  background-image: radial-gradient(circle 125px at calc(100% - var(--card-stack-flare-x)) center, var(--card-stack-flare) 0%, transparent 100%);
+}
+@container card-stack (width <= 520px) {
+  .onboardingContainer.transition-out .screen[pos=card-stack] .card-stack-layer-1 {
+    background-position-y: calc(var(--card-stack-secondary-height) / -2);
+    background-image: radial-gradient(circle 100px at center, var(--card-stack-flare) 0%, transparent 100%);
+  }
+}
+.onboardingContainer.transition-out .screen[pos=card-stack] .card-stack-layer-2 {
+  inset-inline: 18px;
+  background-color: var(--card-stack-color-2);
+  translate: 0 var(--card-stack-layer-1-offset);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .onboardingContainer.transition-out .screen[pos=card-stack] .card-stack-layer-2 {
+    transition-property: inset-inline, translate, background-color;
+    transition-duration: var(--card-stack-promote-duration);
+    transition-timing-function: var(--card-stack-promote-easing);
+  }
+}
+.onboardingContainer.transition-out .screen[pos=card-stack]:hover .card-stack-layer-2 {
+  translate: 0 12px;
 }
 .onboardingContainer .inline-image,
 .onboardingContainer .link-paragraph,
@@ -6063,23 +6111,26 @@ html {
     width: 80%;
   }
 }
-.multistage-newtab-wrapper.card-stack-animated:not(.card-stack-exiting) .onboardingContainer:not(.transition-out) .screen[pos=card-stack] {
+.multistage-newtab-wrapper.card-stack-animated:not(.card-stack-exiting) .onboardingContainer:not(.transition-out) .screen[pos=card-stack][initial-card] .card-stack-front,
+.multistage-newtab-wrapper.card-stack-animated:not(.card-stack-exiting) .onboardingContainer:not(.transition-out) .screen[pos=card-stack][initial-card] .section-secondary,
+.multistage-newtab-wrapper.card-stack-animated:not(.card-stack-exiting) .onboardingContainer:not(.transition-out) .screen[pos=card-stack][initial-card] .section-main {
   animation: card-stack-enter var(--card-stack-duration) ease-out;
 }
-.multistage-newtab-wrapper.card-stack-animated:not(.card-stack-exiting) .onboardingContainer:not(.transition-out) .screen[pos=card-stack]::before {
+.multistage-newtab-wrapper.card-stack-animated:not(.card-stack-exiting) .onboardingContainer:not(.transition-out) .screen[pos=card-stack][initial-card] .card-stack-layer-1 {
   animation: card-stack-layer-1 var(--card-stack-duration) ease-out reverse;
 }
-.multistage-newtab-wrapper.card-stack-animated:not(.card-stack-exiting) .onboardingContainer:not(.transition-out) .screen[pos=card-stack]::after {
+.multistage-newtab-wrapper.card-stack-animated:not(.card-stack-exiting) .onboardingContainer:not(.transition-out) .screen[pos=card-stack][initial-card] .card-stack-layer-2 {
   animation: card-stack-layer-2 var(--card-stack-duration) ease-out reverse;
 }
+.multistage-newtab-wrapper.card-stack-animated:not(.card-stack-exiting) .onboardingContainer:not(.transition-out) .screen[pos=card-stack]:not([initial-card]) .section-secondary,
+.multistage-newtab-wrapper.card-stack-animated:not(.card-stack-exiting) .onboardingContainer:not(.transition-out) .screen[pos=card-stack]:not([initial-card]) .section-main {
+  animation: card-stack-content-enter var(--card-stack-content-duration) ease-out;
+}
 .multistage-newtab-wrapper.card-stack-exiting .screen[pos=card-stack] {
-  animation: card-stack-exit var(--card-stack-duration) ease-in forwards;
+  animation: card-stack-exit var(--card-stack-duration) var(--card-stack-exit-easing) forwards;
 }
-.multistage-newtab-wrapper.card-stack-exiting .screen[pos=card-stack]::before {
-  animation: card-stack-layer-1 var(--card-stack-duration) ease-in forwards;
-}
-.multistage-newtab-wrapper.card-stack-exiting .screen[pos=card-stack]::after {
-  animation: card-stack-layer-2 var(--card-stack-duration) ease-in forwards;
+.multistage-newtab-wrapper.card-stack-exiting .screen[pos=card-stack]:not(:has(.card-stack-layer-1)) {
+  animation-name: card-stack-fade-out;
 }
 .multistage-newtab-wrapper > moz-button {
   position: absolute;
