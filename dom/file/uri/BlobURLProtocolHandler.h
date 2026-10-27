@@ -30,7 +30,7 @@ namespace dom {
 class BlobImpl;
 class BlobURL;
 class BlobURLRegistrationData;
-class BlobURLPrincipalEntry;
+class BlobURLNullOriginEntry;
 class ContentParent;
 class MediaSource;
 
@@ -121,7 +121,7 @@ class BlobURLProtocolHandler final : public nsIProtocolHandler,
 
   static nsresult GetBlobURLProtocolState(
       const nsACString& aSpecIgnoringRef, bool* aRevoked,
-      BlobURLPrincipalEntry** aPrincipalEntry);
+      BlobURLNullOriginEntry** aNullOriginEntry);
 
  private:
   ~BlobURLProtocolHandler();
@@ -130,23 +130,23 @@ class BlobURLProtocolHandler final : public nsIProtocolHandler,
 };
 
 // Entry tracking the association between a `blob:null/` URI and its principal.
-class BlobURLPrincipalEntry final
-    : public SupportsThreadSafeWeakPtr<BlobURLPrincipalEntry> {
+class BlobURLNullOriginEntry final
+    : public SupportsThreadSafeWeakPtr<BlobURLNullOriginEntry> {
  public:
-  MOZ_DECLARE_REFCOUNTED_TYPENAME(BlobURLPrincipalEntry)
+  MOZ_DECLARE_REFCOUNTED_TYPENAME(BlobURLNullOriginEntry)
 
   const nsCString mSpec;
   const nsCOMPtr<nsIPrincipal> mPrincipal;
 
-  static Result<RefPtr<BlobURLPrincipalEntry>, nsresult> Intern(
+  static Result<RefPtr<BlobURLNullOriginEntry>, nsresult> Intern(
       const nsACString& aSpec, nsIPrincipal* aPrincipal);
 
  private:
-  friend class SupportsThreadSafeWeakPtr<BlobURLPrincipalEntry>;
+  friend class SupportsThreadSafeWeakPtr<BlobURLNullOriginEntry>;
 
-  BlobURLPrincipalEntry(const nsACString& aSpec, nsIPrincipal* aPrincipal)
+  BlobURLNullOriginEntry(const nsACString& aSpec, nsIPrincipal* aPrincipal)
       : mSpec(aSpec), mPrincipal(aPrincipal) {}
-  ~BlobURLPrincipalEntry();
+  ~BlobURLNullOriginEntry();
 };
 
 bool IsBlobURI(nsIURI* aUri);
