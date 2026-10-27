@@ -33,10 +33,12 @@ Symbol* Symbol::new_(JSContext* cx, JS::SymbolCode code,
     }
   }
 
-  Symbol* sym = newInternal(cx, code, cx->runtime()->randomHashCode(), atom);
-  if (sym) {
-    cx->recordRef(sym);
+  Rooted<Symbol*> sym(
+      cx, newInternal(cx, code, cx->runtime()->randomHashCode(), atom));
+  if (!sym || !cx->wrapOrRecordRef(&sym)) {
+    return nullptr;
   }
+
   return sym;
 }
 
@@ -52,25 +54,28 @@ Symbol* Symbol::for_(JSContext* cx, HandleString description) {
   }
 
   SymbolRegistry& registry = cx->symbolRegistry();
+  Rooted<Symbol*> sym(cx);
   DependentAddPtr<SymbolRegistry> p(cx, registry, atom);
   if (p) {
-    cx->recordRef(*p);
-    return *p;
+    sym = *p;
+    if (!cx->wrapOrRecordRef(&sym)) {
+      return nullptr;
+    }
+    return sym;
   }
 
   // Rehash the hash of the atom to give the corresponding symbol a hash
   // that is different than the hash of the corresponding atom.
   HashNumber hash = mozilla::HashGeneric(atom->hash());
-  Symbol* sym = newInternal(cx, SymbolCode::InSymbolRegistry, hash, atom);
+  sym = newInternal(cx, SymbolCode::InSymbolRegistry, hash, atom);
   if (!sym) {
     return nullptr;
   }
 
-  if (!p.add(cx, registry, atom, sym)) {
+  if (!p.add(cx, registry, atom, sym) || !cx->wrapOrRecordRef(&sym)) {
     return nullptr;
   }
 
-  cx->recordRef(sym);
   return sym;
 }
 
