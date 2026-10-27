@@ -66,6 +66,11 @@ describe("Smart Window model selection", () => {
       "No radio is selected if user didn't select model choices"
     );
 
+    await assertRadioGroupAccessibleName(
+      modelSelection,
+      "smart-window-model-radio-group"
+    );
+
     const fastRadio = doc.querySelector(
       'moz-radio[data-l10n-id="smart-window-model-fast"]'
     );

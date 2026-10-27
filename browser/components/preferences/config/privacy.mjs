@@ -975,6 +975,7 @@ SettingGroupManager.registerGroups({
       {
         id: "historyMode",
         control: "moz-radio-group",
+        l10nId: "history-mode-radio-group",
         options: [
           {
             value: "remember",
@@ -1094,6 +1095,7 @@ SettingGroupManager.registerGroups({
       {
         id: "dohRadioGroup",
         control: "moz-radio-group",
+        l10nId: "preferences-doh-radio-group",
         options: [
           {
             id: "dohRadioDefault",
@@ -1193,6 +1195,7 @@ SettingGroupManager.registerGroups({
       {
         id: "contentBlockingCategoryRadioGroup",
         control: "moz-radio-group",
+        l10nId: "preferences-etp-level-radio-group",
         options: [
           {
             id: "etpLevelStandard",
@@ -2958,7 +2961,7 @@ Preferences.addSetting({
     );
   },
   getControlConfig(config, { privateBrowsingAutoStart }, setting) {
-    let l10nId = null;
+    let { l10nId } = config;
     if (!srdSectionEnabled("history2")) {
       if (setting.value == "remember") {
         l10nId = "history-remember-description4";

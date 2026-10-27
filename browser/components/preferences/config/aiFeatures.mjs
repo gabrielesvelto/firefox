@@ -1495,6 +1495,7 @@ SettingGroupManager.registerGroups({
       {
         id: "modelSelection",
         control: "moz-radio-group",
+        l10nId: "smart-window-model-radio-group",
         options: [
           {
             value: "1",

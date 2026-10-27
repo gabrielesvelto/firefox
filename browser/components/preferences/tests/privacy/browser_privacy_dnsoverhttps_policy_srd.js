@@ -26,6 +26,22 @@ async function withPolicy(policy, fn) {
   }
 }
 
+add_task(async function testDoHRadioGroupAccessibleName() {
+  await openPreferencesViaOpenPreferencesAPI("dnsOverHttps", {
+    leaveOpen: true,
+  });
+  let win = gBrowser.selectedBrowser.contentWindow;
+  let dohRadioGroupControl = await settingControlRenders("dohRadioGroup", win);
+  let dohRadioGroup = dohRadioGroupControl.controlEl;
+
+  await assertRadioGroupAccessibleName(
+    dohRadioGroup,
+    "preferences-doh-radio-group"
+  );
+
+  gBrowser.removeCurrentTab();
+});
+
 add_task(async function testDoHPolicyLocksAllControls() {
   await withPolicy(
     {
