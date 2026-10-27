@@ -5,13 +5,6 @@
     <title>MozVisualPicker Tests</title>
     <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
     <script src="chrome://mochikit/content/tests/SimpleTest/EventUtils.js"></script>
-    <!-- testName/testDescr, testRole, testStates and gAccService come from the
-         a11y mochitest tree (accessible/tests/mochitest), added as support-files.
-         common.js starts the a11y service. -->
-    <script src="common.js"></script>
-    <script src="name.js"></script>
-    <script src="role.js"></script>
-    <script src="states.js"></script>
     <link rel="stylesheet" href="chrome://global/skin/in-content/common.css" />
     <link
       rel="stylesheet"
@@ -32,10 +25,6 @@
       }
     </style>
     <script>
-      /* import-globals-from ../../../../accessible/tests/mochitest/common.js */
-      /* import-globals-from ../../../../accessible/tests/mochitest/name.js */
-      /* import-globals-from ../../../../accessible/tests/mochitest/role.js */
-      /* import-globals-from ../../../../accessible/tests/mochitest/states.js */
       let html;
       let defaultTemplate;
       let testHelpers = new InputTestHelpers();
@@ -107,7 +96,6 @@
         picker.description = TEST_DESCRIPTION;
         picker.supportPage = TEST_SUPPORT_PAGE;
         await picker.updateComplete;
-        await picker.fieldset.updateComplete;
 
         is(
           picker.fieldset.label,
@@ -124,14 +112,6 @@
           TEST_SUPPORT_PAGE,
           "Visual picker support page is set."
         );
-        let innerFieldset =
-          picker.fieldset.shadowRoot.querySelector("fieldset");
-        is(
-          innerFieldset.getAttribute("role"),
-          "radiogroup",
-          "Visual picker container is a radiogroup by default."
-        );
-
         items.forEach(item => {
           is(
             item.itemEl.getAttribute("role"),
@@ -142,12 +122,6 @@
 
         picker.type = "listbox";
         await picker.updateComplete;
-        await picker.fieldset.updateComplete;
-        is(
-          innerFieldset.getAttribute("role"),
-          "listbox",
-          "Visual picker container is a listbox after changing its type."
-        );
 
         items.forEach(item => {
           is(
@@ -753,33 +727,12 @@
         picker.focus();
         picker.scrollIntoView();
 
-        let innerFieldset =
-          picker.fieldset.shadowRoot.querySelector("fieldset");
-
         is(
-          innerFieldset.getAttribute("aria-orientation"),
+          picker.fieldset.shadowRoot
+            .querySelector("fieldset")
+            .getAttribute("aria-orientation"),
           "horizontal",
           "The top level picker element's aria-orientation is set to 'horizontal'"
-        );
-
-        is(
-          innerFieldset.getAttribute("role"),
-          "listbox",
-          "A listbox picker exposes its container role on the inner fieldset."
-        );
-        await TestUtils.waitForCondition(
-          () => gAccService.getAccessibleFor(innerFieldset),
-          "Accessible is created for the listbox picker's inner fieldset."
-        );
-        testRole(innerFieldset, ROLE_LISTBOX);
-        testName(innerFieldset, LISTBOX_LABEL);
-        testStates(
-          innerFieldset,
-          0,
-          EXT_STATE_HORIZONTAL,
-          0,
-          EXT_STATE_VERTICAL,
-          "horizontal listbox picker container"
         );
 
         let slottedItems = picker.shadowRoot
@@ -977,48 +930,6 @@
           picker.value,
           "first",
           "The picker value changes when a new item is selected."
-        );
-      });
-
-      add_task(async function testVisualPickerOrientation() {
-        let { picker } = await renderVisualPicker();
-        await picker.fieldset.updateComplete;
-        let innerFieldset =
-          picker.fieldset.shadowRoot.querySelector("fieldset");
-
-        is(
-          innerFieldset.getAttribute("aria-orientation"),
-          "horizontal",
-          "Default aria-orientation is propagated to the inner fieldset."
-        );
-        // The fieldset needs radiogroup for aria-orientation to expose a state.
-        is(
-          innerFieldset.getAttribute("role"),
-          "radiogroup",
-          "A radio picker's inner fieldset is a radiogroup."
-        );
-        is(
-          picker.fieldset.getAttribute("role"),
-          null,
-          "The role is not also on the moz-fieldset host."
-        );
-        picker.scrollIntoView();
-        await TestUtils.waitForCondition(
-          () => gAccService.getAccessibleFor(innerFieldset),
-          "Accessible is created for the picker's inner fieldset."
-        );
-
-        testRole(innerFieldset, ROLE_RADIO_GROUP);
-        // An explicit role on a <fieldset> is what could cost the name the
-        // <legend> supplies, so the name is asserted alongside the role.
-        testName(innerFieldset, "Visual picker label");
-        testStates(
-          innerFieldset,
-          0,
-          EXT_STATE_HORIZONTAL,
-          0,
-          EXT_STATE_VERTICAL,
-          "horizontal radiogroup"
         );
       });
     </script>

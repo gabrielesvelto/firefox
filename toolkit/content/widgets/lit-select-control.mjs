@@ -323,7 +323,6 @@ export class SelectControlBaseElement extends MozLitElement {
         headinglevel=${this.headingLevel}
         exportparts="inputs, support-link"
         aria-orientation=${ifDefined(this.constructor.orientation)}
-        role=${this.type == "radio" ? "radiogroup" : "listbox"}
       >
         ${!this.supportPage
           ? html`<slot slot="support-link" name="support-link"></slot>`
