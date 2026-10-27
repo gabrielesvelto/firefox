@@ -3673,7 +3673,7 @@ class Document : public nsINode,
                                             bool aFocusPreviousElement,
                                             bool aFireEvents);
 
-  // Hides the given popover element, see
+  // Hides the given popover element, using this document as expectedDocument.
   // https://html.spec.whatwg.org/multipage/popover.html#hide-popover-algorithm
   MOZ_CAN_RUN_SCRIPT void HidePopover(Element& popover,
                                       bool aFocusPreviousElement,

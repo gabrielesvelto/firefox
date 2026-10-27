@@ -16262,7 +16262,7 @@ void Document::HidePopoverStackUntil(Element* aEndpoint,
   Span<RefPtr<Element>> toRemain(popoverList.Elements(), lastHideIndex);
 
   // 5. For each popover of toHide: run the hide popover algorithm given
-  // popover, focusPreviousElement, fireEvents, false, and null.
+  // popover, focusPreviousElement, fireEvents, false, null, and document.
   for (RefPtr<Element> popover : mozilla::Reversed(toHide)) {
     HidePopover(*popover, aFocusPreviousElement, aFireEvents,
                 /* aSource */ nullptr, IgnoreErrors());
@@ -16279,7 +16279,7 @@ void Document::HidePopoverStackUntil(Element* aEndpoint,
       continue;
     }
     // 8.2. Run the hide popover algorithm given popover, focusPreviousElement,
-    // false, false, and null.
+    // false, false, null, and document.
     HidePopover(*popover, aFocusPreviousElement, /* aFireEvents */ false,
                 /* aSource */ nullptr, IgnoreErrors());
   }
@@ -16318,11 +16318,11 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
   NS_ASSERTION(popoverHTMLEl, "Not a HTML element");
 
   // 1. Let validityResult be the result of running check popover validity
-  // given element, true, and null.
+  // given element, true, and expectedDocument.
   // 2. If validityResult is not true, then run cleanupSteps if throwExceptions
   // and throw, otherwise return.
   if (!popoverHTMLEl->CheckPopoverValidity(PopoverVisibilityState::Showing,
-                                           nullptr, aRv)) {
+                                           this, aRv)) {
     return;
   }
 
@@ -16348,12 +16348,8 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
       if (!nestedHide) {
         popoverData->SetIsPopoverHiding(false);
       }
-      // 8.2. If element's popover close watcher is not null, then:
-      // 8.2.1. Destroy element's popover close watcher.
-      // 8.2.2. Set element's popover close watcher to null.
-      popoverData->DestroyCloseWatcher();
     }
-    // 8.3. Decrement document's hiding popover nesting count.
+    // 8.2. Decrement document's hiding popover nesting count.
     DecrementHidingPopoverNestingCount();
   });
 
@@ -16393,10 +16389,10 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
     }
 
     // 11.4. Set validityResult to the result of running check popover validity
-    // given element, true, and null.
+    // given element, true, and document.
     // 11.5. If validityResult is not true:
     if (!popoverHTMLEl->CheckPopoverValidity(PopoverVisibilityState::Showing,
-                                             nullptr, aRv)) {
+                                             this, aRv)) {
       // 11.5.1. Run cleanupSteps.
       // 11.5.2. If throwExceptions is true and validityResult is a
       // DOMException, then throw validityResult.
@@ -16416,9 +16412,10 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
                                    aSource);
 
     // 12.2. Set validityResult to the result of running check popover validity
-    // given element, true, and null. If not true, run cleanupSteps and return.
+    // given element, true, and document. If not true, run cleanupSteps and
+    // return.
     if (!popoverHTMLEl->CheckPopoverValidity(PopoverVisibilityState::Showing,
-                                             nullptr, aRv)) {
+                                             this, aRv)) {
       // (Runs cleanup steps from step 8).
       return;
     }
@@ -16432,6 +16429,7 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
 
   // 13. Otherwise, remove an element from the top layer immediately given
   // element.
+  MOZ_DIAGNOSTIC_ASSERT(popoverHTMLEl->OwnerDoc() == this);
   RemovePopoverFromTopLayer(aPopover);
 
   if (PopoverData* popoverData = popoverHTMLEl->GetPopoverData()) {
@@ -16473,7 +16471,14 @@ void Document::HidePopover(Element& aPopover, bool aFocusPreviousElement,
     popoverHTMLEl->ForgetPreviouslyFocusedElementAfterHidingPopover();
   }
 
-  // 21. Run cleanupSteps.
+  // 21. If element's popover close watcher is not null, then:
+  // 21.1. Destroy element's popover close watcher.
+  // 21.2. Set element's popover close watcher to null.
+  if (PopoverData* popoverData = popoverHTMLEl->GetPopoverData()) {
+    popoverData->DestroyCloseWatcher();
+  }
+
+  // 22. Run cleanupSteps.
 }
 
 nsTArray<RefPtr<Element>> Document::PopoverListOf(
