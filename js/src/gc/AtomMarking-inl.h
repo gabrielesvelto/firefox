@@ -157,6 +157,7 @@ inline void GCRuntime::maybeMarkWeaklyHeldAtom(T* atom) {
   MarkColor color = AsMarkColor(refColor);
   (void)atom->asTenured().markIfUnmarked(color);
   if constexpr (std::is_same_v<T, JS::Symbol>) {
+    MOZ_ASSERT(atom->isShared());
     if (JSAtom* description = atom->description()) {
       (void)description->asTenured().markIfUnmarked(color);
     }
@@ -197,6 +198,7 @@ inline CellColor GCRuntime::isAtomReferencedByUncollectedZone(
 void AtomRefRuntime::recordChildren(Zone* zone, JSAtom*) {}
 
 void AtomRefRuntime::recordChildren(Zone* zone, JS::Symbol* symbol) {
+  MOZ_ASSERT(symbol->isShared());
   if (JSAtom* description = symbol->description()) {
     inlinedRecordRef(zone, description);
   }
