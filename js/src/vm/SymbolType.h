@@ -17,6 +17,8 @@
 #include "js/TypeDecls.h"
 #include "vm/StringType.h"
 
+struct JSContext;
+
 namespace js {
 class JS_PUBLIC_API GenericPrinter;
 class JSONPrinter;
@@ -86,9 +88,18 @@ class Symbol : public js::gc::CellWithTenuredGCPointer<js::gc::TenuredCell,
       : CellWithTenuredGCPointer(desc ? &desc->asTenured() : nullptr),
         code_(code),
         hash_(hash) {}
+  Symbol(SymbolCode code, js::HashNumber hash, Handle<JS::Symbol*> shared)
+      : CellWithTenuredGCPointer(shared), code_(code), hash_(hash) {}
 
-  static Symbol* newInternal(JSContext* cx, SymbolCode code,
-                             js::HashNumber hash, Handle<JSAtom*> description);
+  static Symbol* newSharedSymbol(JSContext* cx, SymbolCode code,
+                                 js::HashNumber hash,
+                                 Handle<JSAtom*> description);
+  static Symbol* newLocalSymbol(JSContext* cx, SymbolCode code,
+                                js::HashNumber hash,
+                                Handle<JS::Symbol*> shared);
+
+  static Symbol* wrap(JSContext* cx, Handle<JS::Symbol*> shared);
+  friend struct ::JSContext;
 
   static void staticAsserts() {
     static_assert(uint32_t(SymbolCode::WellKnownAPILimit) ==
@@ -196,6 +207,8 @@ class SymbolRegistry
  public:
   SymbolRegistry() = default;
 };
+
+JS::Symbol* UnwrapSymbol(JS::Symbol* symbol);
 
 // ES6 rev 27 (2014 Aug 24) 19.4.3.3
 bool SymbolDescriptiveString(JSContext* cx, JS::Symbol* sym,

@@ -114,6 +114,16 @@ class ContextChecks {
 #endif
   }
 
+  void checkSymbol(JS::Symbol* symbol, int argIndex) {
+    JS::AssertCellIsNotGray(symbol);
+    if (symbol->isUnique()) {
+      MOZ_RELEASE_ASSERT(symbol->isLocal());
+      check(symbol->zone(), argIndex);
+    } else {
+      checkAtom(symbol, argIndex);
+    }
+  }
+
   void check(JSString* str, int argIndex) {
     JS::AssertCellIsNotGray(str);
     if (str->isAtom()) {
@@ -123,7 +133,9 @@ class ContextChecks {
     }
   }
 
-  void check(JS::Symbol* symbol, int argIndex) { checkAtom(symbol, argIndex); }
+  void check(JS::Symbol* symbol, int argIndex) {
+    checkSymbol(symbol, argIndex);
+  }
 
   void check(JS::BigInt* bi, int argIndex) { check(bi->zone(), argIndex); }
 
@@ -166,7 +178,7 @@ class ContextChecks {
     if (id.isAtom()) {
       checkAtom(id.toAtom(), argIndex);
     } else if (id.isSymbol()) {
-      checkAtom(id.toSymbol(), argIndex);
+      checkSymbol(id.toSymbol(), argIndex);
     } else {
       MOZ_ASSERT(!id.isGCThing());
     }

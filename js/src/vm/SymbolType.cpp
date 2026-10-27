@@ -39,15 +39,26 @@ Symbol* Symbol::sharedSymbol() const {
   return headerPtr()->as<JS::Symbol>();
 }
 
-Symbol* Symbol::newInternal(JSContext* cx, JS::SymbolCode code, uint32_t hash,
-                            Handle<JSAtom*> description) {
+Symbol* Symbol::newSharedSymbol(JSContext* cx, JS::SymbolCode code,
+                                uint32_t hash, Handle<JSAtom*> description) {
   MOZ_ASSERT(CurrentThreadCanAccessRuntime(cx->runtime()));
   AutoAllocInAtomsZone az(cx);
   return cx->newCell<Symbol>(code, hash, description);
 }
 
+Symbol* Symbol::newLocalSymbol(JSContext* cx, JS::SymbolCode code,
+                               uint32_t hash, Handle<JS::Symbol*> shared) {
+  MOZ_ASSERT(CurrentThreadCanAccessRuntime(cx->runtime()));
+  MOZ_ASSERT(code == JS::SymbolCode::UniqueSymbol);
+  MOZ_ASSERT_IF(shared, shared->isShared());
+  return cx->newCell<Symbol>(code, hash, shared);
+}
+
 Symbol* Symbol::new_(JSContext* cx, JS::SymbolCode code,
                      HandleString description) {
+  MOZ_ASSERT(code == JS::SymbolCode::UniqueSymbol ||
+             code == JS::SymbolCode::PrivateNameSymbol);
+
   Rooted<JSAtom*> atom(cx);
   if (description) {
     atom = AtomizeString(cx, description);
@@ -57,17 +68,55 @@ Symbol* Symbol::new_(JSContext* cx, JS::SymbolCode code,
   }
 
   Rooted<Symbol*> sym(
-      cx, newInternal(cx, code, cx->runtime()->randomHashCode(), atom));
-  if (!sym || !cx->wrapOrRecordRef(&sym)) {
+      cx, newSharedSymbol(cx, code, cx->runtime()->randomHashCode(), atom));
+  if (!sym) {
     return nullptr;
+  }
+
+  if (code == JS::SymbolCode::PrivateNameSymbol) {
+    cx->atomReferences().recordRef(cx, sym.get());
+  } else {
+    MOZ_ASSERT(code == JS::SymbolCode::UniqueSymbol);
+    sym.set(wrap(cx, sym));
   }
 
   return sym;
 }
 
+/* static */
+Symbol* Symbol::wrap(JSContext* cx, Handle<JS::Symbol*> shared) {
+  MOZ_ASSERT(shared->isShared());
+  MOZ_ASSERT(shared->isUnique());
+  MOZ_ASSERT(!cx->zone()->isAtomsZone());
+
+  auto& symbols = cx->zone()->localSymbolMap();
+  DependentAddPtr<gc::LocalSymbolMap> ptr(cx, symbols, shared);
+  if (ptr) {
+    Symbol* local = ptr->value();
+    MOZ_ASSERT(local->isLocal());
+    gc::ReadBarrier(local);
+    return local;
+  }
+
+  Symbol* local = newLocalSymbol(cx, shared->code(), shared->hash(), shared);
+  if (!local) {
+    return nullptr;
+  }
+
+  MOZ_ASSERT(local->isLocal());
+  if (!ptr.add(cx, symbols, shared, local)) {
+    ReportOutOfMemory(cx);
+    return nullptr;
+  }
+
+  return local;
+}
+
 Symbol* Symbol::newWellKnown(JSContext* cx, JS::SymbolCode code,
                              Handle<PropertyName*> description) {
-  return newInternal(cx, code, cx->runtime()->randomHashCode(), description);
+  MOZ_ASSERT(code < JS::SymbolCode::WellKnownAPILimit);
+  return newSharedSymbol(cx, code, cx->runtime()->randomHashCode(),
+                         description);
 }
 
 Symbol* Symbol::for_(JSContext* cx, HandleString description) {
@@ -90,7 +139,7 @@ Symbol* Symbol::for_(JSContext* cx, HandleString description) {
   // Rehash the hash of the atom to give the corresponding symbol a hash
   // that is different than the hash of the corresponding atom.
   HashNumber hash = mozilla::HashGeneric(atom->hash());
-  sym = newInternal(cx, SymbolCode::InSymbolRegistry, hash, atom);
+  sym = newSharedSymbol(cx, SymbolCode::InSymbolRegistry, hash, atom);
   if (!sym) {
     return nullptr;
   }
@@ -204,6 +253,14 @@ void Symbol::dumpPropertyName(js::GenericPrinter& out) const {
   }
 }
 #endif  // defined(DEBUG) || defined(JS_JITSPEW)
+
+JS::Symbol* js::UnwrapSymbol(JS::Symbol* symbol) {
+  if (!symbol->isLocal()) {
+    return symbol;
+  }
+
+  return symbol->sharedSymbol();
+}
 
 bool js::SymbolDescriptiveString(JSContext* cx, Symbol* sym,
                                  MutableHandleValue result) {

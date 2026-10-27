@@ -16,7 +16,7 @@ let makeAndReturnObject = `
 `;
 let o1 = g1.eval(makeAndReturnObject);
 let o2 = g2.eval(makeAndReturnObject);
-let s = Symbol();
+let s = Symbol.for("blah");
 addMarkObservers([s]);
 let i = getAtomMarkIndex(s);
 o1.s = s;

@@ -943,6 +943,23 @@ inline bool TenuredThingIsMarkedAny<Cell>(Cell* thing) {
   return thing->asTenured().isMarkedAny();
 }
 
+// Check whether to trace through an edge based on the color of the source.
+template <typename T>
+bool ShouldTraceEdge(T* source, gc::EdgeSelector whichEdges) {
+  switch (whichEdges) {
+    case gc::AllEdges:
+      return true;
+    case gc::NonGrayEdges:
+      return !source->isMarkedGray();
+    case gc::GrayEdges:
+      return source->isMarkedGray();
+    case gc::BlackEdges:
+      return source->isMarkedBlack();
+    default:
+      MOZ_CRASH("Unexpected EdgeSelector value");
+  }
+}
+
 using MarkingLock = LightLock;
 
 // A lock used to synchronize access to some data structures during concurrent

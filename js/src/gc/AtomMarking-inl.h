@@ -43,6 +43,10 @@ MOZ_ALWAYS_INLINE bool AtomRefRuntime::inlinedRecordRefInternal(Zone* zone,
   js::gc::TenuredCell* cell = &thing->asTenured();
   MOZ_ASSERT(cell->zoneFromAnyThread()->isAtomsZone());
 
+  if constexpr (std::is_same_v<T, JS::Symbol>) {
+    MOZ_ASSERT(thing->isShared());
+  }
+
   if (thing->isPermanentAndMayBeShared()) {
     return true;
   }
@@ -139,6 +143,10 @@ inline void GCRuntime::maybeMarkWeaklyHeldAtom(T* atom) {
   // the reference.
 
   static_assert(std::is_same_v<T, JSAtom> || std::is_same_v<T, JS::Symbol>);
+  if constexpr (std::is_same_v<T, JS::Symbol>) {
+    MOZ_ASSERT(atom->isShared());
+    MOZ_ASSERT(!atom->isUnique());
+  }
 
   Zone* zone = atom->zoneFromAnyThread();
   MOZ_ASSERT(zone->isAtomsZone());
@@ -157,7 +165,6 @@ inline void GCRuntime::maybeMarkWeaklyHeldAtom(T* atom) {
   MarkColor color = AsMarkColor(refColor);
   (void)atom->asTenured().markIfUnmarked(color);
   if constexpr (std::is_same_v<T, JS::Symbol>) {
-    MOZ_ASSERT(atom->isShared());
     if (JSAtom* description = atom->description()) {
       (void)description->asTenured().markIfUnmarked(color);
     }
@@ -206,12 +213,24 @@ void AtomRefRuntime::recordChildren(Zone* zone, JS::Symbol* symbol) {
 
 template <typename T>
 MOZ_ALWAYS_INLINE void AtomRefRuntime::inlinedRecordRef(Zone* zone, T* thing) {
+  if constexpr (std::is_same_v<T, JS::Symbol>) {
+    if (thing->isLocal()) {
+      return;
+    }
+  }
+
   MOZ_ALWAYS_TRUE((inlinedRecordRefInternal<T, false>(zone, thing)));
 }
 
 template <typename T>
 MOZ_ALWAYS_INLINE bool AtomRefRuntime::inlinedRecordRefFallible(Zone* zone,
                                                                 T* thing) {
+  if constexpr (std::is_same_v<T, JS::Symbol>) {
+    if (thing->isLocal()) {
+      return true;
+    }
+  }
+
   return inlinedRecordRefInternal<T, true>(zone, thing);
 }
 
