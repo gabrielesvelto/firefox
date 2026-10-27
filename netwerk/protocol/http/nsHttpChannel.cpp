@@ -2538,8 +2538,9 @@ nsresult nsHttpChannel::CallOnStartRequest() {
   // false when a stream converter is applied.
   bool unknownDecoderStarted = false;
   bool shouldSniff = false;
+  bool hasContentType = mResponseHead && mResponseHead->HasContentType();
   if (mResponseHead) {
-    if (!mResponseHead->HasContentType()) {
+    if (!hasContentType) {
       shouldSniff = true;
     } else {
       shouldSniff =
@@ -2548,7 +2549,7 @@ nsresult nsHttpChannel::CallOnStartRequest() {
   }
   if (shouldSniff) {
     MOZ_ASSERT(mConnectionInfo, "Should have connection info here");
-    if (!mContentTypeHint.IsEmpty()) {
+    if (!mContentTypeHint.IsEmpty() && !hasContentType) {
       mResponseHead->SetContentType(mContentTypeHint);
     } else if (mResponseHead->Version() == HttpVersion::v0_9 &&
                mConnectionInfo->OriginPort() !=
