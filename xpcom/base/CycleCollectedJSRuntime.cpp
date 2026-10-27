@@ -236,7 +236,7 @@ void NoteWeakMapsTracer::trace(JSObject* aMap, JS::GCCellPtr aKey,
     mChildTracer.mKey = aKey;
     mChildTracer.mKeyDelegate = kdelegate;
 
-    if (!aValue.is<JSString>()) {
+    if (aValue && !aValue.is<JSString>()) {
       JS::TraceChildren(&mChildTracer, aValue);
     }
 
