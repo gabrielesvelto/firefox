@@ -2831,9 +2831,11 @@ mozilla::ipc::IPCResult ContentChild::RecvInitBlobURLs(
     nsTArray<BlobURLRegistrationData>&& aRegistrations) {
   for (uint32_t i = 0; i < aRegistrations.Length(); ++i) {
     BlobURLRegistrationData& registration = aRegistrations[i];
-    BlobURLProtocolHandler::AddDataEntryChild(registration.url(),
-                                              registration.principal(),
-                                              registration.partitionKey());
+    if (NS_FAILED(BlobURLProtocolHandler::AddDataEntryChild(
+            registration.url(), registration.principal(),
+            registration.partitionKey()))) {
+      return IPC_FAIL(this, "Conflicting Blob URL principal");
+    }
     // If we have received an already-revoked blobURL, we have to keep it alive
     // for a while (see BlobURLProtocolHandler) in order to support pending
     // operations such as navigation, download and so on.
@@ -3273,7 +3275,10 @@ mozilla::ipc::IPCResult ContentChild::RecvPWebBrowserPersistDocumentConstructor(
 mozilla::ipc::IPCResult ContentChild::RecvBlobURLRegistration(
     const nsCString& aURI, nsIPrincipal* aPrincipal,
     const nsCString& aPartitionKey) {
-  BlobURLProtocolHandler::AddDataEntryChild(aURI, aPrincipal, aPartitionKey);
+  if (NS_FAILED(BlobURLProtocolHandler::AddDataEntryChild(aURI, aPrincipal,
+                                                          aPartitionKey))) {
+    return IPC_FAIL(this, "Conflicting Blob URL principal");
+  }
   return IPC_OK();
 }
 

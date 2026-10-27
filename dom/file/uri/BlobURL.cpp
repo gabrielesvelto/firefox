@@ -37,6 +37,21 @@ NS_INTERFACE_MAP_END_INHERITING(mozilla::net::nsSimpleURI)
 
 BlobURL::BlobURL() : mRevoked(false) {}
 
+BlobURL::~BlobURL() = default;
+
+already_AddRefed<mozilla::net::nsSimpleURI> BlobURL::StartClone() {
+  RefPtr<BlobURL> url = new BlobURL();
+  url->mRevoked = mRevoked;
+  url->mPrincipalEntry = mPrincipalEntry;
+  return url.forget();
+}
+
+nsIPrincipal* BlobURL::GetNullPrincipal() {
+  MOZ_ASSERT(!mPrincipalEntry || mPrincipalEntry->mSpec == SpecIgnoringRef(),
+             "Invalid PrincipalEntry in BlobURL");
+  return mPrincipalEntry ? mPrincipalEntry->mPrincipal.get() : nullptr;
+}
+
 // nsISerializable methods:
 
 NS_IMETHODIMP
@@ -90,7 +105,7 @@ void BlobURL::Serialize(mozilla::ipc::URIParams& aParams) {
 
   hostParams.revoked() = mRevoked;
 
-  hostParams.nullPrincipal() = mNullPrincipal;
+  hostParams.nullPrincipal() = GetNullPrincipal();
 
   aParams = std::move(hostParams);
 }
@@ -109,14 +124,26 @@ bool BlobURL::Deserialize(const mozilla::ipc::URIParams& aParams) {
     return false;
   }
 
+  if (!Scheme().EqualsLiteral("blob")) {
+    NS_ERROR("Received non-blob scheme for BlobURL");
+    return false;
+  }
+
   if (OriginPart() != "null"_ns && hostParams.nullPrincipal()) {
     NS_ERROR("Received nullPrincipal for non-null BlobURL");
     return false;
   }
 
+  auto principalEntry = BlobURLPrincipalEntry::Intern(
+      SpecIgnoringRef(), hostParams.nullPrincipal());
+  if (principalEntry.isErr()) {
+    NS_ERROR("Received inconsistent principal entry for BlobURL");
+    return false;
+  }
+
   mRevoked = hostParams.revoked();
 
-  mNullPrincipal = hostParams.nullPrincipal();
+  mPrincipalEntry = principalEntry.unwrap();
 
   return true;
 }
@@ -164,4 +191,14 @@ BlobURL::Mutate(nsIURIMutator** aMutator) {
   }
   mutator.forget(aMutator);
   return NS_OK;
+}
+
+NS_IMETHODIMP
+BlobURL::Mutator::CacheProtocolState() {
+  if (!mURI) {
+    return NS_ERROR_NOT_INITIALIZED;
+  }
+  return BlobURLProtocolHandler::GetBlobURLProtocolState(
+      mURI->SpecIgnoringRef(), &mURI->mRevoked,
+      getter_AddRefs(mURI->mPrincipalEntry));
 }
