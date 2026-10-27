@@ -524,7 +524,6 @@ SettingGroupManager.registerGroups({
           {
             id: "updateRadioGroup",
             control: "moz-radio-group",
-            l10nId: "update-application-radio-group",
             options: [
               {
                 id: "autoDesktop",

@@ -774,9 +774,6 @@ update-history-2 =
 update-application-installation =
     .label = Installation
 
-update-application-radio-group =
-    .aria-label = Installation
-
 update-application-auto-2 =
     .label = Automatically install updates (recommended)
     .accesskey = A
@@ -1734,9 +1731,6 @@ preferences-passwords-autofill-header =
 history-group =
     .label = History
 
-history-mode-radio-group =
-    .aria-label = History
-
 history-remember-option-all2 =
     .label = Remember history
 history-remember-option-never2 =
@@ -2238,9 +2232,6 @@ preferences-doh-status-not-active = Not active ({ $reason })
 
 preferences-doh-group-message2 = Enable DNS over HTTPS using:
 
-preferences-doh-radio-group =
-    .aria-label = Enable DNS over HTTPS using:
-
 preferences-doh-expand-section =
   .tooltiptext = More information
 
@@ -2558,9 +2549,6 @@ issue-card-dismiss-button =
 preferences-etp-status-header =
     .label = Enhanced Tracking Protection
     .description = Sites use trackers to follow you online and show creepy ads. { -brand-short-name } shields you as you browse, blocking trackers automatically so you’re in control of your digital trail.
-
-preferences-etp-level-radio-group =
-    .aria-label = Enhanced Tracking Protection
 
 preferences-etp-level-standard =
     .label = Standard (default)

@@ -53,65 +53,6 @@ function is_element_hidden(aElement, aMsg) {
   ok(BrowserTestUtils.isHidden(aElement), aMsg);
 }
 
-async function assertRadioGroupAccessibleName(radioGroup, l10nId) {
-  ok(radioGroup, "Radio group exists");
-
-  let doc = radioGroup.ownerDocument;
-  await doc.l10n.ready;
-  let [message] = await doc.l10n.formatMessages([{ id: l10nId }]);
-  let expectedName = message.attributes.find(
-    attribute => attribute.name == "aria-label"
-  ).value;
-  ok(expectedName, "Fluent supplies a non-empty radio group name");
-
-  await doc.l10n.translateFragment(radioGroup);
-  await radioGroup.updateComplete;
-  await radioGroup.fieldset.updateComplete;
-
-  let innerFieldset = radioGroup.fieldset.shadowRoot.querySelector("fieldset");
-  ok(innerFieldset, "Radio group has an inner fieldset");
-
-  let accService = Cc["@mozilla.org/accessibilityService;1"].getService(
-    Ci.nsIAccessibilityService
-  );
-  let accessible;
-  await TestUtils.waitForCondition(() => {
-    accessible = accService.getAccessibleFor(innerFieldset);
-    return !!accessible;
-  }, "Radio group has an accessible");
-  if (
-    innerFieldset.getAttribute("role") == "radiogroup" &&
-    innerFieldset.getAttribute("aria-label") == expectedName
-  ) {
-    await TestUtils.waitForCondition(
-      () =>
-        accessible.role == Ci.nsIAccessibleRole.ROLE_RADIO_GROUP &&
-        accessible.name == expectedName,
-      "Accessible reflects the localized radio group role and name"
-    );
-  }
-  is(
-    innerFieldset.getAttribute("role"),
-    "radiogroup",
-    "Inner fieldset has the radiogroup role"
-  );
-  is(
-    accessible.role,
-    Ci.nsIAccessibleRole.ROLE_RADIO_GROUP,
-    "Accessible has the radiogroup role"
-  );
-  is(
-    innerFieldset.getAttribute("aria-label"),
-    expectedName,
-    "Inner fieldset has the expected localized label"
-  );
-  is(
-    accessible.name,
-    expectedName,
-    "Radio group has the expected localized accessible name"
-  );
-}
-
 /**
  * Opens a fresh preferences tab at the given pane and waits for it to
  * fully initialize before returning. Pre-registers the "Initialized" listener
