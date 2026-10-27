@@ -29,13 +29,13 @@ g2.o = undefined;
 
 gc();
 checkMarks(['gray', 'gray', 'gray']);
-assertEq(getAtomMarkColor(g1, i), 'gray');
-assertEq(getAtomMarkColor(g2, i), 'gray');
+assertEq(getAtomMarkColor(g1, i), 'black');
+assertEq(getAtomMarkColor(g2, i), 'black');
 
 o1 = g1.eval('grayRoot()[0]');
 checkMarks(['black', 'gray', 'black']);
 assertEq(getAtomMarkColor(g1, i), 'black');
-assertEq(getAtomMarkColor(g2, i), 'gray');
+assertEq(getAtomMarkColor(g2, i), 'black');
 
 o2 = g2.eval('grayRoot()[0]');
 checkMarks(['black', 'black', 'black']);

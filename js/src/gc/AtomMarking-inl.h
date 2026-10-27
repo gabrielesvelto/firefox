@@ -80,14 +80,8 @@ MOZ_ALWAYS_INLINE bool AtomRefRuntime::inlinedRecordRefInternal(Zone* zone,
 
 #ifdef JS_GC_CONCURRENT_MARKING
     bitmap.atomicSetExistingBit(blackBit);
-    if constexpr (std::is_same_v<T, JS::Symbol>) {
-      bitmap.atomicSetExistingBit(grayOrBlackBit);
-    }
 #else
     MOZ_ALWAYS_TRUE(bitmap.setBit(blackBit));
-    if constexpr (std::is_same_v<T, JS::Symbol>) {
-      MOZ_ALWAYS_TRUE(bitmap.setBit(grayOrBlackBit));
-    }
 #endif
   }
 
@@ -97,29 +91,6 @@ MOZ_ALWAYS_INLINE bool AtomRefRuntime::inlinedRecordRefInternal(Zone* zone,
   recordChildren(zone, thing);
 
   return true;
-}
-
-inline void AtomRefRuntime::maybeUnmarkGrayAtomically(Zone* zone,
-                                                      JS::Symbol* symbol) {
-  MOZ_ASSERT(zone);
-  MOZ_ASSERT(!zone->isAtomsZone());
-  MOZ_ASSERT(symbol);
-  MOZ_ASSERT(symbol->zoneFromAnyThread()->isAtomsZone());
-
-  if (symbol->isPermanentAndMayBeShared()) {
-    return;
-  }
-
-  // The atom is currently referred to with a black or gray reference.
-  MOZ_ASSERT(hasRef(zone, symbol));
-
-  // Set the black bit. This has the effect of making the mark black if it was
-  // previously gray.
-  size_t blackBit = getAtomBit(symbol) + size_t(ColorBit::BlackBit);
-  MOZ_ASSERT(blackBit / JS_BITS_PER_WORD < allocatedWords);
-  zone->referencedAtoms().atomicSetExistingBit(blackBit);
-
-  MOZ_ASSERT(getRefColor(zone, symbol) == CellColor::Black);
 }
 
 template <typename T>
@@ -154,29 +125,27 @@ inline void GCRuntime::maybeMarkWeaklyHeldAtom(T* atom) {
     return;
   }
 
-  CellColor refColor = isAtomReferencedByUncollectedZone(&atom->asTenured());
-  if (refColor == CellColor::White) {
+  bool hasRef = isAtomReferencedByUncollectedZone(&atom->asTenured());
+  if (!hasRef) {
     return;
   }
 
   // Set the mark bits directly since this may be called after normal marking
   // has finished. Implicitly marked edges are handled via weakmap marking which
   // happens after this.
-  MarkColor color = AsMarkColor(refColor);
-  (void)atom->asTenured().markIfUnmarked(color);
+  (void)atom->asTenured().markIfUnmarked(MarkColor::Black);
   if constexpr (std::is_same_v<T, JS::Symbol>) {
     if (JSAtom* description = atom->description()) {
-      (void)description->asTenured().markIfUnmarked(color);
+      (void)description->asTenured().markIfUnmarked(MarkColor::Black);
     }
   }
 }
 
-inline CellColor GCRuntime::isAtomReferencedByUncollectedZone(
-    TenuredCell* atom) {
+inline bool GCRuntime::isAtomReferencedByUncollectedZone(TenuredCell* atom) {
   MOZ_ASSERT(atom->zoneFromAnyThread()->isAtomsZone());
 
   if (!atomsUsedByUncollectedZones.ref()) {
-    return CellColor::White;
+    return false;
   }
 
   MOZ_ASSERT(atomsZone()->wasGCStarted());
@@ -188,18 +157,11 @@ inline CellColor GCRuntime::isAtomReferencedByUncollectedZone(
 
   const DenseBitmap& bitmap = *atomsUsedByUncollectedZones.ref();
   if (grayOrBlackBit >= bitmap.count()) {
-    return CellColor::White;  // Atom created during collection.
+    return false;  // Atom created during collection.
   }
 
-  if (bitmap.getBit(blackBit)) {
-    return CellColor::Black;
-  }
-
-  if (bitmap.getBit(grayOrBlackBit)) {
-    return CellColor::Gray;
-  }
-
-  return CellColor::White;
+  MOZ_ASSERT(!bitmap.getBit(grayOrBlackBit));
+  return bitmap.getBit(blackBit);
 }
 
 void AtomRefRuntime::recordChildren(Zone* zone, JSAtom*) {}

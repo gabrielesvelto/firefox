@@ -1267,8 +1267,7 @@ bool js::gc::CheckWeakMapEntryMarking(const WeakMapBase* map, Cell* key,
     MOZ_ASSERT(symbol->code() != JS::SymbolCode::InSymbolRegistry);
     MOZ_ASSERT(symbol->isUnique() == symbol->isLocal());
     if (!symbol->isUnique()) {
-      CellColor keyRefColor = gc->atomReferences.getRefColor(mapZone, symbol);
-      if (keyRefColor == CellColor::White) {
+      if (!gc->atomReferences.hasRef(mapZone, symbol)) {
         fprintf(stderr,
             "Non-unique symbol key %p in map %p is not present in the atom "
             "reference bitmap for zone %p\n",
@@ -1282,8 +1281,7 @@ bool js::gc::CheckWeakMapEntryMarking(const WeakMapBase* map, Cell* key,
     auto* symbol = maybeValue->as<JS::Symbol>();
     MOZ_ASSERT(symbol->isUnique() == symbol->isLocal());
     if (symbol->isShared()) {
-      CellColor valueRefColor = gc->atomReferences.getRefColor(mapZone, symbol);
-      if (valueRefColor == CellColor::White) {
+      if (!gc->atomReferences.hasRef(mapZone, symbol)) {
         fprintf(stderr,
             "Shared symbol value %p in map %p is not present in the atom "
             "reference bitmap for zone %p\n",

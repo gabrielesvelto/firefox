@@ -3377,8 +3377,8 @@ static bool GetAtomMarkColor(JSContext* cx, unsigned argc, Value* vp) {
   size_t index = args[1].toInt32();
 
   gc::GCRuntime* gc = &cx->runtime()->gc;
-  gc::CellColor color = gc->atomReferences.getRefColorForIndex(zone, index);
-  RootedString name(cx, JS_NewStringCopyZ(cx, gc::CellColorName(color)));
+  bool hasRef = gc->atomReferences.hasRefForIndex(zone, index);
+  RootedString name(cx, JS_NewStringCopyZ(cx, hasRef ? "black" : "white"));
   if (!name) {
     return false;
   }
@@ -10745,7 +10745,8 @@ gc::ZealModeHelpText),
 
     JS_FN_HELP("getAtomMarkColor", GetAtomMarkColor, 2, 0,
 "getAtomMarkColor(obj, index)",
-"  Return the atom reference bitmap's color for |index| relative to the zone containing |obj|."),
+"  Return the atom reference bitmap's color for |index| relative to the zone\n"
+"  containing |obj|."),
 
     JS_FN_HELP("setMallocMaxDirtyPageModifier", SetMallocMaxDirtyPageModifier, 1, 0,
 "setMallocMaxDirtyPageModifier(value)",
