@@ -97,9 +97,9 @@ class ContextChecks {
 
 #ifdef DEBUG
     // Atoms which move across zone boundaries need to be recorded in the atom
-    // reference bitmap for the new zone, see JS_MarkCrossZoneId. Note that the
-    // atom reference state may not be up-to-date if incremental marking is
-    // taking place.
+    // reference bitmap for the new zone, see JS_WrapId. Note that the atom
+    // reference state may not be up-to-date if incremental marking is taking
+    // place.
     gc::GCRuntime* gc = &cx->runtime()->gc;
     bool isGCMarking =
         gc->state() >= gc::State::Prepare && gc->state() <= gc::State::Sweep;
