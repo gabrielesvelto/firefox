@@ -57,10 +57,6 @@ $split-screen-min-height: 280px;
     width: 100%;
     max-width: none;
     min-width: 0;
-
-    @media only screen and (width <= 890px) and (width >= 788px) {
-      width: 80%;
-    }
   }
 
   // Both classes come from MultistageWithDismiss, which only sets them when

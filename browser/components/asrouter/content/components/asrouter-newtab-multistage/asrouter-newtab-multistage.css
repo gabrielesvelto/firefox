@@ -6106,11 +6106,6 @@ html {
   max-width: none;
   min-width: 0;
 }
-@media only screen and (width <= 890px) and (width >= 788px) {
-  .multistage-newtab-wrapper:has(.screen[pos=card-stack]) {
-    width: 80%;
-  }
-}
 .multistage-newtab-wrapper.card-stack-animated:not(.card-stack-exiting) .onboardingContainer:not(.transition-out) .screen[pos=card-stack][initial-card] .card-stack-front,
 .multistage-newtab-wrapper.card-stack-animated:not(.card-stack-exiting) .onboardingContainer:not(.transition-out) .screen[pos=card-stack][initial-card] .section-secondary,
 .multistage-newtab-wrapper.card-stack-animated:not(.card-stack-exiting) .onboardingContainer:not(.transition-out) .screen[pos=card-stack][initial-card] .section-main {
