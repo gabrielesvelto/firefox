@@ -867,6 +867,13 @@ class nsHttpChannel final : public HttpBaseChannel,
   // Some(true): classification ongoing
   // Some(false): classification done
   Maybe<Atomic<bool>> mSuspendAfterExamineResponse;
+  // Set while a Suspend() taken by MaybeSuspendAfterExamineResponse() is
+  // outstanding, i.e. not yet undone by
+  // CancelSuspendOrResumeAfterExamineResponse(). Guards the compensating
+  // Resume() so it fires at most once per real Suspend(), even though
+  // CancelSuspendOrResumeAfterExamineResponse() can now be reached both from
+  // the classification callback and from CancelInternal.
+  Atomic<bool> mSuspendedForExamineResponse{false};
   bool mWritingToCache = false;
   bool mWaitingForProxy = false;
   bool mStaleRevalidation = false;
