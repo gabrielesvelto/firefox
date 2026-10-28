@@ -800,7 +800,9 @@ nsFrameConstructorState::nsFrameConstructorState(
       mAbsoluteList(aAbsoluteContainingBlock),
       mFloatedList(aFloatContainingBlock),
       mTopLayerFixedList(
-          static_cast<nsContainerFrame*>(mFrameManager->GetRootFrame())),
+          aFixedContainingBlock
+              ? static_cast<nsContainerFrame*>(mFrameManager->GetRootFrame())
+              : nullptr),
       mTopLayerAbsoluteList(
           aPresShell->FrameConstructor()->GetDocElementContainingBlock()),
       // Will be set by AutoFrameConstructionPageName
@@ -7902,9 +7904,7 @@ nsIFrame* nsCSSFrameConstructor::CreateContinuingTableFrame(
       nsTableRowGroupFrame* headerFooterFrame;
       nsFrameList childList;
 
-      nsFrameConstructorState state(
-          mPresShell, GetAbsoluteContainingBlock(newFrame, FIXED_POS),
-          GetAbsoluteContainingBlock(newFrame, ABS_POS), nullptr);
+      nsFrameConstructorState state(mPresShell, nullptr, nullptr, nullptr);
       state.mCreatingExtraFrames = true;
 
       ComputedStyle* const headerFooterComputedStyle = rowGroupFrame->Style();
