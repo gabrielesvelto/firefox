@@ -434,7 +434,7 @@ static nsAutoCString OriginSuffixForRemoteType(OriginAttributes aAttrs,
                                                bool aDisableJit) {
   nsAutoCString originSuffix;
   aAttrs.StripAttributes(OriginAttributes::STRIP_FIRST_PARTY_DOMAIN |
-                         OriginAttributes::STRIP_PARITION_KEY);
+                         OriginAttributes::STRIP_PARTITION_KEY);
   aAttrs.CreateSuffix(originSuffix);
 
   if (aDisableJit) {
