@@ -832,6 +832,14 @@ class nsHttpChannel final : public HttpBaseChannel,
   nsresult OnSuspendTimeout();
   void CancelNetworkRequest(nsresult aStatus);
 
+  // Backstop for a wedged cache entry: arm/cancel a one-shot timer while the
+  // channel is parked in AwaitingCacheCallbacks(), and force the load to the
+  // network if the cache callback never arrives.  See
+  // network.cache.entry_wait_timeout_ms.
+  void MaybeStartCacheWaitTimer();
+  void CancelCacheWaitTimer();
+  nsresult OnCacheWaitTimeout();
+
   nsresult LogConsoleError(const char* aTag);
 
   void SetHTTPSSVCRecord(already_AddRefed<nsIDNSHTTPSSVCRecord> aRecord);
@@ -847,6 +855,12 @@ class nsHttpChannel final : public HttpBaseChannel,
   // cache. When the timer fires we'll notify the cache entry to make
   // all other listeners continue.
   nsCOMPtr<nsITimer> mSuspendTimer;
+  // Backstop timer armed while parked in AwaitingCacheCallbacks(); if the
+  // cache entry callback never arrives we give up and race to the network.
+  nsCOMPtr<nsITimer> mCacheWaitTimer;
+  // Set once the cache-wait backstop has fired and we've forced the network,
+  // so a late OnCacheEntryAvailable callback is ignored.
+  bool mCacheWaitTimedOut{false};
   // Tri-state to track whether anti-tracking classification happened
   // and has completed or not.
   // Nothing: No anti-tracking classification

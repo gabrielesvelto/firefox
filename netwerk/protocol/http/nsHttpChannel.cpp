@@ -1491,6 +1491,9 @@ nsresult nsHttpChannel::ConnectOnTailUnblock() {
          this));
     MOZ_ASSERT(NS_SUCCEEDED(rv), "Unexpected state");
 
+    // Backstop against a wedged cache entry that never delivers its callback.
+    MaybeStartCacheWaitTimer();
+
     if (mNetworkTriggered && mWaitingForProxy) {
       // Someone has called TriggerNetwork(), meaning we are racing the
       // network with the cache.
@@ -5493,9 +5496,22 @@ nsHttpChannel::OnCacheEntryAvailable(nsICacheEntry* entry, bool aNew,
        "new=%d status=%" PRIx32 "] for %s",
        this, entry, aNew, static_cast<uint32_t>(status), mSpec.get()));
 
+  // The cache callback arrived (or we're tearing down); the backstop timer is
+  // no longer needed.
+  CancelCacheWaitTimer();
+
   // if the channel's already fired onStopRequest, then we should ignore
   // this event.
   if (!LoadIsPending()) {
+    mCacheInputStream.CloseAndRelease();
+    return NS_OK;
+  }
+
+  // If the backstop already fired we gave up on the cache and raced to the
+  // network; ignore this late callback so we don't reprocess the entry.
+  if (mCacheWaitTimedOut) {
+    LOG(("  cache callback arrived after backstop timeout, ignoring [this=%p]",
+         this));
     mCacheInputStream.CloseAndRelease();
     return NS_OK;
   }
@@ -5961,6 +5977,7 @@ nsresult nsHttpChannel::ReadFromCache(void) {
 }
 
 void nsHttpChannel::CloseCacheEntry(bool doomOnFailure) {
+  CancelCacheWaitTimer();
   mCacheInputStream.CloseAndRelease();
 
   if (!mCacheEntry) return;
@@ -12076,9 +12093,67 @@ nsHttpChannel::TimerCallback::Notify(nsITimer* aTimer) {
   if (aTimer == mChannel->mSuspendTimer) {
     return mChannel->OnSuspendTimeout();
   }
+  if (aTimer == mChannel->mCacheWaitTimer) {
+    return mChannel->OnCacheWaitTimeout();
+  }
   MOZ_CRASH("Unknown timer");
 
   return NS_OK;
+}
+
+void nsHttpChannel::MaybeStartCacheWaitTimer() {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  uint32_t delay = StaticPrefs::network_cache_entry_wait_timeout_ms();
+  if (!delay || mCacheWaitTimer || mCacheWaitTimedOut || mNetworkTriggered) {
+    return;
+  }
+
+  mCacheWaitTimer = NS_NewTimer();
+  if (mCacheWaitTimer) {
+    RefPtr<TimerCallback> timerCallback = new TimerCallback(this);
+    mCacheWaitTimer->InitWithCallback(timerCallback, delay,
+                                      nsITimer::TYPE_ONE_SHOT);
+    LOG(("nsHttpChannel::MaybeStartCacheWaitTimer [this=%p] fires in %ums", this,
+         delay));
+  }
+}
+
+void nsHttpChannel::CancelCacheWaitTimer() {
+  if (mCacheWaitTimer) {
+    mCacheWaitTimer->Cancel();
+    mCacheWaitTimer = nullptr;
+  }
+}
+
+nsresult nsHttpChannel::OnCacheWaitTimeout() {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  LOG(("nsHttpChannel::OnCacheWaitTimeout [this=%p]\n", this));
+  mCacheWaitTimer = nullptr;
+
+  // Backstop for a wedged cache entry: if we're still parked waiting for a
+  // cache entry callback that never arrived (e.g. a writer that was suspended
+  // or cancelled without ever closing its output stream, so the entry stays
+  // perpetually "being written"), stop waiting and race to the network so the
+  // load can make progress instead of hanging forever.
+  if (!LoadIsPending() || !AwaitingCacheCallbacks()) {
+    return NS_OK;
+  }
+
+  LOG(("  cache entry wait timed out, forcing network [this=%p]", this));
+  mCacheWaitTimedOut = true;
+
+  // Stop treating the outstanding cache open as blocking.  A late
+  // OnCacheEntryAvailable will be ignored (see mCacheWaitTimedOut).
+  StoreWaitForCacheEntry(LoadWaitForCacheEntry() & ~WAIT_FOR_CACHE_ENTRY);
+
+  nsresult rv = TriggerNetwork();
+  if (NS_FAILED(rv)) {
+    CloseCacheEntry(false);
+    (void)AsyncAbort(rv);
+  }
+  return rv;
 }
 
 bool nsHttpChannel::EligibleForTailing() {
