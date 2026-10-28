@@ -1,7 +1,7 @@
 diff --git a/expat/lib/xmlparse.c b/expat/lib/xmlparse.c
 --- a/expat/lib/xmlparse.c
 +++ b/expat/lib/xmlparse.c
-@@ -3917,6 +3917,9 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
+@@ -3928,6 +3928,9 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
    int attIndex = 0;
    XML_Char *uri;
    int nPrefixes = 0;
@@ -11,7 +11,7 @@ diff --git a/expat/lib/xmlparse.c b/expat/lib/xmlparse.c
    BINDING *binding;
    const XML_Char *localPart;
  
-@@ -4070,7 +4073,15 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
+@@ -4089,7 +4092,15 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
                                             appAtts[attIndex], bindingsPtr);
          if (result)
            return result;
@@ -27,7 +27,7 @@ diff --git a/expat/lib/xmlparse.c b/expat/lib/xmlparse.c
        } else {
          /* deal with other prefixed names later */
          attIndex++;
-@@ -4102,6 +4113,12 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
+@@ -4121,6 +4132,12 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
                                               da->value, bindingsPtr);
            if (result)
              return result;
@@ -40,7 +40,7 @@ diff --git a/expat/lib/xmlparse.c b/expat/lib/xmlparse.c
          } else {
            (da->id->name)[-1] = 2;
            nPrefixes++;
-@@ -4120,7 +4137,13 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
+@@ -4139,7 +4156,13 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
    /* expand prefixed attribute names, check for duplicates,
       and clear flags that say whether attributes were specified */
    int i = 0;
@@ -54,7 +54,7 @@ diff --git a/expat/lib/xmlparse.c b/expat/lib/xmlparse.c
      unsigned int j; /* hash table index */
      unsigned long version = parser->m_nsAttsVersion;
  
-@@ -4130,6 +4153,9 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
+@@ -4149,6 +4172,9 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
      }
  
      unsigned int nsAttsSize = 1u << parser->m_nsAttsPower;
@@ -64,7 +64,7 @@ diff --git a/expat/lib/xmlparse.c b/expat/lib/xmlparse.c
      unsigned char oldNsAttsPower = parser->m_nsAttsPower;
      /* size of hash table must be at least 2 * (# of prefixed attributes) */
      if ((nPrefixes << 1)
-@@ -4178,6 +4204,9 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
+@@ -4197,6 +4223,9 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
          parser->m_nsAtts[--j].version = version;
      }
      parser->m_nsAttsVersion = --version;
@@ -74,7 +74,7 @@ diff --git a/expat/lib/xmlparse.c b/expat/lib/xmlparse.c
  
      /* expand prefixed names and check for duplicates */
      for (; i < attIndex; i += 2) {
-@@ -4272,10 +4301,63 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
+@@ -4291,10 +4320,63 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
          parser->m_nsAtts[j].hash = uriHash;
          parser->m_nsAtts[j].uriName = s;
  
