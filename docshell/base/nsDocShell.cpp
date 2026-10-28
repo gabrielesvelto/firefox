@@ -8612,9 +8612,7 @@ nsresult nsDocShell::HandleSameDocumentNavigation(
       win->DispatchAsyncHashchange(currentURI, newURI);
     }
 
-    if (aState.mHistoryNavBetweenSameDoc || doHashchange) {
-      win->DispatchSyncPopState();
-    }
+    win->DispatchSyncPopState();
 
     if (needsScrollPosUpdate && win->HasActiveDocument()) {
       SetCurScrollPosEx(bx, by);
