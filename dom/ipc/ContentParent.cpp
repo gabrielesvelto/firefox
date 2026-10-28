@@ -571,15 +571,6 @@ nsClassHashtable<nsCStringHashKey, nsTArray<ContentParent*>>*
 
 namespace {
 
-uint64_t ComputeLoadedOriginHash(nsIPrincipal* aPrincipal) {
-  uint32_t originNoSuffix =
-      BasePrincipal::Cast(aPrincipal)->GetOriginNoSuffixHash();
-  uint32_t originSuffix =
-      BasePrincipal::Cast(aPrincipal)->GetOriginSuffixHash();
-
-  return ((uint64_t)originNoSuffix) << 32 | originSuffix;
-}
-
 ProcessID GetTelemetryProcessID(const nsACString& remoteType) {
   // OOP WebExtensions run in a content process.
   // For Telemetry though we want to break out collected data from the
@@ -973,10 +964,7 @@ UniqueContentParentKeepAlive ContentParent::GetUsedBrowserProcess(
     // This ensures that the preallocator won't shut down the process once
     // it finishes starting
     preallocated->mRemoteType.Assign(aRemoteType);
-    {
-      RecursiveMutexAutoLock lock(preallocated->mThreadsafeHandle->mMutex);
-      preallocated->mThreadsafeHandle->mRemoteType = preallocated->mRemoteType;
-    }
+    preallocated->LoadedOrigins()->SetRemoteType(preallocated->mRemoteType);
     preallocated->mRemoteTypeIsolationPrincipal =
         CreateRemoteTypeIsolationPrincipal(aRemoteType);
     preallocated->AddToPool(aContentParents);
@@ -1185,6 +1173,10 @@ bool ContentParent::WaitForLaunchSync(ProcessPriority aPriority) {
   // In case of failure.
   LaunchSubprocessReject();
   return false;
+}
+
+LoadedOriginSet* ContentParent::LoadedOrigins() const {
+  return ThreadsafeHandle()->LoadedOrigins();
 }
 
 static nsIDocShell* GetOpenerDocShellHelper(Element* aFrameElement) {
@@ -3115,9 +3107,6 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
 
   // Ensure that the default set of permissions are avaliable in the content
   // process before we try to load any URIs in it.
-  //
-  // NOTE: All default permissions has to be transmitted to the child process
-  // before the blob urls in the for loop below (See Bug 1738713 comment 12).
   EnsurePermissionsByKey(""_ns, ""_ns);
 
   {
@@ -3130,8 +3119,7 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
       // We send all moz-extension Blob URL's to all content processes
       // because content scripts mean that a moz-extension can live in any
       // process. Same thing for system principal Blob URLs. Content Blob
-      // URL's are sent for content principals on-demand by
-      // AboutToLoadDocumentForChild and RemoteWorkerManager.
+      // URL's are sent for content principals on-demand by AboutToLoadOrigin.
       if (!BlobURLProtocolHandler::IsBlobURLBroadcastPrincipal(aPrincipal)) {
         return true;
       }
@@ -3139,9 +3127,6 @@ bool ContentParent::InitInternal(ProcessPriority aInitialPriority) {
       registrations.AppendElement(
           BlobURLRegistrationData(nsCString(aURI), WrapNotNull(aPrincipal),
                                   nsCString(aPartitionKey), aRevoked));
-
-      nsresult rv = TransmitPermissionsForPrincipal(aPrincipal);
-      (void)NS_WARN_IF(NS_FAILED(rv));
       return true;
     });
 
@@ -5833,8 +5818,6 @@ void ContentParent::BroadcastBlobURLRegistration(const nsACString& aURI,
                                                  nsIPrincipal* aPrincipal,
                                                  const nsCString& aPartitionKey,
                                                  ContentParent* aIgnoreThisCP) {
-  uint64_t originHash = ComputeLoadedOriginHash(aPrincipal);
-
   bool toBeSent =
       BlobURLProtocolHandler::IsBlobURLBroadcastPrincipal(aPrincipal);
 
@@ -5842,13 +5825,9 @@ void ContentParent::BroadcastBlobURLRegistration(const nsACString& aURI,
 
   for (auto* cp : AllProcesses(eLive)) {
     if (cp != aIgnoreThisCP) {
-      if (!toBeSent && !cp->mLoadedOriginHashes.Contains(originHash)) {
+      if (!toBeSent &&
+          !cp->LoadedOrigins()->Has(aPrincipal, LoadedOriginSet::Level::Full)) {
         continue;
-      }
-
-      nsresult rv = cp->TransmitPermissionsForPrincipal(aPrincipal);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        break;
       }
 
       (void)cp->SendBlobURLRegistration(uri, aPrincipal, aPartitionKey);
@@ -5862,18 +5841,15 @@ void ContentParent::BroadcastBlobURLUnregistration(
     ContentParent* aIgnoreThisCP) {
   struct DataRequest {
     const BroadcastBlobURLUnregistrationRequest& mRequest;
-    uint64_t mOriginHash;
     bool mToBeSent;
   };
 
   nsTArray<DataRequest> dataRequests(aRequests.Length());
   for (const BroadcastBlobURLUnregistrationRequest& request : aRequests) {
-    uint64_t originHash = ComputeLoadedOriginHash(request.principal());
-
     bool toBeSent = BlobURLProtocolHandler::IsBlobURLBroadcastPrincipal(
         request.principal());
 
-    dataRequests.AppendElement(DataRequest{request, originHash, toBeSent});
+    dataRequests.AppendElement(DataRequest{request, toBeSent});
   }
 
   for (auto* cp : AllProcesses(eLive)) {
@@ -5884,7 +5860,8 @@ void ContentParent::BroadcastBlobURLUnregistration(
     nsTArray<nsCString> urls;
     for (const DataRequest& data : dataRequests) {
       if (data.mToBeSent ||
-          cp->mLoadedOriginHashes.Contains(data.mOriginHash)) {
+          cp->LoadedOrigins()->Has(data.mRequest.principal(),
+                                   LoadedOriginSet::Level::Full)) {
         urls.AppendElement(data.mRequest.url());
       }
     }
@@ -6047,16 +6024,15 @@ nsresult ContentParent::AboutToLoadDocumentForChild(nsIChannel* aChannel) {
                                       getter_AddRefs(partitionedPrincipal));
   NS_ENSURE_SUCCESS(rv, rv);
 
-  TransmitBlobURLsForPrincipal(principal);
-
-  // Tranmit permissions for both regular and partitioned principal so that the
-  // content process can get permissions for the partitioned principal. For
-  // example, the desk-notification permission for a partitioned service worker.
-  rv = TransmitPermissionsForPrincipal(principal);
+  rv = AboutToLoadOrigin(principal);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = TransmitPermissionsForPrincipal(partitionedPrincipal);
-  NS_ENSURE_SUCCESS(rv, rv);
+  // Also call AboutToLoadOrigin with the partitioned principal, to ensure that
+  // partitioned-principal-specific permissions are also transmitted.
+  if (partitionedPrincipal != principal) {
+    rv = AboutToLoadOrigin(partitionedPrincipal);
+    NS_ENSURE_SUCCESS(rv, rv);
+  }
 
   // Forward browser-scoped (temporary) permissions for this tab to the content
   // process. These are stored per-browserId and must be re-transmitted on
@@ -6107,6 +6083,54 @@ nsresult ContentParent::AboutToLoadDocumentForChild(nsIChannel* aChannel) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+ContentParent::AboutToLoadOrigin(nsIPrincipal* aPrincipal) {
+  // NOTE: We allow system here, as it is possible that a content process could
+  // load a system document still for chrome://reftest/**.
+  if (!ValidatePrincipal(aPrincipal, {ValidatePrincipalOptions::AllowSystem})) {
+    LogAndAssertFailedPrincipalValidationInfo(aPrincipal, "AboutToLoadOrigin");
+    return NS_ERROR_FAILURE;
+  }
+
+  MOZ_ASSERT_DEBUG_OR_FUZZING(!aPrincipal->GetIsExpandedPrincipal());
+
+  LoadedOriginSet::Level prev =
+      LoadedOrigins()->AddInternal(aPrincipal, /* aTentative */ false);
+  if (prev < LoadedOriginSet::Level::Full) {
+    // Transmit Blob URLs for the newly loaded origin.
+    // Skip broadcast principals as they'll already have been sent.
+    if (!BlobURLProtocolHandler::IsBlobURLBroadcastPrincipal(aPrincipal)) {
+      nsTArray<BlobURLRegistrationData> registrations;
+      BlobURLProtocolHandler::ForEachBlobURL(
+          [&](BlobImpl* aBlobImpl, nsIPrincipal* aBlobPrincipal,
+              const nsCString& aPartitionKey, const nsACString& aURI,
+              bool aRevoked) {
+            if (aBlobPrincipal->Equals(aPrincipal)) {
+              registrations.AppendElement(BlobURLRegistrationData(
+                  nsCString(aURI), WrapNotNull(aBlobPrincipal),
+                  nsCString(aPartitionKey), aRevoked));
+            }
+            return true;
+          });
+
+      if (!registrations.IsEmpty()) {
+        (void)SendInitBlobURLs(registrations);
+      }
+    }
+
+    // NOTE: The permissions manager still maintains its own set of "permission
+    // keys" for tracking which origins have been loaded in a process. This is
+    // incompatible with LoadedOriginSet. We might want to unify this.
+    MOZ_ALWAYS_SUCCEEDS(TransmitPermissionsForPrincipal(aPrincipal));
+
+    // NOTE: This should happen last, such that all data associated with the
+    // origin is received in the content process before we notify.
+    (void)SendAddLoadedOrigin(WrapNotNull(aPrincipal));
+  }
+
+  return NS_OK;
+}
+
 nsresult ContentParent::TransmitPermissionsForPrincipal(
     nsIPrincipal* aPrincipal) {
   // Create the key, and send it down to the content process.
@@ -6139,65 +6163,6 @@ void ContentParent::AddPrincipalToCookieInProcessCache(
 void ContentParent::TakeCookieInProcessCache(
     nsTArray<nsCOMPtr<nsIPrincipal>>& aList) {
   aList.SwapElements(mCookieInContentListCache);
-}
-
-void ContentParent::TransmitBlobURLsForPrincipal(nsIPrincipal* aPrincipal) {
-  // If we're already broadcasting BlobURLs with this principal, we don't need
-  // to send them here.
-  if (BlobURLProtocolHandler::IsBlobURLBroadcastPrincipal(aPrincipal)) {
-    return;
-  }
-
-  // We shouldn't have any Blob URLs with expanded principals, so transmit URLs
-  // for each principal in the AllowList instead.
-  if (nsCOMPtr<nsIExpandedPrincipal> ep = do_QueryInterface(aPrincipal)) {
-    for (const auto& prin : ep->AllowList()) {
-      TransmitBlobURLsForPrincipal(prin);
-    }
-    return;
-  }
-
-  uint64_t originHash = ComputeLoadedOriginHash(aPrincipal);
-
-  if (!mLoadedOriginHashes.Contains(originHash)) {
-    mLoadedOriginHashes.AppendElement(originHash);
-
-    nsTArray<BlobURLRegistrationData> registrations;
-    BlobURLProtocolHandler::ForEachBlobURL(
-        [&](BlobImpl* aBlobImpl, nsIPrincipal* aBlobPrincipal,
-            const nsCString& aPartitionKey, const nsACString& aURI,
-            bool aRevoked) {
-          // This check uses `ComputeLoadedOriginHash` to compare, rather than
-          // doing the more accurate `Equals` check, as it needs to match the
-          // behaviour of the logic to broadcast new registrations.
-          if (originHash != ComputeLoadedOriginHash(aBlobPrincipal)) {
-            return true;
-          }
-
-          registrations.AppendElement(BlobURLRegistrationData(
-              nsCString(aURI), WrapNotNull(aBlobPrincipal),
-              nsCString(aPartitionKey), aRevoked));
-
-          nsresult rv = TransmitPermissionsForPrincipal(aBlobPrincipal);
-          (void)NS_WARN_IF(NS_FAILED(rv));
-          return true;
-        });
-
-    if (!registrations.IsEmpty()) {
-      (void)SendInitBlobURLs(registrations);
-    }
-  }
-}
-
-void ContentParent::TransmitBlobDataIfBlobURL(nsIURI* aURI,
-                                              const OriginAttributes& aAttrs) {
-  MOZ_ASSERT(aURI);
-
-  nsCOMPtr<nsIPrincipal> principal;
-  if (BlobURLProtocolHandler::GetBlobURLPrincipal(aURI, aAttrs,
-                                                  getter_AddRefs(principal))) {
-    TransmitBlobURLsForPrincipal(principal);
-  }
 }
 
 void ContentParent::EnsurePermissionsByKey(const nsACString& aKey,
@@ -8154,8 +8119,7 @@ IPCResult ContentParent::RecvKillGPUProcess() {
 #endif
 
 nsCString ThreadsafeContentParentHandle::GetRemoteType() {
-  RecursiveMutexAutoLock lock(mMutex);
-  return mRemoteType;
+  return mLoadedOrigins->GetRemoteType();
 }
 
 UniqueThreadsafeContentParentKeepAlive

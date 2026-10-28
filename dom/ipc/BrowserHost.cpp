@@ -227,15 +227,6 @@ BrowserHost::GetHasPresented(bool* aHasPresented) {
   return NS_OK;
 }
 
-/* void transmitPermissionsForPrincipal (in nsIPrincipal aPrincipal); */
-NS_IMETHODIMP
-BrowserHost::TransmitPermissionsForPrincipal(nsIPrincipal* aPrincipal) {
-  if (!mRoot) {
-    return NS_OK;
-  }
-  return GetContentParent()->TransmitPermissionsForPrincipal(aPrincipal);
-}
-
 /* void createAboutBlankDocumentViewer(in nsIPrincipal aPrincipal, in
  * nsIPrincipal aPartitionedPrincipal); */
 NS_IMETHODIMP
@@ -253,9 +244,9 @@ BrowserHost::CreateAboutBlankDocumentViewer(
     return NS_ERROR_DOM_SECURITY_ERR;
   }
 
-  // Ensure the content process has permisisons for the new document we're about
-  // to create in it.
-  nsresult rv = GetContentParent()->TransmitPermissionsForPrincipal(aPrincipal);
+  // Ensure the content process has permisisons, blob URLs, etc. for the new
+  // document we're about to create in it.
+  nsresult rv = GetContentParent()->AboutToLoadOrigin(aPrincipal);
   if (NS_FAILED(rv)) {
     return rv;
   }
