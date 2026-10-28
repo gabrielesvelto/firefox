@@ -49,18 +49,18 @@ namespace dom {
 // Hash table
 struct DataInfo {
   DataInfo(mozilla::dom::BlobImpl* aBlobImpl, nsIPrincipal* aPrincipal,
-           BlobURLPrincipalEntry* aNullPrincipalEntry,
+           BlobURLNullOriginEntry* aNullOriginEntry,
            const nsCString& aPartitionKey,
            const Maybe<ContentParentId>& aContentParentId)
       : mBlobImpl(aBlobImpl),
         mPrincipal(aPrincipal),
-        mNullPrincipalEntry(aNullPrincipalEntry),
+        mNullOriginEntry(aNullOriginEntry),
         mPartitionKey(aPartitionKey),
         mRevokeId(0),
         mContentParentId(aContentParentId) {
     MOZ_ASSERT(aPrincipal);
-    MOZ_ASSERT_IF(aNullPrincipalEntry,
-                  aPrincipal->Equals(aNullPrincipalEntry->mPrincipal));
+    MOZ_ASSERT_IF(aNullOriginEntry,
+                  aPrincipal->Equals(aNullOriginEntry->mPrincipal));
   }
 
   // NOTE: This may not be present within content processes, if the BlobURL was
@@ -69,7 +69,7 @@ struct DataInfo {
 
   nsCOMPtr<nsIPrincipal> mPrincipal;
 
-  RefPtr<BlobURLPrincipalEntry> mNullPrincipalEntry;
+  RefPtr<BlobURLNullOriginEntry> mNullOriginEntry;
 
   nsCString mPartitionKey;
 
@@ -94,31 +94,31 @@ static StaticMutex sMutex MOZ_UNANNOTATED;
 // must also lock sMutex to prevent data races.
 static nsClassHashtable<nsCStringHashKey, mozilla::dom::DataInfo>* gDataTable;
 
-// Unlike gDataTable, the gPrincipalEntryTable is read/written from any thread
+// Unlike gDataTable, the gNullOriginEntryTable is read/written from any thread
 // behind the mutex.
-using PrincipalEntryTable =
-    nsTHashMap<nsCStringHashKey, ThreadSafeWeakPtr<BlobURLPrincipalEntry>>;
-static StaticMutex gPrincipalEntryTableMutex;
-static StaticAutoPtr<PrincipalEntryTable> gPrincipalEntryTable
-    MOZ_GUARDED_BY(gPrincipalEntryTableMutex);
+using NullOriginEntryTable =
+    nsTHashMap<nsCStringHashKey, ThreadSafeWeakPtr<BlobURLNullOriginEntry>>;
+static StaticMutex gNullOriginEntryTableMutex;
+static StaticAutoPtr<NullOriginEntryTable> gNullOriginEntryTable
+    MOZ_GUARDED_BY(gNullOriginEntryTableMutex);
 
-BlobURLPrincipalEntry::~BlobURLPrincipalEntry() {
-  StaticMutexAutoLock lock(gPrincipalEntryTableMutex);
-  if (!gPrincipalEntryTable) {
+BlobURLNullOriginEntry::~BlobURLNullOriginEntry() {
+  StaticMutexAutoLock lock(gNullOriginEntryTableMutex);
+  if (!gNullOriginEntryTable) {
     return;
   }
 
-  auto entry = gPrincipalEntryTable->Lookup(mSpec);
+  auto entry = gNullOriginEntryTable->Lookup(mSpec);
   if (entry && entry.Data() == this) {
     entry.Remove();
   }
 
-  if (gPrincipalEntryTable->IsEmpty()) {
-    gPrincipalEntryTable = nullptr;
+  if (gNullOriginEntryTable->IsEmpty()) {
+    gNullOriginEntryTable = nullptr;
   }
 }
 
-Result<RefPtr<BlobURLPrincipalEntry>, nsresult> BlobURLPrincipalEntry::Intern(
+Result<RefPtr<BlobURLNullOriginEntry>, nsresult> BlobURLNullOriginEntry::Intern(
     const nsACString& aSpec, nsIPrincipal* aPrincipal) {
   if (!aPrincipal) {
     return {nullptr};
@@ -129,18 +129,18 @@ Result<RefPtr<BlobURLPrincipalEntry>, nsresult> BlobURLPrincipalEntry::Intern(
     return {nullptr};
   }
 
-  RefPtr<BlobURLPrincipalEntry> strong;
+  RefPtr<BlobURLNullOriginEntry> strong;
   {
-    StaticMutexAutoLock lock(gPrincipalEntryTableMutex);
-    if (!gPrincipalEntryTable) {
-      gPrincipalEntryTable = new PrincipalEntryTable;
+    StaticMutexAutoLock lock(gNullOriginEntryTableMutex);
+    if (!gNullOriginEntryTable) {
+      gNullOriginEntryTable = new NullOriginEntryTable;
     }
 
-    ThreadSafeWeakPtr<BlobURLPrincipalEntry>& weakEntry =
-        gPrincipalEntryTable->LookupOrInsert(aSpec, nullptr);
-    strong = RefPtr<BlobURLPrincipalEntry>(weakEntry);
+    ThreadSafeWeakPtr<BlobURLNullOriginEntry>& weakEntry =
+        gNullOriginEntryTable->LookupOrInsert(aSpec, nullptr);
+    strong = RefPtr<BlobURLNullOriginEntry>(weakEntry);
     if (!strong) {
-      strong = new BlobURLPrincipalEntry(aSpec, aPrincipal);
+      strong = new BlobURLNullOriginEntry(aSpec, aPrincipal);
       weakEntry = strong;
     }
   }
@@ -177,12 +177,11 @@ static mozilla::dom::DataInfo* GetDataInfo(const nsACString& aUri,
 /* static */
 nsresult BlobURLProtocolHandler::GetBlobURLProtocolState(
     const nsACString& aSpecIgnoringRef, bool* aRevoked,
-    BlobURLPrincipalEntry** aPrincipalEntry) {
+    BlobURLNullOriginEntry** aNullOriginEntry) {
   StaticMutexAutoLock lock(sMutex);
   DataInfo* info = GetDataInfo(aSpecIgnoringRef, true);
   *aRevoked = !info || info->mRevokeId != 0;
-  *aPrincipalEntry =
-      info ? do_AddRef(info->mNullPrincipalEntry).take() : nullptr;
+  *aNullOriginEntry = info ? do_AddRef(info->mNullOriginEntry).take() : nullptr;
   return NS_OK;
 }
 
@@ -573,8 +572,8 @@ static nsresult AddDataEntryInternal(
   MOZ_ASSERT(NS_IsMainThread(), "changing gDataTable is main-thread only");
   MOZ_RELEASE_ASSERT(BlobURLProtocolHandler::IsBlobURLValid(aPrincipal, aURI));
 
-  RefPtr nullPrincipalEntry =
-      MOZ_TRY(BlobURLPrincipalEntry::Intern(aURI, aPrincipal));
+  RefPtr nullOriginEntry =
+      MOZ_TRY(BlobURLNullOriginEntry::Intern(aURI, aPrincipal));
 
   StaticMutexAutoLock lock(sMutex);
   if (!gDataTable) {
@@ -583,7 +582,7 @@ static nsresult AddDataEntryInternal(
 
   mozilla::UniquePtr<mozilla::dom::DataInfo> info =
       mozilla::MakeUnique<mozilla::dom::DataInfo>(
-          aBlobImpl, aPrincipal, nullPrincipalEntry, aPartitionKey,
+          aBlobImpl, aPrincipal, nullOriginEntry, aPartitionKey,
           aContentParentId);
   BlobURLsReporter::GetJSStackForBlob(info.get());
 
@@ -976,7 +975,7 @@ bool BlobURLProtocolHandler::GetBlobURLPrincipal(nsIURI* aURI,
   } else if (originPart == "null"_ns) {
     // If the origin part is the string "null", the principal should have been
     // cached on the URI when it was parsed.
-    principal = blobURL->GetNullPrincipal();
+    principal = blobURL->GetNullOriginPrincipal();
 
     // If the principal has the "null" origin part, it cannot be a
     // BlobURLBroadcastPrincipal, as in the future we will not broadcast

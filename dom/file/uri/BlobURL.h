@@ -25,7 +25,7 @@ class NS_NO_VTABLE nsIBlobURLMutator : public nsISupports {
 
 namespace mozilla::dom {
 
-class BlobURLPrincipalEntry;
+class BlobURLNullOriginEntry;
 
 /**
  * These URIs refer to host objects with "blob" scheme.
@@ -60,7 +60,7 @@ class BlobURL final : public mozilla::net::nsSimpleURI {
   // Get the principal used by this BlobURL.
   // Only ever set if OriginPart() == "null".
   // NOTE: This will be null for all MediaStream URLs.
-  nsIPrincipal* GetNullPrincipal();
+  nsIPrincipal* GetNullOriginPrincipal();
 
   bool Revoked() const { return mRevoked; }
 
@@ -74,7 +74,7 @@ class BlobURL final : public mozilla::net::nsSimpleURI {
   nsresult ReadPrivate(nsIObjectInputStream* stream);
 
   bool mRevoked;
-  RefPtr<BlobURLPrincipalEntry> mPrincipalEntry;
+  RefPtr<BlobURLNullOriginEntry> mNullOriginEntry;
 
  public:
   class Mutator final : public nsIURIMutator,
