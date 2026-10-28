@@ -25,7 +25,7 @@ add_task(async function thumbnails_wireframe_basic() {
   checkWireframeForTab(tab);
 
   await BrowserTestUtils.switchTab(gBrowser, gBrowser.tabs[0]);
-  gBrowser.discardBrowser(tab, { forceDiscard: true });
+  gBrowser.discardBrowser(tab, true);
 
   info("Checking a discarded tab");
   checkWireframeForTab(tab);

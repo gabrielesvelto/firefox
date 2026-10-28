@@ -3,6 +3,10 @@
 
 "use strict";
 
+const { TabStateFlusher } = ChromeUtils.importESModule(
+  "moz-src:///browser/components/sessionstore/TabStateFlusher.sys.mjs"
+);
+
 /**
  * Tests that the "discarded" attribute is properly preserved when tabs
  * are moved between windows via swapBrowsersAndCloseOther and adoptTab.
@@ -20,7 +24,7 @@ add_task(async function test_discarded_tab_swapBrowsersAndCloseOther() {
 
   // Discard the tab to set the "discarded" attribute
   await gBrowser.prepareDiscardBrowser(discardedTab);
-  gBrowser.discardBrowser(discardedTab, { forceDiscard: true });
+  gBrowser.discardBrowser(discardedTab, true);
 
   ok(
     discardedTab.hasAttribute("discarded"),
@@ -74,7 +78,7 @@ add_task(async function test_discarded_tab_adoptTab() {
 
   // Discard the tab
   await gBrowser.prepareDiscardBrowser(discardedTab);
-  gBrowser.discardBrowser(discardedTab, { forceDiscard: true });
+  gBrowser.discardBrowser(discardedTab, true);
 
   ok(
     discardedTab.hasAttribute("discarded"),
@@ -110,7 +114,7 @@ add_task(async function test_discarded_with_other_attributes() {
   await BrowserTestUtils.browserLoaded(multiAttrTab.linkedBrowser);
 
   await gBrowser.prepareDiscardBrowser(multiAttrTab);
-  gBrowser.discardBrowser(multiAttrTab, { forceDiscard: true }); // This sets discarded
+  gBrowser.discardBrowser(multiAttrTab, true); // This sets discarded
 
   // Set another attribute (but do it after discarding the tab, otherwise it
   // will get removed when the tab is discarded)
