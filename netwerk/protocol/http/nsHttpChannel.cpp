@@ -5149,6 +5149,9 @@ nsHttpChannel::OnCacheEntryCheck(nsICacheEntry* entry, uint32_t* aResult) {
     return NS_OK;
   }
 
+  // Each check starts from a clean slate.
+  DiscardCacheEntryCheckState();
+
   nsAutoCString cacheControlRequestHeader;
   (void)mRequestHead.GetHeader(nsHttp::Cache_Control,
                                cacheControlRequestHeader);
