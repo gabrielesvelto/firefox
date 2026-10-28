@@ -6095,9 +6095,7 @@ ContentParent::AboutToLoadOrigin(nsIPrincipal* aPrincipal) {
 
   MOZ_ASSERT_DEBUG_OR_FUZZING(!aPrincipal->GetIsExpandedPrincipal());
 
-  LoadedOriginSet::Level prev =
-      LoadedOrigins()->AddInternal(aPrincipal, /* aTentative */ false);
-  if (prev < LoadedOriginSet::Level::Full) {
+  if (LoadedOrigins()->AddInternal(aPrincipal, /* aTentative */ false)) {
     // Transmit Blob URLs for the newly loaded origin.
     // Skip broadcast principals as they'll already have been sent.
     if (!BlobURLProtocolHandler::IsBlobURLBroadcastPrincipal(aPrincipal)) {

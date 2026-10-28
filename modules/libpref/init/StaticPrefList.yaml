@@ -2107,7 +2107,7 @@
 # Testing-only pref which makes data: URIs be loaded in a "web" content process
 # instead of within a process based on the URI's loader.
 - name: browser.tabs.remote.dataUriInDefaultWebProcess
-  type: bool
+  type: RelaxedAtomicBool
   value: false
   mirror: always
 

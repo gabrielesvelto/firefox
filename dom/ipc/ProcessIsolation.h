@@ -18,6 +18,7 @@
 namespace mozilla::dom {
 
 class CanonicalBrowsingContext;
+class LoadedOriginSet;
 class WindowGlobalParent;
 
 extern mozilla::LazyLogModule gProcessIsolationLog;
@@ -168,6 +169,9 @@ enum class ValidatePrincipalOptions {
 
   // Allow the system principal unconditionally, ignoring the LoadedOriginSet.
   AlwaysAllowSystem,
+
+  // Internal flag used while validating null principal precursors.
+  Internal_ValidatingPrecursor,
 };
 
 /**
@@ -180,7 +184,7 @@ enum class ValidatePrincipalOptions {
 bool ValidatePrincipalCouldPotentiallyBeLoadedBy(
     nsIPrincipal* aPrincipal, const nsACString& aRemoteType,
     const EnumSet<ValidatePrincipalOptions>& aOptions,
-    FunctionRef<bool(nsIPrincipal*)> aIsPrincipalLoaded = nullptr);
+    LoadedOriginSet* aLoadedOriginSet = nullptr);
 
 }  // namespace mozilla::dom
 
