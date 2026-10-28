@@ -477,7 +477,7 @@ fix-stacks:
     fetch:
         type: git
         repo: https://github.com/mozilla/fix-stacks/
-        revision: bbb94d2e9aeeddd5e5fea3a2bb90b5bff9361bb5
+        revision: 0cabeccc13b8254962599b81d5bcc658e9730baf
 
 upload-symbols-linux64:
     description: upload-symbols command-line client
