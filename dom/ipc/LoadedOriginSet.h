@@ -7,6 +7,7 @@
 
 #include "mozilla/Mutex.h"
 #include "mozilla/OriginAttributes.h"
+#include "mozilla/dom/ProcessIsolation.h"
 #include "nsISupportsImpl.h"
 #include "nsTHashMap.h"
 
@@ -70,6 +71,10 @@ class LoadedOriginSet {
   // Should only be directly called by ContentParent::AboutToLoadOrigin and
   // ContentChild::RecvAddLoadedOrigin.
   [[nodiscard]] Level AddInternal(nsIPrincipal* aPrincipal, bool aTentative);
+
+  bool ValidatePrincipal(
+      nsIPrincipal* aPrincipal,
+      const EnumSet<ValidatePrincipalOptions>& aOptions = {});
 
  private:
   ~LoadedOriginSet() = default;

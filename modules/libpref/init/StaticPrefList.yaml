@@ -3690,6 +3690,13 @@
   mirror: always
 #endif
 
+# This is a temporary preference intended to allow relaxing the new
+# LoadedOriginSet checks from bug 2055554 if they start causing issues.
+- name: dom.ipc.validatePrincipal.validateSiteLoaded
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+
 # This controls whether JS IPC messages are sent from child to parent using
 # the typeable JSIPCValue encoding, or simply sent using structured cloning.
 # This being true is necessary to type check messages.

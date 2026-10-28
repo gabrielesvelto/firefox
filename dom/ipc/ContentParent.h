@@ -1679,6 +1679,12 @@ class ThreadsafeContentParentHandle final {
 
   LoadedOriginSet* LoadedOrigins() const { return mLoadedOrigins; }
 
+  // Whenever receiving a Principal we need to validate that Principal case
+  // by case, where we grant individual callsites to customize the checks!
+  bool ValidatePrincipal(
+      nsIPrincipal* aPrincipal,
+      const EnumSet<ValidatePrincipalOptions>& aOptions = {});
+
  private:
   ThreadsafeContentParentHandle(ContentParent* aActor, ContentParentId aChildID,
                                 const nsACString& aRemoteType)

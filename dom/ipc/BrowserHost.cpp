@@ -238,7 +238,8 @@ BrowserHost::CreateAboutBlankDocumentViewer(
 
   // Before creating the viewer in-content, ensure that the process is allowed
   // to load this principal.
-  if (NS_WARN_IF(!mRoot->Manager()->ValidatePrincipal(aPrincipal))) {
+  if (NS_WARN_IF(!mRoot->Manager()->ValidatePrincipal(
+          aPrincipal, {ValidatePrincipalOptions::AllowNotLoadedOrigin}))) {
     ContentParent::LogAndAssertFailedPrincipalValidationInfo(
         aPrincipal, "BrowserHost::CreateAboutBlankDocumentViewer");
     return NS_ERROR_DOM_SECURITY_ERR;

@@ -9501,13 +9501,13 @@ bool nsDocShell::ShouldDoInitialAboutBlankSyncLoad(
         mDocumentViewer->GetDocument()->NodePrincipal()->GetIsNullPrincipal(),
         "Load looks like first load but does not want principal inheritance.");
   } else {
-    if (XRE_IsContentProcess() &&
-        !ValidatePrincipalCouldPotentiallyBeLoadedBy(
-            aPrincipalToInherit, ContentChild::GetSingleton()->GetRemoteType(),
-            {})) {
-      // Principal doesn't match our remote type, so the we need the normal
-      // load path to do a process switch.
-      return false;
+    if (XRE_IsContentProcess()) {
+      RefPtr<LoadedOriginSet> loadedOrigins = CurrentLoadedOriginSet();
+      if (!loadedOrigins->ValidatePrincipal(aPrincipalToInherit)) {
+        // We can't directly load this principal, so we need the normal load
+        // path to do a process switch.
+        return false;
+      }
     }
 
     // If a page opens about:blank, it will have a content principal.

@@ -2470,9 +2470,10 @@ void DocumentLoadListener::TriggerRedirectToRealChannel(
 
     // Validate that the target process, if specified, would be allowed to load
     // this principal, and fail the navigation if it would not.
-    // NOTE: Keep this in sync with the similar check in
+    // NOTE: Keep the AllowSystem condition in sync with the similar check in
     // BrowserParent::RecvNewWindowGlobal.
-    EnumSet<ValidatePrincipalOptions> validationOptions = {};
+    EnumSet<ValidatePrincipalOptions> validationOptions = {
+        ValidatePrincipalOptions::AllowNotLoadedOrigin};
     if (xpc::IsInAutomation()) {
       // Automation-Only: chrome://reftest/** + blank subframes
       bool isChromeReftest = false;
@@ -2488,7 +2489,7 @@ void DocumentLoadListener::TriggerRedirectToRealChannel(
            GetParentWindowContext()
                ->DocumentPrincipal()
                ->IsSystemPrincipal())) {
-        validationOptions += ValidatePrincipalOptions::AllowSystem;
+        validationOptions += ValidatePrincipalOptions::AlwaysAllowSystem;
       }
     }
     if (!contentParent->ValidatePrincipal(unsandboxedPrincipal,

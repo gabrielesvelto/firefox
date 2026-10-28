@@ -924,8 +924,8 @@ mozilla::ipc::IPCResult HttpChannelParent::RecvRedirect2Verify(
             return false;
           }
           nsCOMPtr<nsIPrincipal> principal = principalOrErr.unwrap();
-          if (!cp->ValidatePrincipal(principal,
-                                     {ValidatePrincipalOptions::AllowSystem})) {
+          if (!cp->ValidatePrincipal(
+                  principal, {ValidatePrincipalOptions::AllowSystemIfLoaded})) {
             ContentParent::LogAndAssertFailedPrincipalValidationInfo(principal,
                                                                      __func__);
             return false;
@@ -2023,8 +2023,9 @@ void HttpChannelParent::UpdateAltDataBindingOrigin(HttpBaseChannel* aChannel) {
     if (Manager() && Manager()->Manager()) {
       cp = static_cast<ContentParent*>(Manager()->Manager());
     }
-    if (!cp || !cp->ValidatePrincipal(
-                   principal, {ValidatePrincipalOptions::AllowSystem})) {
+    if (!cp ||
+        !cp->ValidatePrincipal(
+            principal, {ValidatePrincipalOptions::AllowSystemIfLoaded})) {
       LOG(
           ("HttpChannelParent::UpdateAltDataBindingOrigin [this=%p] principal "
            "not valid for the content process",

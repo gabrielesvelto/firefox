@@ -87,4 +87,19 @@ LoadedOriginSet::Level LoadedOriginSet::AddInternal(nsIPrincipal* aPrincipal,
   return previous;
 }
 
+bool LoadedOriginSet::ValidatePrincipal(
+    nsIPrincipal* aPrincipal,
+    const EnumSet<ValidatePrincipalOptions>& aOptions) {
+  nsCString remoteType = GetRemoteType();
+  auto isPrincipalLoaded = [&](nsIPrincipal* prin) {
+    // FIXME: Currently we only match site, and ignore OAs. This is consistent
+    // with ValidatePrincipal behaviour prior to bug 2055554. In the future, we
+    // hope to tighten these checks.
+    return !StaticPrefs::dom_ipc_validatePrincipal_validateSiteLoaded() ||
+           Has(prin, Level::SiteOnly, OriginAttributes::STRIP_ALL);
+  };
+  return ValidatePrincipalCouldPotentiallyBeLoadedBy(
+      aPrincipal, remoteType, aOptions, isPrincipalLoaded);
+}
+
 }  // namespace mozilla::dom

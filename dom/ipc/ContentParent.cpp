@@ -1370,8 +1370,7 @@ mozilla::ipc::IPCResult ContentParent::PrincipalValidationIpcFail(
 bool ContentParent::ValidatePrincipal(
     nsIPrincipal* aPrincipal,
     const EnumSet<ValidatePrincipalOptions>& aOptions) {
-  return ValidatePrincipalCouldPotentiallyBeLoadedBy(aPrincipal, mRemoteType,
-                                                     aOptions);
+  return mThreadsafeHandle->ValidatePrincipal(aPrincipal, aOptions);
 }
 
 NS_IMETHODIMP ContentParent::ValidatePrincipalXPCOM(nsIPrincipal* aPrincipal,
@@ -5908,7 +5907,7 @@ ContentParent::RecvUnstoreAndBroadcastBlobURLUnregistration(
 
   for (const BroadcastBlobURLUnregistrationRequest& request : aRequests) {
     if (!ValidatePrincipal(request.principal(),
-                           {ValidatePrincipalOptions::AllowSystem})) {
+                           {ValidatePrincipalOptions::AlwaysAllowSystem})) {
       return PrincipalValidationIpcFail(request.principal(), this, __func__);
     }
 
@@ -6087,7 +6086,9 @@ NS_IMETHODIMP
 ContentParent::AboutToLoadOrigin(nsIPrincipal* aPrincipal) {
   // NOTE: We allow system here, as it is possible that a content process could
   // load a system document still for chrome://reftest/**.
-  if (!ValidatePrincipal(aPrincipal, {ValidatePrincipalOptions::AllowSystem})) {
+  if (!ValidatePrincipal(aPrincipal,
+                         {ValidatePrincipalOptions::AllowNotLoadedOrigin,
+                          ValidatePrincipalOptions::AlwaysAllowSystem})) {
     LogAndAssertFailedPrincipalValidationInfo(aPrincipal, "AboutToLoadOrigin");
     return NS_ERROR_FAILURE;
   }
@@ -7376,13 +7377,13 @@ mozilla::ipc::IPCResult ContentParent::RecvWindowPostMessage(
   }
 
   if (!ValidatePrincipal(aData.callerPrincipal(),
-                         {ValidatePrincipalOptions::AllowSystem,
+                         {ValidatePrincipalOptions::AlwaysAllowSystem,
                           ValidatePrincipalOptions::AllowExpanded})) {
     return PrincipalValidationIpcFail(aData.callerPrincipal(), this, __func__);
   }
 
   if (!ValidatePrincipal(aData.subjectPrincipal(),
-                         {ValidatePrincipalOptions::AllowSystem,
+                         {ValidatePrincipalOptions::AlwaysAllowSystem,
                           ValidatePrincipalOptions::AllowExpanded})) {
     return PrincipalValidationIpcFail(aData.subjectPrincipal(), this, __func__);
   }
@@ -8135,6 +8136,12 @@ ThreadsafeContentParentHandle::TryAddKeepAlive(uint64_t aBrowserId) {
   ++mKeepAlivesPerBrowserId.LookupOrInsert(aBrowserId, 0);
   return UniqueThreadsafeContentParentKeepAlive{do_AddRef(this).take(),
                                                 {.mBrowserId = aBrowserId}};
+}
+
+bool ThreadsafeContentParentHandle::ValidatePrincipal(
+    nsIPrincipal* aPrincipal,
+    const EnumSet<ValidatePrincipalOptions>& aOptions) {
+  return mLoadedOrigins->ValidatePrincipal(aPrincipal, aOptions);
 }
 
 }  // namespace dom

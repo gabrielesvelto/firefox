@@ -624,8 +624,9 @@ IPCResult WindowGlobalParent::RecvUpdateDocumentCspSettings(
 
 mozilla::ipc::IPCResult WindowGlobalParent::RecvSetClientInfo(
     const IPCClientInfo& aIPCClientInfo) {
-  if (!ClientIsValidPrincipalInfo(aIPCClientInfo.principalInfo(),
-                                  GetRemoteType())) {
+  if (!ClientIsValidPrincipalInfo(
+          aIPCClientInfo.principalInfo(),
+          GetContentParent() ? GetContentParent()->LoadedOrigins() : nullptr)) {
     return IPC_FAIL(this, "SetClientInfo principal not valid for remote type");
   }
   mClientInfo = Some(ClientInfo(aIPCClientInfo));
