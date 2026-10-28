@@ -9691,8 +9691,8 @@ nsresult HTMLEditor::ReapplyCachedStyles() {
     return NS_OK;
   }
 
-  const AutoPendingStyleCacheArray cachedPendingStyles(
-      TopLevelEditSubActionDataRef().mCachedPendingStyles->Clone());
+  const AutoPendingStyleCacheArray cachedPendingStyles{
+      TopLevelEditSubActionDataRef().mCachedPendingStyles->Clone()};
   for (const PendingStyleCache& styleCacheBeforeEdit :
        Reversed(cachedPendingStyles)) {
     bool isFirst = false, isAny = false, isAll = false;
