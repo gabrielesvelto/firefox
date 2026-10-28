@@ -12114,8 +12114,8 @@ void nsHttpChannel::MaybeStartCacheWaitTimer() {
     RefPtr<TimerCallback> timerCallback = new TimerCallback(this);
     mCacheWaitTimer->InitWithCallback(timerCallback, delay,
                                       nsITimer::TYPE_ONE_SHOT);
-    LOG(("nsHttpChannel::MaybeStartCacheWaitTimer [this=%p] fires in %ums", this,
-         delay));
+    LOG(("nsHttpChannel::MaybeStartCacheWaitTimer [this=%p] fires in %ums",
+         this, delay));
   }
 }
 
