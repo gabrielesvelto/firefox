@@ -503,7 +503,14 @@ void TextureClient::Destroy() {
     mActor->Lock();
   }
 
-  mBorrowedDrawTarget = nullptr;
+  if (mBorrowedDrawTarget) {
+    if (mData) {
+      mData->ReturnDrawTarget(mBorrowedDrawTarget.forget());
+    } else {
+      mBorrowedDrawTarget->DetachAllSnapshots();
+      mBorrowedDrawTarget = nullptr;
+    }
+  }
   mBorrowedSnapshot = false;
 
   RefPtr<TextureChild> actor = std::move(mActor);
