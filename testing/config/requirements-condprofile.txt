@@ -1,6 +1,6 @@
 -c requirements-common.txt
 
-certifi==2024.2.2
+certifi==2026.10.19
 psutil==7.0.0
 requests==2.32.3
 aiohttp==3.7.4.post0
