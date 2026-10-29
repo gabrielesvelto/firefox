@@ -668,6 +668,10 @@ class MOZ_STACK_CLASS nsFrameConstructorState {
                           nsContainerFrame* aAbsoluteContainingBlock,
                           nsContainerFrame* aFloatContainingBlock);
 
+  enum { ForRepeatingTableHeaders };
+  nsFrameConstructorState(PresShell* aPresShell,
+                          decltype(ForRepeatingTableHeaders));
+
   ~nsFrameConstructorState();
 
   // Process the frame insertions for all the out-of-flow nsAbsoluteItems.
@@ -773,6 +777,16 @@ class MOZ_STACK_CLASS nsFrameConstructorState {
                                            bool aCanBePositioned,
                                            bool aCanBeFloated,
                                            nsFrameState* aPlaceholderType);
+
+ private:
+  enum class UseTopLayerList : bool { No, Yes };
+
+  nsFrameConstructorState(PresShell* aPresShell,
+                          nsContainerFrame* aFixedContainingBlock,
+                          nsContainerFrame* aAbsoluteContainingBlock,
+                          nsContainerFrame* aFloatContainingBlock,
+                          already_AddRefed<nsILayoutHistoryState> aHistoryState,
+                          UseTopLayerList aUseTopLayerList);
 };
 
 nsFrameConstructorState::nsFrameConstructorState(
@@ -780,14 +794,27 @@ nsFrameConstructorState::nsFrameConstructorState(
     nsContainerFrame* aAbsoluteContainingBlock,
     nsContainerFrame* aFloatContainingBlock,
     already_AddRefed<nsILayoutHistoryState> aHistoryState)
+    : nsFrameConstructorState(aPresShell, aFixedContainingBlock,
+                              aAbsoluteContainingBlock, aFloatContainingBlock,
+                              std::move(aHistoryState), UseTopLayerList::Yes) {}
+
+nsFrameConstructorState::nsFrameConstructorState(
+    PresShell* aPresShell, nsContainerFrame* aFixedContainingBlock,
+    nsContainerFrame* aAbsoluteContainingBlock,
+    nsContainerFrame* aFloatContainingBlock,
+    already_AddRefed<nsILayoutHistoryState> aHistoryState,
+    UseTopLayerList aUseTopLayerList)
     : mPresContext(aPresShell->GetPresContext()),
       mPresShell(aPresShell),
       mFrameConstructor(aPresShell->FrameConstructor()),
       mFloatedList(aFloatContainingBlock),
       mAbsoluteList(aAbsoluteContainingBlock),
-      mTopLayerAbsoluteList(mFrameConstructor->GetCanvasFrame()),
+      mTopLayerAbsoluteList(aUseTopLayerList == UseTopLayerList::Yes
+                                ? static_cast<nsContainerFrame*>(
+                                      mFrameConstructor->GetCanvasFrame())
+                                : nullptr),
       mAncestorFixedList(aFixedContainingBlock),
-      mRealFixedList(aFixedContainingBlock
+      mRealFixedList(aUseTopLayerList == UseTopLayerList::Yes
                          ? static_cast<nsContainerFrame*>(
                                mFrameConstructor->GetRootFrame())
                          : nullptr),
@@ -815,6 +842,13 @@ nsFrameConstructorState::nsFrameConstructorState(
           aPresShell, aFixedContainingBlock, aAbsoluteContainingBlock,
           aFloatContainingBlock,
           aPresShell->GetDocument()->GetLayoutHistoryState()) {}
+
+nsFrameConstructorState::nsFrameConstructorState(
+    PresShell* aPresShell, decltype(ForRepeatingTableHeaders))
+    : nsFrameConstructorState(
+          aPresShell, nullptr, nullptr, nullptr,
+          aPresShell->GetDocument()->GetLayoutHistoryState(),
+          UseTopLayerList::No) {}
 
 nsFrameConstructorState::~nsFrameConstructorState() {
   MOZ_COUNT_DTOR(nsFrameConstructorState);
@@ -7362,7 +7396,8 @@ nsIFrame* nsCSSFrameConstructor::CreateContinuingTableFrame(
       nsTableRowGroupFrame* headerFooterFrame;
       nsFrameList childList;
 
-      nsFrameConstructorState state(mPresShell, nullptr, nullptr, nullptr);
+      nsFrameConstructorState state(
+          mPresShell, nsFrameConstructorState::ForRepeatingTableHeaders);
       state.mCreatingExtraFrames = true;
 
       ComputedStyle* const headerFooterComputedStyle = rowGroupFrame->Style();
