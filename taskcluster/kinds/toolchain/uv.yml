@@ -19,6 +19,7 @@ task-defaults:
             - uv
         toolchain:
             - linux64-clang-toolchain
+            - linux64-rust-cross
 
 linux64-uv:
     treeherder:
@@ -27,7 +28,6 @@ linux64-uv:
         arguments: ['x86_64-unknown-linux-gnu']
     fetches:
         toolchain:
-            - linux64-rust-1.97
             - sysroot-x86_64-linux-gnu
 
 macosx64-uv:
@@ -37,7 +37,6 @@ macosx64-uv:
         arguments: ['x86_64-apple-darwin']
     fetches:
         toolchain:
-            - linux64-rust-macos-1.97
             - macosx64-sdk-toolchain
 
 macosx64-aarch64-uv:
@@ -47,7 +46,6 @@ macosx64-aarch64-uv:
         arguments: ['aarch64-apple-darwin']
     fetches:
         toolchain:
-            - linux64-rust-macos-1.97
             - macosx64-sdk-toolchain
 
 win64-uv:
@@ -57,7 +55,6 @@ win64-uv:
         arguments: ['x86_64-pc-windows-msvc']
     fetches:
         toolchain:
-            - linux64-rust-windows-1.97
             - vs-toolchain
 
 win64-aarch64-uv:
@@ -67,5 +64,4 @@ win64-aarch64-uv:
         arguments: ['aarch64-pc-windows-msvc']
     fetches:
         toolchain:
-            - linux64-rust-windows-1.97
             - vs-toolchain
