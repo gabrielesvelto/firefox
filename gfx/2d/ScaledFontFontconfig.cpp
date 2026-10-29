@@ -475,8 +475,7 @@ bool ScaledFontFontconfig::GetWRFontInstanceOptions(
   *aOutPlatformOptions = Some(platformOptions);
 
   if (HasVariationSettings()) {
-    UnscaledFontFreeType::GetVariationSettingsFromFace(aOutVariations,
-                                                       mFace->GetFace());
+    UnscaledFontFreeType::GetVariationSettingsFromFace(aOutVariations, mFace);
   }
 
   return true;
