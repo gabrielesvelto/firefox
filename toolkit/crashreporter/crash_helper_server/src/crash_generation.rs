@@ -416,11 +416,17 @@ pub(crate) unsafe extern "C" fn finalize_breakpad_minidump(
     let minidump_path = PathBuf::from(<OsString as BreakpadString>::from_ptr(minidump_path_ptr));
 
     let mut generator = generator.as_ref().unwrap().lock().unwrap();
+    let process_type = if process_id.get_native() == generator.main_process_handle.as_raw_handle() {
+        log::error!("This is the main process");
+        ProcessType::Parent
+    } else {
+        ProcessType::Child
+    };
     let error = generator.finalize_crash_report(
         process_id.get_native(),
         extra_data,
         &minidump_path,
-        ProcessType::Child,
+        process_type,
     );
 
     generator.add_memory_report(&minidump_path);
