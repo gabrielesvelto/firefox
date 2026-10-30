@@ -30,18 +30,12 @@ use std::{
 
 #[cfg(target_os = "windows")]
 type BreakpadInitType = std::os::windows::io::RawHandle;
-#[cfg(target_os = "windows")]
-type NativeProcessId = windows_sys::Win32::Foundation::HANDLE;
 
 #[cfg(target_os = "macos")]
 type BreakpadInitType = *const std::ffi::c_char;
-#[cfg(target_os = "macos")]
-type NativeProcessId = u32;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 type BreakpadInitType = std::os::fd::RawFd;
-#[cfg(any(target_os = "linux", target_os = "android"))]
-type NativeProcessId = Pid;
 
 #[repr(C)]
 pub struct BreakpadProcessId {
@@ -53,7 +47,7 @@ pub struct BreakpadProcessId {
 }
 
 impl BreakpadProcessId {
-    pub fn get_native(&self) -> NativeProcessId {
+    pub fn get_native(&self) -> RawProcessHandle {
         cfg_if! {
             if #[cfg(any(target_os = "linux", target_os = "android"))] {
                 self.pid
