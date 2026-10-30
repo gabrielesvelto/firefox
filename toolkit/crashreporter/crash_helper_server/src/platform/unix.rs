@@ -8,7 +8,12 @@ use nix::{
     libc::_exit,
     unistd::{fork, getpid, setsid, write, ForkResult},
 };
-use std::{ffi::OsStr, io::stdout, os::fd::AsFd};
+use std::{
+    ffi::{OsStr, OsString},
+    io::stdout,
+    os::fd::AsFd,
+    path::PathBuf,
+};
 
 pub(crate) const PROXY_RENDEZ_VOUS: bool = false;
 
@@ -62,4 +67,35 @@ pub(crate) unsafe fn daemonize() {
 
 pub(crate) fn get_client_handle(_handle: &OsStr) -> Result<Option<ProcessHandle>> {
     Ok(None)
+}
+
+/// Turns the value of MOZ_APP_DATA into a path the way nsLocalFile does: an
+/// absolute path is used as is, `~` and a path starting with `~/` are relative
+/// to the home directory, and a path starting with `~user/` is relative to that
+/// user's home directory. Anything else is rejected.
+pub(crate) fn path_from_env_value(value: OsString) -> Option<PathBuf> {
+    use std::{ffi::OsStr, os::unix::ffi::OsStrExt, path::Path};
+
+    let bytes = value.as_bytes();
+    match bytes {
+        [b'/', ..] => Some(PathBuf::from(value)),
+        [b'~'] | [b'~', b'/'] => dirs::home_dir(),
+        [b'~', suffix @ ..] if suffix.starts_with(b"/") => {
+            // Append the rest of the value as is, like nsLocalFile does, so
+            // that `~//dir` stays inside the home directory instead of
+            // becoming `/dir`.
+            let mut path = dirs::home_dir()?.into_os_string();
+            path.push(OsStr::from_bytes(suffix));
+            Some(PathBuf::from(path))
+        }
+        [b'~', rest @ ..] => {
+            let users_dir = if cfg!(target_os = "macos") {
+                "/Users"
+            } else {
+                "/home"
+            };
+            Some(Path::new(users_dir).join(OsStr::from_bytes(rest)))
+        }
+        _ => None,
+    }
 }

@@ -12,15 +12,22 @@ mod logging;
 mod phc;
 mod platform;
 
+use cfg_if::cfg_if;
 use crash_helper_common::{
     ApplicationInfo, BreakpadChar, BreakpadData, BreakpadRawData, BreakpadString, IPCConnector,
     IPCListener, Pid,
 };
-use std::{env, ffi::OsString, path::{Path, PathBuf}, process::Command};
+use mozbuild::config;
+use std::{
+    env,
+    ffi::OsString,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use crash_generation::{finalize_breakpad_minidump, initialize_static_annotations};
 use ipc_server::{IPCServer, IPCServerState};
-use platform::CRASH_REPORTER_PATH;
+use platform::{path_from_env_value, CRASH_REPORTER_PATH};
 
 /// Runs the crash generator process logic, this includes the IPC used by
 /// processes to signal that they crashed, the IPC used to retrieve crash
@@ -248,6 +255,38 @@ fn unwrap_option_with_message<T>(res: Option<T>, error_string: &str) -> T {
         None => {
             log::error!("{error_string}");
             panic!("{}", error_string);
+        }
+    }
+}
+
+// The crash helper might be launched before Firefox has a chance to provide
+// the UAppData special directory, so we generate its value autonomously here.
+// On Unix, use the directory in MOZ_APP_DATA if it's set, as the main process
+// does.
+pub(crate) fn guess_user_app_data_dir(custom_dir: Option<OsString>) -> Option<PathBuf> {
+    if let Some(custom_dir) = custom_dir.and_then(path_from_env_value) {
+        return Some(custom_dir);
+    }
+
+    let home_dir = dirs::home_dir()?;
+
+    cfg_if! {
+        if #[cfg(target_os = "linux")] {
+            use std::fs::exists;
+
+            let legacy_data = home_dir.join(".mozilla").join(config::MOZ_APP_NAME);
+            let data_path = if std::env::var_os("MOZ_LEGACY_HOME").is_some() || exists(&legacy_data).ok()? {
+                legacy_data
+            } else {
+                dirs::config_dir()?.join("mozilla").join(config::MOZ_APP_NAME)
+            };
+            Some(data_path)
+        } else if #[cfg(target_os = "macos")] {
+            Some(home_dir.join("Library").join("Application Support").join(config::MOZ_APP_BASENAME))
+        } else if #[cfg(target_os = "windows")] {
+            Some(home_dir.join("AppData").join("Roaming").join(config::MOZ_APP_VENDOR).join(config::MOZ_APP_BASENAME))
+        } else {
+            None
         }
     }
 }

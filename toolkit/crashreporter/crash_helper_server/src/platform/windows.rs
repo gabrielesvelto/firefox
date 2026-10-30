@@ -4,7 +4,7 @@
 
 use anyhow::Result;
 use crash_helper_common::ProcessHandle;
-use std::ffi::OsStr;
+use std::{ffi::{OsStr, OsString}, path::PathBuf};
 
 pub(crate) const CRASH_REPORTER_PATH: &str = "crashreporter.exe";
 pub(crate) const PROXY_RENDEZ_VOUS: bool = true;
@@ -16,4 +16,11 @@ pub(crate) unsafe fn daemonize() {}
 pub(crate) fn get_client_handle(handle: &OsStr) -> Result<Option<ProcessHandle>> {
     let handle = ProcessHandle::deserialize(handle)?;
     Ok(Some(handle))
+}
+
+// On Windows, nsLocalFile rejects forward slashes in MOZ_APP_DATA, requires a
+// drive letter or a UNC prefix, and blocks some UNC paths. Those rules aren't
+// replicated here, so the override is ignored on Windows.
+pub(crate) fn path_from_env_value(_value: OsString) -> Option<PathBuf> {
+    None
 }

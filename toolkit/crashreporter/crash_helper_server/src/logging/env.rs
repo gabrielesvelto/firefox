@@ -2,14 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-use cfg_if::cfg_if;
 use mozbuild::config;
 use std::{
-    ffi::OsString,
     fs::{self, File},
     io::{self, Write},
     path::PathBuf,
 };
+
+use crate::guess_user_app_data_dir;
 
 /// Initialize logging
 pub(crate) fn init() {
@@ -25,78 +25,6 @@ pub(crate) fn init() {
         )
         .target(env_logger::fmt::Target::Pipe(log_target))
         .init();
-}
-
-// The crash helper might be launched before Firefox has a chance to provide
-// the UAppData special directory, so we generate its value autonomously here.
-// On Unix, use the directory in MOZ_APP_DATA if it's set, as the main process
-// does.
-fn guess_user_app_data_dir(custom_dir: Option<OsString>) -> Option<PathBuf> {
-    if let Some(custom_dir) = custom_dir.and_then(path_from_env_value) {
-        return Some(custom_dir);
-    }
-
-    let home_dir = dirs::home_dir()?;
-
-    cfg_if! {
-        if #[cfg(target_os = "linux")] {
-            use std::fs::exists;
-
-            let legacy_data = home_dir.join(".mozilla").join(config::MOZ_APP_NAME);
-            let data_path = if std::env::var_os("MOZ_LEGACY_HOME").is_some() || exists(&legacy_data).ok()? {
-                legacy_data
-            } else {
-                dirs::config_dir()?.join("mozilla").join(config::MOZ_APP_NAME)
-            };
-            Some(data_path)
-        } else if #[cfg(target_os = "macos")] {
-            Some(home_dir.join("Library").join("Application Support").join(config::MOZ_APP_BASENAME))
-        } else if #[cfg(target_os = "windows")] {
-            Some(home_dir.join("AppData").join("Roaming").join(config::MOZ_APP_VENDOR).join(config::MOZ_APP_BASENAME))
-        } else {
-            None
-        }
-    }
-}
-
-/// Turns the value of MOZ_APP_DATA into a path the way nsLocalFile does: an
-/// absolute path is used as is, `~` and a path starting with `~/` are relative
-/// to the home directory, and a path starting with `~user/` is relative to that
-/// user's home directory. Anything else is rejected.
-#[cfg(unix)]
-fn path_from_env_value(value: OsString) -> Option<PathBuf> {
-    use std::{ffi::OsStr, os::unix::ffi::OsStrExt, path::Path};
-
-    let bytes = value.as_bytes();
-    match bytes {
-        [b'/', ..] => Some(PathBuf::from(value)),
-        [b'~'] | [b'~', b'/'] => dirs::home_dir(),
-        [b'~', suffix @ ..] if suffix.starts_with(b"/") => {
-            // Append the rest of the value as is, like nsLocalFile does, so
-            // that `~//dir` stays inside the home directory instead of
-            // becoming `/dir`.
-            let mut path = dirs::home_dir()?.into_os_string();
-            path.push(OsStr::from_bytes(suffix));
-            Some(PathBuf::from(path))
-        }
-        [b'~', rest @ ..] => {
-            let users_dir = if cfg!(target_os = "macos") {
-                "/Users"
-            } else {
-                "/home"
-            };
-            Some(Path::new(users_dir).join(OsStr::from_bytes(rest)))
-        }
-        _ => None,
-    }
-}
-
-// On Windows, nsLocalFile rejects forward slashes in MOZ_APP_DATA, requires a
-// drive letter or a UNC prefix, and blocks some UNC paths. Those rules aren't
-// replicated here, so the override is ignored on Windows.
-#[cfg(not(unix))]
-fn path_from_env_value(_value: OsString) -> Option<PathBuf> {
-    None
 }
 
 fn make_log_target(
