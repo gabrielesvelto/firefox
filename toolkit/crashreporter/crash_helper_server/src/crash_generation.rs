@@ -64,12 +64,6 @@ impl CrashReport {
  * Crash generator                                                            *
  ******************************************************************************/
 
-#[derive(PartialEq)]
-enum ProcessType {
-    Parent,
-    Child,
-}
-
 pub(crate) struct CrashGenerator
 where
     // A reference to the `CrashGenerator` object is stored in the
@@ -188,13 +182,12 @@ impl CrashGenerator {
         );
 
         if let Some(path) = path {
-            let process_type = if id == 0 {
-                ProcessType::Parent
-            } else {
-                ProcessType::Child
-            };
             let process = AsRawProcessHandle::as_raw_handle(target_process);
-            let annotations = retrieve_annotations(process, process_type);
+            let annotations = if id == 0 {
+                Ok(vec![])
+            } else {
+                retrieve_annotations(process)
+            };
             let error =
                 self.finalize_crash_report(process, annotations, /* extra_data */ None, &path);
             Some(CrashReport::new(path.as_os_str(), &error))
@@ -442,16 +435,21 @@ pub(crate) unsafe extern "C" fn finalize_breakpad_minidump(
     let generator = generator as *const Mutex<CrashGenerator>;
     let minidump_path = PathBuf::from(<OsString as BreakpadString>::from_ptr(minidump_path_ptr));
 
-    #[cfg(any(target_os = "android", target_os = "linux"))]
-    let annotations = if process_id.remote_executor_fd >= 0 {
-        linux::retrieve_annotations_remote(process_id.remote_executor_fd)
-    } else {
-        retrieve_annotations(process_id.get_native(), ProcessType::Child)
-    };
-    #[cfg(not(any(target_os = "android", target_os = "linux")))]
-    let annotations = retrieve_annotations(process_id.get_native(), ProcessType::Child);
-
     let mut generator = generator.as_ref().unwrap().lock().unwrap();
+    let annotations = if process_id.get_native() == generator.main_process_handle.as_raw_handle() {
+        log::error!("This is the main process");
+        Ok(vec![])
+    } else {
+        #[cfg(any(target_os = "android", target_os = "linux"))]
+        if process_id.remote_executor_fd >= 0 {
+            linux::retrieve_annotations_remote(process_id.remote_executor_fd)
+        } else {
+            retrieve_annotations(process_id.get_native())
+        }
+        #[cfg(not(any(target_os = "android", target_os = "linux")))]
+        retrieve_annotations(process_id.get_native())
+    };
+
     let error = generator.finalize_crash_report(
         process_id.get_native(),
         annotations,
@@ -463,14 +461,7 @@ pub(crate) unsafe extern "C" fn finalize_breakpad_minidump(
     generator.insert_crash_report(&process_id, &minidump_path, error);
 }
 
-fn retrieve_annotations(
-    process: RawProcessHandle,
-    process_type: ProcessType,
-) -> Result<Vec<CAnnotation>> {
-    if process_type == ProcessType::Parent {
-        return Ok(vec![]);
-    }
-
+fn retrieve_annotations(process: RawProcessHandle) -> Result<Vec<CAnnotation>> {
     Ok(mozannotation_server::retrieve_annotations(
         process,
         CrashAnnotation::Count as usize,
