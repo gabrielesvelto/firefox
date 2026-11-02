@@ -24,7 +24,7 @@ use std::{
 };
 
 use crash_generation::{finalize_breakpad_minidump, initialize_static_annotations};
-use ipc_server::{IPCServer, IPCServerState};
+use ipc_server::{ClientEnvironment, IPCServer, IPCServerState};
 use platform::CRASH_REPORTER_PATH;
 
 /// Runs the crash generator process logic, this includes the IPC used by
@@ -195,8 +195,8 @@ fn main_loop(mut ipc_server: IPCServer) -> i32 {
                 match result {
                     IPCServerState::Running => {} // Go on
                     IPCServerState::ClientDisconnected => return 0,
-                    IPCServerState::ClientCrashed(minidump) => {
-                        maybe_launch_client(&minidump);
+                    IPCServerState::ClientCrashed(minidump, environment) => {
+                        maybe_launch_client(&minidump, environment);
                         return 0;
                     }
                 }
@@ -222,19 +222,20 @@ fn env_var_is_set(name: &'static str) -> bool {
     env::var(name).is_ok_and(|v| !v.is_empty())
 }
 
-fn maybe_launch_client(minidump: &Path) {
+fn maybe_launch_client(minidump: &Path, environment: ClientEnvironment) {
     if env_var_is_set("MOZ_CRASHREPORTER_NO_REPORT") || env_var_is_set("MOZ_CRASHREPORTER_FULLDUMP")
     {
         return;
     }
 
-    launch_client(minidump);
+    launch_client(minidump, environment);
 }
 
-fn launch_client(minidump: &Path) {
+fn launch_client(minidump: &Path, environment: ClientEnvironment) {
     let crashreporter = crashreporter_path();
     let _ = Command::new(crashreporter.as_path())
         .arg(minidump)
+        .envs(environment.into_env_vars())
         .spawn()
         .expect("Failed to launch the crash reporter client")
         .wait();

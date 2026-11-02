@@ -85,6 +85,9 @@ pub enum Kind {
     /// this message has been received the crash helper is capable of dumping
     /// the sending process.
     ProcessRendezVous = 12,
+    /// Set arguments used by the crash reporter client to restart the
+    /// application after a parent process crash.
+    SetClientEnvVar = 13,
 }
 
 // Bytes helpers to serialize/deserialize values not supported directly by the
@@ -264,20 +267,26 @@ impl Header {
 
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, FromPrimitive, ToPrimitive, PartialEq)]
-pub enum PathType {
-    /// The folder where crash reports are generated.
+pub enum PathKind {
+    /// The folder where minidumps are generated.
     CrashReports = 1,
     /// The path to a file where a memory report is potentially stored.
     MemoryReport = 2,
+    /// The top-level directory where crash data is stored.
+    Data = 3,
+    /// Directory where pending Glean pings are stored.
+    PendingPings = 4,
+    /// The directory holding the event files.
+    Events = 5,
 }
 
 pub struct SetPath {
-    pub path_type: PathType,
+    pub path_type: PathKind,
     pub path: OsString,
 }
 
 impl SetPath {
-    pub fn new(path_type: PathType, path: OsString) -> Self {
+    pub fn new(path_type: PathKind, path: OsString) -> Self {
         Self { path_type, path }
     }
 }
@@ -289,7 +298,7 @@ impl Message for SetPath {
 
     fn payload_size(&self) -> usize {
         let path_len = self.path.bytes_len();
-        (size_of::<PathType>() + size_of::<usize>())
+        (size_of::<PathKind>() + size_of::<usize>())
             .checked_add(path_len)
             .unwrap()
     }
@@ -316,7 +325,7 @@ impl Message for SetPath {
         let mut data = Bytes::from(data);
 
         let path_type = data.try_get_u8()?;
-        let path_type = PathType::from_u8(path_type).ok_or(MessageError::InvalidData)?;
+        let path_type = PathKind::from_u8(path_type).ok_or(MessageError::InvalidData)?;
         let path = data.try_get_vec()?;
         let path = <OsString as BreakpadString>::deserialize(path)
             .map_err(|_| MessageError::InvalidData)?;
@@ -328,11 +337,11 @@ impl Message for SetPath {
 /* Message used to retrieve a path used by the crash helper. */
 
 pub struct GetPath {
-    pub path_type: PathType,
+    pub path_type: PathKind,
 }
 
 impl GetPath {
-    pub fn new(path_type: PathType) -> Self {
+    pub fn new(path_type: PathKind) -> Self {
         Self { path_type }
     }
 }
@@ -343,7 +352,7 @@ impl Message for GetPath {
     }
 
     fn payload_size(&self) -> usize {
-        size_of::<PathType>()
+        size_of::<PathKind>()
     }
 
     fn ancillary_data_len(&self) -> usize {
@@ -366,7 +375,7 @@ impl Message for GetPath {
         let mut data = Bytes::from(data);
 
         let path_type = data.try_get_u8()?;
-        let path_type = PathType::from_u8(path_type).ok_or(MessageError::InvalidData)?;
+        let path_type = PathKind::from_u8(path_type).ok_or(MessageError::InvalidData)?;
 
         Ok(Self { path_type })
     }
@@ -1072,5 +1081,68 @@ impl Message for ProcessRendezVous {
             id,
             ancillary_data,
         })
+    }
+}
+
+/* Message sent by the main process to provide an environment variable that
+ * will be needed to instruct the crash reporter client to restart the
+ * application after a main process crash. */
+
+pub struct SetClientEnvVar {
+    pub key: String,
+    pub value: String,
+}
+
+impl SetClientEnvVar {
+    pub fn new(key: String, value: String) -> Self {
+        Self { key, value }
+    }
+}
+
+impl Message for SetClientEnvVar {
+    fn kind() -> Kind {
+        Kind::SetClientEnvVar
+    }
+
+    fn payload_size(&self) -> usize {
+        // Length of the key string
+        size_of::<usize>()
+            // Key string
+            .checked_add(self.key.len())
+            .unwrap()
+            // Length of the value string
+            .checked_add(size_of::<usize>())
+            .unwrap()
+            // Value string
+            .checked_add(self.value.len())
+            .unwrap()
+    }
+
+    fn ancillary_data_len(&self) -> usize {
+        0
+    }
+
+    fn encode(self) -> (Bytes, Bytes, Vec<AncillaryData>) {
+        let header = Header::encode(Self::kind(), self.payload_size());
+        let mut payload = BytesMut::with_capacity(self.payload_size());
+
+        payload.put_vec(self.key.as_bytes());
+        payload.put_vec(self.value.as_bytes());
+
+        (header, payload.freeze(), vec![])
+    }
+
+    fn decode(data: Vec<u8>, ancillary_data: Vec<AncillaryData>) -> Result<Self, MessageError> {
+        if !ancillary_data.is_empty() {
+            return Err(MessageError::UnexpectedAncillaryData);
+        }
+
+        let mut data = Bytes::from(data);
+
+        let key = String::from_utf8(data.try_get_vec()?).map_err(|_e| MessageError::InvalidData)?;
+        let value =
+            String::from_utf8(data.try_get_vec()?).map_err(|_e| MessageError::InvalidData)?;
+
+        Ok(Self { key, value })
     }
 }

@@ -94,9 +94,18 @@ fn path_from_env_value(value: OsString) -> Option<PathBuf> {
 // On Windows, nsLocalFile rejects forward slashes in MOZ_APP_DATA, requires a
 // drive letter or a UNC prefix, and blocks some UNC paths. Those rules aren't
 // replicated here, so the override is ignored on Windows.
+// On Windows, matching the behavior of nsLocalFile is tricky. We rely on Rust
+// fs::canonicalize() which will rid us of most but not all of the paths that
+// the nsLocalFileWin.cpp logic would reject. However we don't block some of
+// the UNC paths that nsLocalFile would block (those require reading
+// preferences) and we also don't block NTFS special paths (which is easier,
+// but would still require manually synchronizing the implemenation here with
+// nsLocalFileWin.cpp).
 #[cfg(not(unix))]
-fn path_from_env_value(_value: OsString) -> Option<PathBuf> {
-    None
+pub(crate) fn path_from_env_value(value: OsString) -> Option<PathBuf> {
+    let path = PathBuf::from(value);
+
+    fs::canonicalize(path).ok()
 }
 
 fn make_log_target(

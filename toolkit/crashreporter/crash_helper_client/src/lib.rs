@@ -4,8 +4,7 @@
 
 use anyhow::{bail, Result};
 use crash_helper_common::{
-    messages::{self},
-    ApplicationInfo, BreakpadString, FromRawThreadHandle, GeckoChildId, IPCClientChannel,
+    messages, ApplicationInfo, BreakpadString, FromRawThreadHandle, GeckoChildId, IPCClientChannel,
     IPCConnector, RawIPCConnector, RawThreadHandle, ThreadHandle,
 };
 #[cfg(any(target_os = "android", target_os = "linux"))]
@@ -15,7 +14,7 @@ use std::os::fd::RawFd;
 #[cfg(target_os = "windows")]
 use std::os::windows::io::{AsRawHandle, BorrowedHandle, OwnedHandle, RawHandle};
 use std::{
-    ffi::{c_char, CString, OsString},
+    ffi::{c_char, CStr, CString, OsString},
     hint::spin_loop,
     path::PathBuf,
     ptr::null_mut,
@@ -46,17 +45,22 @@ pub struct CrashHelperClient {
 }
 
 impl CrashHelperClient {
-    fn set_path(&self, path_type: messages::PathType, path: OsString) -> Result<()> {
+    fn set_path(&self, path_type: messages::PathKind, path: OsString) -> Result<()> {
         let message = messages::SetPath::new(path_type, path);
         self.connector.send_message(message)?;
         Ok(())
     }
 
-    fn get_path(&self, path_type: messages::PathType) -> Result<OsString> {
+    fn get_path(&self, path_type: messages::PathKind) -> Result<OsString> {
         let message = messages::GetPath::new(path_type);
         self.connector.send_message(message)?;
         let reply = self.connector.recv_reply::<messages::PathReply>()?;
         Ok(reply.path)
+    }
+
+    fn set_client_env_var(&self, key: &str, value: &str) -> Result<()> {
+        let message = messages::SetClientEnvVar::new(key.to_string(), value.to_string());
+        Ok(self.connector.send_message(message)?)
     }
 
     fn register_child_process(&mut self, id: GeckoChildId) -> Result<IPCConnector> {
@@ -236,27 +240,27 @@ pub struct CrashReport {
     error: *mut c_char,
 }
 
-/// Changes the path where crash reports are generated.
+/// Changes one the paths used by the crash helper
 ///
 /// # Safety
 ///
 /// The `client` parameter must be a valid pointer to the crash helper client
 /// object returned by the [`crash_helper_launch()`] or
-/// [`crash_helper_connect()`] functions. The `path` parameter must be a valid
-/// pointer to a platform-dependent nul-terminated string.
+/// [`crash_helper_connect()`] functions. The `path_type` parameter must be
+/// one of the [`messages::PathKind`] variants and the `path` parameter must
+/// be a valid pointer to a platform-dependent nul-terminated string.
 #[no_mangle]
-pub unsafe extern "C" fn set_crash_report_path(
+pub unsafe extern "C" fn set_crash_helper_path(
     client: *const CrashHelperClient,
+    path_type: messages::PathKind,
     path: *const BreakpadChar,
 ) -> bool {
     let client = client.as_ref().unwrap();
     let path = <OsString as BreakpadString>::from_ptr(path);
-    client
-        .set_path(messages::PathType::CrashReports, path)
-        .is_ok()
+    client.set_path(path_type, path).is_ok()
 }
 
-/// Retrieves the path where crash reports are generated.
+/// Retrieves one of the paths used by the crash helper.
 ///
 /// The returned path is a pointer to a nul-terminated UTF8 string on various
 /// Unixes (including macOS) and an UTF16 string on Windows.
@@ -265,19 +269,19 @@ pub unsafe extern "C" fn set_crash_report_path(
 ///
 /// The `client` parameter must be a valid pointer to the crash helper client
 /// object returned by the [`crash_helper_launch()`] or
-/// [`crash_helper_connect()`] functions.
+/// [`crash_helper_connect()`] functions. The `path_type` parameter must be
+/// one of the [`messages::PathKind`] variants.
 #[no_mangle]
-pub unsafe extern "C" fn get_crash_report_path(
+pub unsafe extern "C" fn get_crash_helper_path(
     client: *const CrashHelperClient,
+    path_type: messages::PathKind,
 ) -> *mut BreakpadChar {
     let client = client.as_ref().unwrap();
-    let path = client
-        .get_path(messages::PathType::CrashReports)
-        .unwrap_or(OsString::new());
+    let path = client.get_path(path_type).unwrap_or(OsString::new());
     BreakpadString::into_raw(path)
 }
 
-/// Releases a path obtained via [`get_crash_report_path()`]
+/// Releases a path obtained via [`get_crash_helper_path()`]
 ///
 /// # Safety
 ///
@@ -288,23 +292,31 @@ pub unsafe extern "C" fn release_path(path: *mut BreakpadChar) {
     let _string = <OsString as BreakpadString>::from_raw(path);
 }
 
-/// Changes the path where the memory report is found.
+/// Set a crash reporter client environment variable used to restart
+/// the application after a parent process crash.
 ///
 /// # Safety
 ///
-/// The `client` parameter must be a valid pointer to the crash helper client
-/// object returned by the [`crash_helper_launch()`] or
-/// [`crash_helper_connect()`] functions.
+/// The `key` and `value` parameters must be valid pointers to nul-terminated
+/// C strings.
 #[no_mangle]
-pub unsafe extern "C" fn set_memory_report_path(
+pub unsafe extern "C" fn set_client_env_var(
     client: *const CrashHelperClient,
-    path: *const BreakpadChar,
+    key: *const c_char,
+    value: *const c_char,
 ) -> bool {
     let client = client.as_ref().unwrap();
-    let path = <OsString as BreakpadString>::from_ptr(path);
-    client
-        .set_path(messages::PathType::MemoryReport, path)
-        .is_ok()
+
+    let key = CStr::from_ptr(key);
+    let Ok(key) = key.to_str() else {
+        return false;
+    };
+    let value = CStr::from_ptr(value);
+    let Ok(value) = value.to_str() else {
+        return false;
+    };
+
+    client.set_client_env_var(key, value).is_ok()
 }
 
 /// Creates a new IPC channel to connect a soon-to-be-created child process
