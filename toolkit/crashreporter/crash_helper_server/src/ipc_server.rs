@@ -4,7 +4,7 @@
 
 use anyhow::{bail, Context, Result};
 use crash_helper_common::{
-    messages::{self, Header, Message, PathType, ProcessRendezVous},
+    messages::{self, Header, Message, PathKind, ProcessRendezVous},
     AncillaryData, GeckoChildId, IPCConnector, IPCConnectorKey, IPCEvent, IPCListener, IPCQueue,
     Pid, ProcessHandle,
 };
@@ -15,11 +15,83 @@ use crate::{
     finalize_breakpad_minidump, platform, BreakpadData,
 };
 
+// Contains the information required to launch the crash reporter client after
+// a parent process crash.
+
+#[derive(Clone, PartialEq)]
+pub(crate) struct ClientEnvironment {
+    environment: HashMap<String, String>,
+    data_dir: PathBuf,
+    pending_pings: PathBuf,
+    events_dir: PathBuf,
+}
+
+impl ClientEnvironment {
+    fn new() -> ClientEnvironment {
+        ClientEnvironment {
+            environment: HashMap::new(),
+            data_dir: PathBuf::new(),
+            pending_pings: PathBuf::new(),
+            events_dir: PathBuf::new(),
+        }
+    }
+
+    fn set_env(&mut self, key: String, value: String) {
+        self.environment.insert(key, value);
+    }
+
+    fn set_events_dir(&mut self, path: OsString) {
+        self.events_dir = PathBuf::from(path);
+    }
+
+    fn events_dir(&self) -> OsString {
+        self.events_dir.as_os_str().to_os_string()
+    }
+
+    fn set_data_dir(&mut self, path: OsString) {
+        self.data_dir = PathBuf::from(path);
+    }
+
+    fn data_dir(&self) -> OsString {
+        self.data_dir.as_os_str().to_os_string()
+    }
+
+    // Generates a map of the env variables to be used by the crash reporter
+    // client.
+    pub(crate) fn into_env_vars(self) -> HashMap<String, String> {
+        let mut environment = self.environment;
+
+        Self::insert_path(
+            &mut environment,
+            "MOZ_CRASHREPORTER_EVENTS_DIRECTORY",
+            self.events_dir,
+        );
+        Self::insert_path(
+            &mut environment,
+            "MOZ_CRASHREPORTER_DATA_DIRECTORY",
+            self.data_dir,
+        );
+
+        environment
+    }
+
+    // Insert a path in the environment, if the path cannot be converted to
+    // UTF-8 an empty path will be inserted instead.
+    fn insert_path(env: &mut HashMap<String, String>, key: &str, path: PathBuf) {
+        let path = path.into_string().unwrap_or_else(|p| {
+            log::error!("Could not use path {} for {key}", p.display());
+            String::new()
+        });
+
+        env.insert(key.to_string(), path);
+    }
+}
+
 #[derive(PartialEq)]
-pub enum IPCServerState {
+pub(crate) enum IPCServerState {
     Running,
     ClientDisconnected,
-    ClientCrashed(PathBuf),
+    ClientCrashed(PathBuf, ClientEnvironment),
 }
 
 #[derive(PartialEq)]
@@ -72,6 +144,9 @@ pub(crate) struct IPCServer {
     /// hence it must be dropped first.
     breakpad_server: BreakpadCrashGenerator,
     generator: Box<Mutex<CrashGenerator>>,
+    /// Holds the data that will be passed to the crash reporter client to
+    /// restart the application in case of a main process crash.
+    client_env: ClientEnvironment,
 }
 
 impl IPCServer {
@@ -138,6 +213,7 @@ impl IPCServer {
             connections,
             breakpad_server,
             generator: crash_generator,
+            client_env: ClientEnvironment::new(),
         })
     }
 
@@ -183,7 +259,10 @@ impl IPCServer {
                         if let Some(report) =
                             self.generator.lock().unwrap().retrieve_minidump_by_id(0)
                         {
-                            return Ok(IPCServerState::ClientCrashed(report.path));
+                            return Ok(IPCServerState::ClientCrashed(
+                                report.path,
+                                self.client_env.clone(),
+                            ));
                         } else {
                             // The main process disconnected, leave
                             return Ok(IPCServerState::ClientDisconnected);
@@ -294,6 +373,10 @@ impl IPCServer {
                         }
                     }
                 }
+                messages::Kind::SetClientEnvVar => {
+                    let message = messages::SetClientEnvVar::decode(data, ancillary_data)?;
+                    self.client_env.set_env(message.key, message.value);
+                }
                 kind => {
                     bail!("Unexpected message {kind:?} from parent process");
                 }
@@ -331,21 +414,27 @@ impl IPCServer {
     fn handle_set_path(&mut self, message: messages::SetPath) {
         let mut generator = self.generator.lock().unwrap();
         match message.path_type {
-            PathType::CrashReports => {
+            PathKind::CrashReports => {
                 generator.set_minidump_path(&message.path);
                 self.breakpad_server.set_path(message.path);
             }
-            PathType::MemoryReport => {
+            PathKind::MemoryReport => {
                 generator.set_memory_report_path(&message.path);
             }
+            PathKind::Data => self.client_env.set_data_dir(message.path),
+            PathKind::PendingPings => log::error!("The pending pings path cannot be set"),
+            PathKind::Events => self.client_env.set_events_dir(message.path),
         }
     }
 
     fn handle_get_path(&self, message: messages::GetPath) -> OsString {
         let generator = self.generator.lock().unwrap();
         match message.path_type {
-            PathType::CrashReports => generator.get_minidump_path(),
-            PathType::MemoryReport => generator.get_memory_report_path(),
+            PathKind::CrashReports => generator.get_minidump_path(),
+            PathKind::MemoryReport => generator.get_memory_report_path(),
+            PathKind::Data => self.client_env.data_dir(),
+            PathKind::PendingPings => OsString::new(),
+            PathKind::Events => self.client_env.events_dir(),
         }
     }
 

@@ -2158,7 +2158,7 @@ bool GetMinidumpPath(nsAString& aPath) {
   BreakpadChar* path = nullptr;
   StaticMutexAutoLock lock(gCrashHelperClientMutex);
   if (gCrashHelperClient) {
-    path = get_crash_report_path(gCrashHelperClient);
+    path = get_crash_helper_path(gCrashHelperClient, PathKind::CrashReports);
     aPath = CONVERT_XP_CHAR_TO_UTF16(path);
     release_path(path);
   }
@@ -2181,8 +2181,8 @@ nsresult SetMinidumpPath(const nsAString& aPath) {
   // Set the path used by the crash helper for out-of-process crash generation
   StaticMutexAutoLock lock(gCrashHelperClientMutex);
   if (gCrashHelperClient) {
-    set_crash_report_path(
-        gCrashHelperClient,
+    set_crash_helper_path(
+        gCrashHelperClient, PathKind::CrashReports,
         mozilla::BitwiseCast<const BreakpadChar*>(path.get()));
   }
 
@@ -2273,11 +2273,11 @@ static nsresult EnsureDirectoryExists(nsIFile* dir) {
 
 // Creates a directory that will be accessible by the crash reporter. The
 // directory will live under Firefox default data directory and will use the
-// specified name. The directory path will be passed to the crashreporter via
-// the specified environment variable.
+// specified name. The directory path will be passed to the crash helper via
+// IPC.
 static nsresult SetupCrashReporterDirectory(nsIFile* aAppDataDirectory,
                                             const char* aDirName,
-                                            const XP_CHAR* aEnvVarName,
+                                            PathKind aPathKind,
                                             nsIFile** aDirectory = nullptr) {
   nsCOMPtr<nsIFile> directory;
   nsresult rv = aAppDataDirectory->Clone(getter_AddRefs(directory));
@@ -2293,13 +2293,17 @@ static nsresult SetupCrashReporterDirectory(nsIFile* aAppDataDirectory,
     return NS_ERROR_FAILURE;
   }
 
-#if defined(XP_WIN)
-  SetEnvironmentVariableW(aEnvVarName, directoryPath->c_str());
-#else
-  setenv(aEnvVarName, directoryPath->c_str(), /* overwrite */ 1);
-#endif
+  StaticMutexAutoLock lock(gCrashHelperClientMutex);
+  if (!gCrashHelperClient) {
+    return NS_ERROR_FAILURE;
+  }
 
   if (aDirectory) {
+    // We send the path only if the directory is also being saved locally.
+    set_crash_helper_path(
+        gCrashHelperClient, aPathKind,
+        BitwiseCast<const BreakpadChar*>(directoryPath->c_str()));
+
     directory.forget(aDirectory);
   }
 
@@ -2313,17 +2317,16 @@ static nsresult SetupCrashReporterDirectory(nsIFile* aAppDataDirectory,
 // If any piece of data doesn't exist, initialize it first.
 nsresult SetupExtraData(nsIFile* aAppDataDirectory, nsIFile* aXreDirectory) {
   nsCOMPtr<nsIFile> dataDirectory;
-  nsresult rv =
-      SetupCrashReporterDirectory(aAppDataDirectory, "Crash Reports",
-                                  XP_TEXT("MOZ_CRASHREPORTER_DATA_DIRECTORY"),
-                                  getter_AddRefs(dataDirectory));
+  nsresult rv = SetupCrashReporterDirectory(aAppDataDirectory, "Crash Reports",
+                                            PathKind::Data,
+                                            getter_AddRefs(dataDirectory));
 
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
   rv = SetupCrashReporterDirectory(aAppDataDirectory, "Pending Pings",
-                                   XP_TEXT("MOZ_CRASHREPORTER_PING_DIRECTORY"));
+                                   PathKind::PendingPings);
 
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
@@ -2669,47 +2672,41 @@ nsresult SetServerURL(const nsACString& aServerURL) {
 }
 
 nsresult SetRestartArgs(int argc, char** argv) {
-  if (!gExceptionHandler) return NS_OK;
+  if (!gExceptionHandler) {
+    return NS_OK;
+  }
+
+  StaticMutexAutoLock lock(gCrashHelperClientMutex);
+  if (!gCrashHelperClient) {
+    return NS_ERROR_FAILURE;
+  }
 
   int i;
-  nsAutoCString envVar;
-  char* env;
+  nsAutoCString var;
+  nsAutoCString value;
+
   for (i = 1; i < argc; i++) {
-    envVar = "MOZ_CRASHREPORTER_RESTART_ARG_";
-    envVar.AppendInt(i);
-    envVar += "=";
-    envVar += argv[i];
-
-    // PR_SetEnv() wants the string to be available for the lifetime
-    // of the app, so dup it here. This conversion is not lossy.
-    env = ToNewCString(envVar, mozilla::fallible);
-    if (!env) return NS_ERROR_OUT_OF_MEMORY;
-
-    PR_SetEnv(env);
+    var = "MOZ_CRASHREPORTER_RESTART_ARG_";
+    var.AppendInt(i);
+    value = argv[i];
+    NS_ENSURE_TRUE(
+        set_client_env_var(gCrashHelperClient, var.get(), value.get()),
+        NS_ERROR_FAILURE);
   }
 
   // make sure the arg list is terminated
-  envVar = "MOZ_CRASHREPORTER_RESTART_ARG_";
-  envVar.AppendInt(i);
-  envVar += "=";
-
-  // PR_SetEnv() wants the string to be available for the lifetime
-  // of the app, so dup it here. This conversion is not lossy.
-  env = ToNewCString(envVar, mozilla::fallible);
-  if (!env) return NS_ERROR_OUT_OF_MEMORY;
-
-  PR_SetEnv(env);
+  var = "MOZ_CRASHREPORTER_RESTART_ARG_";
+  var.AppendInt(i);
+  NS_ENSURE_TRUE(set_client_env_var(gCrashHelperClient, var.get(), ""),
+                 NS_ERROR_FAILURE);
 
   // make sure we save the info in XUL_APP_FILE for the reporter
   const char* appfile = PR_GetEnv("XUL_APP_FILE");
   if (appfile && *appfile) {
-    envVar = "MOZ_CRASHREPORTER_RESTART_XUL_APP_FILE=";
-    envVar += appfile;
-
-    // PR_SetEnv() wants the string to be available for the lifetime
-    // of the app, so dup it here. This conversion is not lossy.
-    env = ToNewCString(envVar);
-    PR_SetEnv(env);
+    NS_ENSURE_TRUE(
+        set_client_env_var(gCrashHelperClient,
+                           "MOZ_CRASHREPORTER_RESTART_XUL_APP_FILE", appfile),
+        NS_ERROR_FAILURE);
   }
 
   return NS_OK;
@@ -2839,9 +2836,6 @@ nsresult SetSubmitReports(bool aSubmitReports) {
 }
 
 static void SetCrashEventsDir(nsIFile* aDir) {
-  static const XP_CHAR eventsDirectoryEnv[] =
-      XP_TEXT("MOZ_CRASHREPORTER_EVENTS_DIRECTORY");
-
   nsCOMPtr<nsIFile> eventsDir;
 
   const char* env = PR_GetEnv("CRASHES_EVENTS_DIR");
@@ -2862,11 +2856,13 @@ static void SetCrashEventsDir(nsIFile* aDir) {
   }
 
   eventsDirectory = *path;
-#ifdef XP_WIN
-  SetEnvironmentVariableW(eventsDirectoryEnv, path->c_str());
-#else
-  setenv(eventsDirectoryEnv, path->c_str(), /* overwrite */ 1);
-#endif
+
+  StaticMutexAutoLock lock(gCrashHelperClientMutex);
+  if (gCrashHelperClient) {
+    set_crash_helper_path(
+        gCrashHelperClient, PathKind::Events,
+        BitwiseCast<const BreakpadChar*>(eventsDirectory.c_str()));
+  }
 }
 
 void SetProfileDirectory(nsIFile* aDir) {
@@ -2958,8 +2954,8 @@ void SetMemoryReportFile(nsIFile* aFile) {
     memoryReportPath = xpstring(path.get());
     StaticMutexAutoLock lock(gCrashHelperClientMutex);
     if (gCrashHelperClient) {
-      set_memory_report_path(
-          gCrashHelperClient,
+      set_crash_helper_path(
+          gCrashHelperClient, PathKind::MemoryReport,
           mozilla::BitwiseCast<const BreakpadChar*>(path.get()));
     }
   }
@@ -3021,7 +3017,7 @@ static bool GetMinidumpLimboDir(nsIFile** dir) {
   BreakpadChar* path = nullptr;
   StaticMutexAutoLock lock(gCrashHelperClientMutex);
   if (gCrashHelperClient) {
-    path = get_crash_report_path(gCrashHelperClient);
+    path = get_crash_helper_path(gCrashHelperClient, PathKind::CrashReports);
     CreateFileFromPath(path, dir);
     release_path(path);
   }
@@ -3274,7 +3270,8 @@ nsresult OOPInit(nsIFile* aXREDirectory, bool aBackgroundMode,
   crashHelperClient = crash_helper_connect(crashHelperClientFd);
 
   if (crashHelperClient) {
-    set_crash_report_path(crashHelperClient, tempPath.get());
+    set_crash_helper_path(crashHelperClient, PathKind::CrashReports,
+                          tempPath.get());
   }
 #  endif  // !defined(MOZ_WIDGET_ANDROID)
 #elif defined(XP_MACOSX)

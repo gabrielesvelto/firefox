@@ -24,7 +24,7 @@ use std::{
 };
 
 use crash_generation::{finalize_breakpad_minidump, initialize_static_annotations};
-use ipc_server::{IPCServer, IPCServerState};
+use ipc_server::{ClientEnvironment, IPCServer, IPCServerState};
 #[cfg(not(target_os = "android"))]
 use platform::CRASH_REPORTER_PATH;
 
@@ -211,8 +211,8 @@ fn main_loop(mut ipc_server: IPCServer, #[allow(unused)] mode: ClientMode) -> i3
                 match result {
                     IPCServerState::Running => {} // Go on
                     IPCServerState::ClientDisconnected => return 0,
-                    IPCServerState::ClientCrashed(minidump) => {
-                        maybe_report_crash(&minidump);
+                    IPCServerState::ClientCrashed(minidump, environment) => {
+                        maybe_report_crash(&minidump, environment);
                         return 0;
                     }
                 }
@@ -237,21 +237,22 @@ fn env_var_is_set(name: &'static str) -> bool {
     env::var(name).is_ok_and(|v| !v.is_empty())
 }
 
-fn maybe_report_crash(minidump: &Path) {
+fn maybe_report_crash(minidump: &Path, environment: ClientEnvironment) {
     if env_var_is_set("MOZ_CRASHREPORTER_NO_REPORT") || env_var_is_set("MOZ_CRASHREPORTER_FULLDUMP")
     {
         return;
     }
 
-    report_crash(minidump);
+    report_crash(minidump, environment);
 }
 
-fn report_crash(minidump: &Path) {
+fn report_crash(minidump: &Path, #[allow(unused)] environment: ClientEnvironment) {
     #[cfg(not(target_os = "android"))]
     {
         let crash_reporter = crashreporter_path();
         let _ = Command::new(crash_reporter.as_path())
             .arg(minidump)
+            .envs(environment.into_env_vars())
             .spawn()
             .expect("Failed to launch the crash reporter client")
             .wait();
