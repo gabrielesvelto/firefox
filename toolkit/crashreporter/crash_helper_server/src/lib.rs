@@ -9,6 +9,7 @@ mod breakpad_crash_generator;
 mod crash_generation;
 mod ipc_server;
 mod logging;
+mod memory_info;
 mod phc;
 mod platform;
 

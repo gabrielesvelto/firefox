@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::memory_info::get_memory_info;
+
 use super::{
     breakpad_crash_generator::{BreakpadCrashGenerator, BreakpadProcessId, OpaqueCrashGenerator},
     phc::{self, StackTrace},
@@ -260,12 +262,16 @@ impl CrashGenerator {
         let crash_event_id = new_unique_crash_event_id();
         let crash_time = crash_time();
         let uptime_ts = process_uptime_ts(process);
+        let memory_info = get_memory_info();
 
-        vec![
+        let mut annotations = vec![
             make_annotation_str(CrashAnnotation::CrashEventID, &crash_event_id),
             make_annotation_str(CrashAnnotation::CrashTime, &crash_time),
             make_annotation_str(CrashAnnotation::UptimeTS, &uptime_ts),
-        ]
+        ];
+        annotations.extend(memory_info);
+
+        annotations
     }
 }
 
@@ -303,7 +309,7 @@ fn make_annotation_str(id: CrashAnnotation, data: &str) -> CAnnotation {
     }
 }
 
-fn make_annotation_u64(id: CrashAnnotation, data: u64) -> CAnnotation {
+pub(crate) fn make_annotation_u64(id: CrashAnnotation, data: u64) -> CAnnotation {
     CAnnotation {
         id: id as u32,
         data: AnnotationData::ByteBuffer(data.to_ne_bytes().to_vec()),
