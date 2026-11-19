@@ -24,7 +24,15 @@ add_task(async function run_test() {
         console.debug("module", module);
         console.debug("version => ", module.version);
         console.debug("version regex => ", version_regexp.exec(module.version));
-        Assert.notEqual(version_regexp.exec(module.version), null);
+
+        // Only modules that have a trailing .x(.y.z) after the .so file
+        // extension have an explicit version in the module list. In all the
+        // other modules the field is not populated.
+        if (module.filename.indexOf(".so.") != -1) {
+          Assert.notEqual(version_regexp.exec(module.version), null);
+        } else {
+          Assert.ok(!("version" in module));
+        }
       }
     },
     // process will exit with a zero exit status
