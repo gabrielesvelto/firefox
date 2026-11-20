@@ -124,6 +124,8 @@ nsresult SetGarbageCollecting(bool collecting) {
 
 void SetEventloopNestingLevel(uint32_t level) {}
 
+void SetBackgroundTaskMode() {}
+
 void SetMinidumpAnalysisAllThreads() {}
 
 nsresult AppendAppNotesToCrashReport(const nsACString& data) {

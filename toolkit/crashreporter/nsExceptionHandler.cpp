@@ -2632,6 +2632,13 @@ void SetInactiveStateStart() {
   }
 }
 
+void SetBackgroundTaskMode() {
+  StaticMutexAutoLock lock(gCrashHelperClientMutex);
+  if (!gCrashHelperClient) {
+    NS_ENSURE_TRUE_VOID(set_background_task_mode(gCrashHelperClient));
+  }
+}
+
 void SetMinidumpAnalysisAllThreads() {
   char* env = strdup("MOZ_CRASHREPORTER_DUMP_ALL_THREADS=1");
   PR_SetEnv(env);

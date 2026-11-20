@@ -91,7 +91,7 @@ impl ClientEnvironment {
 pub(crate) enum IPCServerState {
     Running,
     ClientDisconnected,
-    ClientCrashed(PathBuf, ClientEnvironment),
+    ClientCrashed(PathBuf, ClientEnvironment, bool),
 }
 
 #[derive(PartialEq)]
@@ -147,6 +147,9 @@ pub(crate) struct IPCServer {
     /// Holds the data that will be passed to the crash reporter client to
     /// restart the application in case of a main process crash.
     client_env: ClientEnvironment,
+    /// If set to `true` indicates that the main process is running in
+    /// background task mode.
+    background_task_mode: bool,
 }
 
 impl IPCServer {
@@ -214,6 +217,7 @@ impl IPCServer {
             breakpad_server,
             generator: crash_generator,
             client_env: ClientEnvironment::new(),
+            background_task_mode: false,
         })
     }
 
@@ -262,6 +266,7 @@ impl IPCServer {
                             return Ok(IPCServerState::ClientCrashed(
                                 report.path,
                                 self.client_env.clone(),
+                                self.background_task_mode,
                             ));
                         } else {
                             // The main process disconnected, leave
@@ -376,6 +381,11 @@ impl IPCServer {
                 messages::Kind::SetClientEnvVar => {
                     let message = messages::SetClientEnvVar::decode(data, ancillary_data)?;
                     self.client_env.set_env(message.key, message.value);
+                }
+                messages::Kind::SetBackgroundTaskMode => {
+                    // This message contains nothing
+                    let _ = messages::SetBackgroundTaskMode::decode(data, ancillary_data)?;
+                    self.background_task_mode = true;
                 }
                 kind => {
                     bail!("Unexpected message {kind:?} from parent process");

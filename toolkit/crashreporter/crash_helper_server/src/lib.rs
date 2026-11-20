@@ -196,8 +196,8 @@ fn main_loop(mut ipc_server: IPCServer) -> i32 {
                 match result {
                     IPCServerState::Running => {} // Go on
                     IPCServerState::ClientDisconnected => return 0,
-                    IPCServerState::ClientCrashed(minidump, environment) => {
-                        maybe_launch_client(&minidump, environment);
+                    IPCServerState::ClientCrashed(minidump, environment, background_task_mode) => {
+                        maybe_launch_client(&minidump, environment, background_task_mode);
                         return 0;
                     }
                 }
@@ -223,8 +223,14 @@ fn env_var_is_set(name: &'static str) -> bool {
     env::var(name).is_ok_and(|v| !v.is_empty())
 }
 
-fn maybe_launch_client(minidump: &Path, environment: ClientEnvironment) {
-    if env_var_is_set("MOZ_CRASHREPORTER_NO_REPORT") || env_var_is_set("MOZ_CRASHREPORTER_FULLDUMP")
+fn maybe_launch_client(
+    minidump: &Path,
+    environment: ClientEnvironment,
+    background_task_mode: bool,
+) {
+    if env_var_is_set("MOZ_CRASHREPORTER_NO_REPORT")
+        || env_var_is_set("MOZ_CRASHREPORTER_FULLDUMP")
+        || background_task_mode
     {
         return;
     }

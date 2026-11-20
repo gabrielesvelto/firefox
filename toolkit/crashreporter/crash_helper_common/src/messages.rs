@@ -8,7 +8,6 @@ use minidump_writer::minidump_writer::{AuxvType, DirectAuxvDumpInfo};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::FromPrimitive;
 use std::{
-    array::TryFromSliceError,
     ffi::{CString, FromBytesWithNulError, NulError, OsString},
     mem::size_of,
 };
@@ -34,8 +33,8 @@ pub enum MessageError {
     InvalidData,
     #[error("Message kind is invalid")]
     InvalidKind,
-    #[error("Invalid message size")]
-    InvalidSize(#[from] TryFromSliceError),
+    #[error("Invalid payload size, expected {0}, got {1}")]
+    InvalidPayloadSize(usize, usize),
     #[error("Missing ancillary data")]
     MissingAncillary,
     #[error("Missing nul terminator")]
@@ -88,6 +87,9 @@ pub enum Kind {
     /// Set arguments used by the crash reporter client to restart the
     /// application after a parent process crash.
     SetClientEnvVar = 13,
+    /// Informs the crash helper that the main process is running a background
+    /// task. Once sent this status cannot be reverted.
+    SetBackgroundTaskMode = 14,
 }
 
 // Bytes helpers to serialize/deserialize values not supported directly by the
@@ -1144,5 +1146,49 @@ impl Message for SetClientEnvVar {
             String::from_utf8(data.try_get_vec()?).map_err(|_e| MessageError::InvalidData)?;
 
         Ok(Self { key, value })
+    }
+}
+
+/* Message sent by the main process to inform the crash helper that it is
+ * running in background task mode. Once this message has been sent this
+ * condition cannot be reverted. */
+
+pub struct SetBackgroundTaskMode {}
+
+impl SetBackgroundTaskMode {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Message for SetBackgroundTaskMode {
+    fn kind() -> Kind {
+        Kind::SetBackgroundTaskMode
+    }
+
+    fn payload_size(&self) -> usize {
+        0
+    }
+
+    fn ancillary_data_len(&self) -> usize {
+        0
+    }
+
+    fn encode(self) -> (Bytes, Bytes, Vec<AncillaryData>) {
+        let header = Header::encode(Self::kind(), self.payload_size());
+
+        (header, Bytes::new(), vec![])
+    }
+
+    fn decode(data: Vec<u8>, ancillary_data: Vec<AncillaryData>) -> Result<Self, MessageError> {
+        if !ancillary_data.is_empty() {
+            return Err(MessageError::UnexpectedAncillaryData);
+        }
+
+        if !data.is_empty() {
+            return Err(MessageError::InvalidPayloadSize(0, data.len()));
+        }
+
+        Ok(Self {})
     }
 }

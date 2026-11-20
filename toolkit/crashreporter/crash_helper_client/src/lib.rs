@@ -140,6 +140,12 @@ impl CrashHelperClient {
             error: reply.error.map_or(null_mut(), CString::into_raw),
         })
     }
+
+    fn set_background_task_mode(&self) -> Result<()> {
+        let message = messages::SetBackgroundTaskMode::new();
+        self.connector.send_message(message)?;
+        Ok(())
+    }
 }
 
 /******************************************************************************
@@ -570,6 +576,15 @@ pub unsafe extern "C" fn get_install_time(path: *const BreakpadChar) -> u64 {
         Some(PathBuf::from(path))
     };
     ApplicationInfo::compute_install_time(path).unwrap_or(0)
+}
+
+/// Informs the crash helper that the current process is running in background
+/// task mode. This will prevent the helper from writing event files if it
+/// crashes or launching the crash reporter client.
+#[no_mangle]
+pub unsafe extern "C" fn set_background_task_mode(client: *const CrashHelperClient) -> bool {
+    let client = client.as_ref().unwrap();
+    client.set_background_task_mode().is_ok()
 }
 
 /******************************************************************************

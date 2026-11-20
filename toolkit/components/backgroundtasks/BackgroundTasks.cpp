@@ -6,6 +6,7 @@
 
 #include "nsIBackgroundTasksManager.h"
 #include "nsICommandLine.h"
+#include "nsExceptionHandler.h"
 #include "nsIFile.h"
 #include "nsImportModule.h"
 #include "nsPrintfCString.h"
@@ -37,6 +38,11 @@ void BackgroundTasks::Init(Maybe<nsCString> aBackgroundTask) {
 
   MOZ_RELEASE_ASSERT(!sSingleton,
                      "BackgroundTasks singleton already initialized");
+
+  if (aBackgroundTask.isSome()) {
+    CrashReporter::SetBackgroundTaskMode();
+  }
+
   // The singleton will be cleaned up by `Shutdown()`.
   sSingleton = new BackgroundTasks(std::move(aBackgroundTask));
 }
@@ -507,6 +513,7 @@ nsresult BackgroundTasks::OverrideBackgroundTaskNameForTesting(
     mBackgroundTask = Nothing();
   } else {
     mBackgroundTask = Some(NS_LossyConvertUTF16toASCII(name));
+    CrashReporter::SetBackgroundTaskMode();
   }
   return NS_OK;
 }

@@ -172,6 +172,7 @@ void SetEventloopNestingLevel(uint32_t level);
 void SetMinidumpAnalysisAllThreads();
 void ClearInactiveStateStart();
 void SetInactiveStateStart();
+void SetBackgroundTaskMode();
 
 nsresult SetRestartArgs(int argc, char** argv);
 nsresult SetupExtraData(nsIFile* aAppDataDirectory, nsIFile* aXreDirectory);
