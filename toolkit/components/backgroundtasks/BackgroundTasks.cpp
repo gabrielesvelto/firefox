@@ -37,6 +37,7 @@ void BackgroundTasks::Init(Maybe<nsCString> aBackgroundTask) {
 
   MOZ_RELEASE_ASSERT(!sSingleton,
                      "BackgroundTasks singleton already initialized");
+
   // The singleton will be cleaned up by `Shutdown()`.
   sSingleton = new BackgroundTasks(std::move(aBackgroundTask));
 }

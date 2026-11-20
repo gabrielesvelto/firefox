@@ -205,7 +205,7 @@ pub unsafe extern "C" fn crash_generator_logic_android(
     });
 }
 
-fn main_loop(mut ipc_server: IPCServer, #[allow(unused)] mode: ClientMode) -> i32 {
+fn main_loop(mut ipc_server: IPCServer, mode: ClientMode) -> i32 {
     loop {
         match ipc_server.run() {
             Ok(result) => {
@@ -213,7 +213,7 @@ fn main_loop(mut ipc_server: IPCServer, #[allow(unused)] mode: ClientMode) -> i3
                     IPCServerState::Running => {} // Go on
                     IPCServerState::ClientDisconnected => return 0,
                     IPCServerState::ClientCrashed(minidump, environment) => {
-                        maybe_report_crash(&minidump, environment);
+                        maybe_report_crash(&minidump, environment, mode);
                         return 0;
                     }
                 }
@@ -238,8 +238,10 @@ fn env_var_is_set(name: &'static str) -> bool {
     env::var(name).is_ok_and(|v| !v.is_empty())
 }
 
-fn maybe_report_crash(minidump: &Path, environment: ClientEnvironment) {
-    if env_var_is_set("MOZ_CRASHREPORTER_NO_REPORT") || env_var_is_set("MOZ_CRASHREPORTER_FULLDUMP")
+fn maybe_report_crash(minidump: &Path, environment: ClientEnvironment, mode: ClientMode) {
+    if env_var_is_set("MOZ_CRASHREPORTER_NO_REPORT")
+        || env_var_is_set("MOZ_CRASHREPORTER_FULLDUMP")
+        || matches!(mode, ClientMode::Background)
     {
         return;
     }
