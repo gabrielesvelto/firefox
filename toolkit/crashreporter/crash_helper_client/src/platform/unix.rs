@@ -30,6 +30,7 @@ impl CrashHelperClient {
         breakpad_data: BreakpadData,
         minidump_path: *const BreakpadChar,
         build_id: *const c_char,
+        background_mode: bool,
     ) -> Result<CrashHelperClient> {
         let channel = IPCChannel::new()?;
         let (_listener, server_endpoint, client_endpoint) = channel.deconstruct();
@@ -53,6 +54,7 @@ impl CrashHelperClient {
             minidump_path,
             server_endpoint,
             build_id,
+            background_mode,
         )?;
 
         let rendezvous = Self::prepare_for_minidump(Some(pid), /* id */ 0).unwrap();
@@ -70,10 +72,16 @@ impl CrashHelperClient {
         minidump_path: &CStr,
         server_endpoint: IPCConnector,
         build_id: &CStr,
+        background_mode: bool,
     ) -> Result<Pid> {
         let parent_pid = getpid().to_string();
         let parent_pid_arg = unsafe { CString::from_vec_unchecked(parent_pid.into_bytes()) };
         let endpoint_arg = server_endpoint.serialize()?;
+        let background_arg = if background_mode {
+            c"background"
+        } else {
+            c"foreground"
+        };
 
         let Ok((parent_endpoint, child_endpoint)) = pipe() else {
             bail!("Could not create pipe: {}", Errno::last());
@@ -106,6 +114,7 @@ impl CrashHelperClient {
                 minidump_path,
                 &endpoint_arg,
                 build_id,
+                background_arg,
             ],
             env.as_slice(),
         )?;

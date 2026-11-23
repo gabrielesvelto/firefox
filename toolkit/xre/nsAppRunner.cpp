@@ -1796,7 +1796,9 @@ nsXULAppInfo::SetEnabled(bool aEnabled) {
       return NS_ERROR_FAILURE;
     }
 
-    nsresult rv = CrashReporter::OOPInit(xreBinDirectory, true);
+    nsresult rv = CrashReporter::OOPInit(
+        xreBinDirectory, BackgroundTasks::IsBackgroundTaskMode(),
+        /* aForce */ true);
     if (rv != NS_OK) {
       return rv;
     }
@@ -4923,7 +4925,8 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
   }
 
   if ((mAppData->flags & NS_XRE_ENABLE_CRASH_REPORTER) &&
-      NS_FAILED(CrashReporter::OOPInit(xreBinDirectory))) {
+      NS_FAILED(CrashReporter::OOPInit(
+          xreBinDirectory, BackgroundTasks::IsBackgroundTaskMode()))) {
     NS_WARNING("Could not launch the crash helper");
   }
 

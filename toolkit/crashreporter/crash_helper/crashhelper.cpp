@@ -68,15 +68,16 @@ static BreakpadRawData parse_breakpad_data(const BreakpadChar* aArg) {
 #define GET_MINIDUMP_PATH_ARG(arguments) (CAST_ARG((arguments)[3]))
 #define GET_CONNECTOR_ARG(arguments) (CAST_ARG((arguments)[4]))
 #define GET_BUILD_ID_ARG(arguments) (CAST_ARG((arguments)[5]))
+#define GET_BACKGROUND_MODE_ARG(arguments) (CAST_ARG((arguments)[6]))
 #ifdef XP_WIN
-#  define GET_LISTENER_ARG(arguments) (CAST_ARG((arguments)[6]))
-#  define GET_CLIENT_HANDLE_ARG(arguments) (CAST_ARG((arguments)[7]))
-#  define ARG_NUM (8)
+#  define GET_LISTENER_ARG(arguments) (CAST_ARG((arguments)[7]))
+#  define GET_CLIENT_HANDLE_ARG(arguments) (CAST_ARG((arguments)[8]))
+#  define ARG_NUM (9)
 #else
 static char sDummy[1] = "";
 #  define GET_LISTENER_ARG(arguments) (CAST_ARG(sDummy))
 #  define GET_CLIENT_HANDLE_ARG(arguments) (CAST_ARG(sDummy))
-#  define ARG_NUM (6)
+#  define ARG_NUM (7)
 #endif  // XP_WIN
 
 #if defined(XP_WIN)
@@ -96,11 +97,13 @@ int main(int argc, char* argv[])
   BreakpadChar* minidump_path = GET_MINIDUMP_PATH_ARG(argv);
   BreakpadChar* connector = GET_CONNECTOR_ARG(argv);
   BreakpadChar* build_id = GET_BUILD_ID_ARG(argv);
+  bool background_mode =
+      strcmp(GET_BACKGROUND_MODE_ARG(argv), "background") == 0;
   BreakpadChar* listener = GET_LISTENER_ARG(argv);
   BreakpadChar* client_handle = GET_CLIENT_HANDLE_ARG(argv);
 
-  int res = crash_generator_logic_desktop(client_pid, client_handle,
-                                          breakpad_data, minidump_path,
-                                          build_id, listener, connector);
+  int res = crash_generator_logic_desktop(
+      client_pid, client_handle, breakpad_data, minidump_path, build_id,
+      background_mode, listener, connector);
   exit(res);
 }

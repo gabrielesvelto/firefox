@@ -79,7 +79,8 @@ static inline bool IsDummy() {
 #endif
 }
 
-nsresult OOPInit(nsIFile* aXREDirectory, bool force = false);
+nsresult OOPInit(nsIFile* aXREDirectory, bool aBackgroundMode,
+                 bool aForce = false);
 void OOPDeinit();
 nsresult SetExceptionHandler(nsIFile* aXREDirectory, bool force = false);
 nsresult UnsetExceptionHandler();
@@ -172,6 +173,7 @@ void SetEventloopNestingLevel(uint32_t level);
 void SetMinidumpAnalysisAllThreads();
 void ClearInactiveStateStart();
 void SetInactiveStateStart();
+void SetBackgroundTaskMode();
 
 nsresult SetRestartArgs(int argc, char** argv);
 nsresult SetupExtraData(nsIFile* aAppDataDirectory, nsIFile* aXreDirectory);

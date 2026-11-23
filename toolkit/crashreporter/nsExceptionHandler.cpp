@@ -3171,11 +3171,12 @@ static bool MoveToPending(nsIFile* dumpFile, nsIFile* extraFile,
   return true;
 }
 
-nsresult OOPInit(nsIFile* aXREDirectory, bool force /*=false*/) {
+nsresult OOPInit(nsIFile* aXREDirectory, bool aBackgroundMode,
+                 bool aForce /*=false*/) {
   // Android is exempt from early return because the helper has already been
   // started and is unconditionally expecting a rendezvous.
 #if !defined(MOZ_WIDGET_ANDROID)
-  if (!CrashReporterIsEnabled(force)) {
+  if (!CrashReporterIsEnabled(aForce)) {
     return NS_OK;
   }
 #endif
@@ -3232,8 +3233,9 @@ nsresult OOPInit(nsIFile* aXREDirectory, bool force /*=false*/) {
     MOZ_CRASH("can't create crash reporter socketpair()");
   }
 
-  crashHelperClient = crash_helper_launch(
-      crashHelperPath.c_str(), serverSocketFd, tempPath.get(), gToolkitBuildID);
+  crashHelperClient =
+      crash_helper_launch(crashHelperPath.c_str(), serverSocketFd,
+                          tempPath.get(), gToolkitBuildID, aBackgroundMode);
   close(serverSocketFd);
 #  else
   crashHelperClient = crash_helper_connect(crashHelperClientFd);

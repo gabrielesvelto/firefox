@@ -143,7 +143,14 @@ impl CrashHelperClient {
  ******************************************************************************/
 
 /// Launch the crash helper process, initialize it and connect to it. Returns
-/// a pointer to the client connection or `null` upon failure.
+/// a pointer to the client connection or `null` upon failure. The path to the
+/// crash helper is passed via `helper_name`. A Breakpad IPC channel must be
+/// transferred to it via the `breakpad_raw_data` argument. `minidump_path`
+/// sets the path where minidumps will be generated, `build_id` contains the
+/// the build id of the process that launched the helper, and finally
+/// `background_mode` indicates that the launching process is running in the
+/// background. If set to `true` the crash helper will not launch the crash
+/// reporter client in response to the main process crashing.
 ///
 /// # Safety
 ///
@@ -158,14 +165,19 @@ pub unsafe extern "C" fn crash_helper_launch(
     breakpad_raw_data: BreakpadRawData,
     minidump_path: *const BreakpadChar,
     build_id: *const c_char,
+    background_mode: bool,
 ) -> *mut CrashHelperClient {
     use crash_helper_common::BreakpadData;
 
     let breakpad_data = BreakpadData::new(breakpad_raw_data);
 
-    if let Ok(crash_helper) =
-        CrashHelperClient::new(helper_name, breakpad_data, minidump_path, build_id)
-    {
+    if let Ok(crash_helper) = CrashHelperClient::new(
+        helper_name,
+        breakpad_data,
+        minidump_path,
+        build_id,
+        background_mode,
+    ) {
         let crash_helper_box = Box::new(crash_helper);
 
         // The object will be owned by the C++ code from now on, until it is

@@ -23,7 +23,8 @@ void AnnotatePendingIPC(size_t aNumOfPendingIPC, uint32_t aTopPendingIPCCount,
                         const char* aTopPendingIPCName,
                         uint32_t aTopPendingIPCType) {}
 
-nsresult OOPInit(nsIFile* aXREDirectory, bool force /*=false*/) {
+nsresult OOPInit(nsIFile* aXREDirectory, bool aBackgroundMode,
+                 bool aForce /*=false*/) {
   return nsresult::NS_ERROR_NOT_AVAILABLE;
 }
 

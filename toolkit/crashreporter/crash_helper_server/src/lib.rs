@@ -21,6 +21,14 @@ use std::ffi::OsString;
 use crash_generation::{finalize_breakpad_minidump, initialize_static_annotations};
 use ipc_server::{IPCServer, IPCServerState};
 
+// Indicates how the client is operating. When in background mode the crash
+// helper will not prompt the user if the client crashes.
+enum ClientMode {
+    Foreground,
+    #[allow(unused)] // Unused on Android
+    Background,
+}
+
 /// Runs the crash generator process logic, this includes the IPC used by
 /// processes to signal that they crashed, the IPC used to retrieve crash
 /// reports from the crash helper process and the logic used to generate the
@@ -41,6 +49,7 @@ pub unsafe extern "C" fn crash_generator_logic_desktop(
     breakpad_data: BreakpadRawData,
     minidump_path: *const BreakpadChar,
     build_id: *const BreakpadChar,
+    background_mode: bool,
     listener: *const BreakpadChar,
     pipe: *const BreakpadChar,
 ) -> i32 {
@@ -105,8 +114,14 @@ pub unsafe extern "C" fn crash_generator_logic_desktop(
         minidump_path,
     );
 
+    let mode = if background_mode {
+        ClientMode::Background
+    } else {
+        ClientMode::Foreground
+    };
+
     match ipc_server {
-        Ok(ipc_server) => main_loop(ipc_server),
+        Ok(ipc_server) => main_loop(ipc_server, mode),
         Err(e) => {
             log::error!("Could not create the IPC server (error: {e:?})");
             #[cfg(not(target_os = "android"))]
@@ -178,11 +193,11 @@ pub unsafe extern "C" fn crash_generator_logic_android(
             }
         };
 
-        main_loop(ipc_server);
+        main_loop(ipc_server, ClientMode::Foreground);
     });
 }
 
-fn main_loop(mut ipc_server: IPCServer) -> i32 {
+fn main_loop(mut ipc_server: IPCServer, #[allow(unused)] mode: ClientMode) -> i32 {
     loop {
         match ipc_server.run() {
             Ok(_result @ IPCServerState::ClientDisconnected) => {

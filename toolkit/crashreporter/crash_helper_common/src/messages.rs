@@ -8,7 +8,6 @@ use minidump_writer::minidump_writer::{AuxvType, DirectAuxvDumpInfo};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::FromPrimitive;
 use std::{
-    array::TryFromSliceError,
     ffi::{CString, FromBytesWithNulError, NulError, OsString},
     mem::size_of,
 };
@@ -34,8 +33,6 @@ pub enum MessageError {
     InvalidData,
     #[error("Message kind is invalid")]
     InvalidKind,
-    #[error("Invalid message size")]
-    InvalidSize(#[from] TryFromSliceError),
     #[error("Missing ancillary data")]
     MissingAncillary,
     #[error("Missing nul terminator")]
