@@ -43,11 +43,21 @@ use std::{
     fs::{self, File},
     io::{Seek, SeekFrom, Write},
     mem::size_of,
+    os::fd::RawFd,
     path::{Path, PathBuf},
     sync::{Mutex, OnceLock},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+struct AnnotationsDescriptor {
+    /// Raw handle to the target process
+    process: RawProcessHandle,
+    /// Remote executor used to access the target process indirectly
+    #[cfg(any(target_os = "android", target_os = "linux"))]
+    remote_executor_fd: RawFd,
+    /// `true` if the target process is the main process
+    main_process: bool,
+}
 pub(crate) struct CrashReport {
     pub(crate) path: PathBuf,
     pub(crate) error: Option<CString>,
@@ -170,6 +180,38 @@ impl CrashGenerator {
         }
     }
 
+    fn gather_annotations(
+        &self,
+        descriptor: AnnotationsDescriptor,
+        extra_annotations: Option<&Vec<CAnnotation>>,
+    ) -> HashMap<u32, AnnotationData> {
+        let child_annotations = if descriptor.main_process {
+            Ok(vec![])
+        } else {
+            #[cfg(any(target_os = "android", target_os = "linux"))]
+            if descriptor.remote_executor_fd >= 0 {
+                linux::retrieve_annotations_remote(descriptor.remote_executor_fd)
+            } else {
+                retrieve_annotations(descriptor.process)
+            }
+            #[cfg(not(any(target_os = "android", target_os = "linux")))]
+            retrieve_annotations(descriptor.process)
+        };
+
+        let extra_annotations = extra_annotations.map(|a| a.clone()).unwrap_or_default();
+        let crash_time_annotations = self.crash_time_annotations(descriptor.process);
+        let global_annotations = self.retrieve_main_process_annotations();
+        [
+            Ok(crash_time_annotations),
+            global_annotations.context("MissingMainProcessAnnotations"),
+            child_annotations.context("MissingChildProcessAnnotations"),
+            Ok(extra_annotations),
+            get_static_annotations().context("MissingStaticAnnotations"),
+        ]
+        .into_iter()
+        .fold(HashMap::new(), fold_annotations)
+    }
+
     pub(crate) fn generate_minidump(
         &mut self,
         id: GeckoChildId,
@@ -185,13 +227,14 @@ impl CrashGenerator {
 
         if let Some(path) = path {
             let process = AsRawProcessHandle::as_raw_handle(target_process);
-            let annotations = if id == 0 {
-                Ok(vec![])
-            } else {
-                retrieve_annotations(process)
+            let descriptor = AnnotationsDescriptor {
+                process,
+                #[cfg(any(target_os = "android", target_os = "linux"))]
+                remote_executor_fd: 0,
+                main_process: id == 0,
             };
-            let error =
-                self.finalize_crash_report(process, annotations, /* extra_data */ None, &path);
+            let annotations = self.gather_annotations(descriptor, /* extra_data */ None);
+            let error = self.finalize_crash_report(annotations, &path, /* error */ None);
             Some(CrashReport::new(path.as_os_str(), &error))
         } else {
             None
@@ -205,26 +248,10 @@ impl CrashGenerator {
     // been killed this function will encounter and produce a partial report.
     fn finalize_crash_report(
         &self,
-        process: RawProcessHandle,
-        child_annotations: Result<Vec<CAnnotation>>,
-        extra_data: Option<&ExtraCrashData>,
+        annotations: HashMap<u32, AnnotationData>,
         minidump_path: &Path,
+        error: Option<CString>,
     ) -> Option<CString> {
-        let (error, extra_annotations) = extra_data
-            .map(|d| (d.error.clone(), d.annotations.clone()))
-            .unwrap_or_default();
-        let crash_time_annotations = self.crash_time_annotations(process);
-        let global_annotations = self.retrieve_main_process_annotations();
-        let annotations = [
-            Ok(crash_time_annotations),
-            global_annotations.context("MissingMainProcessAnnotations"),
-            child_annotations.context("MissingChildProcessAnnotations"),
-            Ok(extra_annotations),
-            get_static_annotations().context("MissingStaticAnnotations"),
-        ]
-        .into_iter()
-        .fold(HashMap::new(), fold_annotations);
-
         let mut extra_path = PathBuf::from(minidump_path);
         extra_path.set_extension("extra");
         let extra_file_written = write_extra_file(annotations, &extra_path).is_ok();
@@ -442,25 +469,18 @@ pub(crate) unsafe extern "C" fn finalize_breakpad_minidump(
     let minidump_path = PathBuf::from(<OsString as BreakpadString>::from_ptr(minidump_path_ptr));
 
     let mut generator = generator.as_ref().unwrap().lock().unwrap();
-    let annotations = if process_id.get_native() == generator.main_process_handle.as_raw_handle() {
-        log::error!("This is the main process");
-        Ok(vec![])
-    } else {
-        #[cfg(any(target_os = "android", target_os = "linux"))]
-        if process_id.remote_executor_fd >= 0 {
-            linux::retrieve_annotations_remote(process_id.remote_executor_fd)
-        } else {
-            retrieve_annotations(process_id.get_native())
-        }
-        #[cfg(not(any(target_os = "android", target_os = "linux")))]
-        retrieve_annotations(process_id.get_native())
-    };
 
+    let descriptor = AnnotationsDescriptor {
+        process: process_id.get_native(),
+        #[cfg(any(target_os = "android", target_os = "linux"))]
+        remote_executor_fd: process_id.remote_executor_fd,
+        main_process: process_id.get_native() == generator.main_process_handle.as_raw_handle(),
+    };
+    let annotations = generator.gather_annotations(descriptor, extra_data.map(|d| &d.annotations));
     let error = generator.finalize_crash_report(
-        process_id.get_native(),
         annotations,
-        extra_data,
         &minidump_path,
+        extra_data.map_or(None, |d| d.error.clone()),
     );
 
     generator.add_memory_report(&minidump_path);
