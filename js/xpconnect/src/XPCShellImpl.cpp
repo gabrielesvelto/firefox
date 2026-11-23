@@ -1184,7 +1184,8 @@ int XRE_XPCShellMain(int argc, char** argv, char** envp,
           aShellData->crashHelperSocket);
 #endif  // defined(MOZ_WIDGET_ANDROID)
 
-      rv = CrashReporter::OOPInit(greBinDir, /*force=*/true);
+      rv = CrashReporter::OOPInit(greBinDir, /*aBackgroundMode=*/false,
+                                  /*force=*/true);
       if (NS_FAILED(rv)) {
         printf("CrashReporter::OOPInit(): could not launch the crash helper\n");
       }

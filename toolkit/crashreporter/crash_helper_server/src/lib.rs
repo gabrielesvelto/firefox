@@ -31,6 +31,7 @@ use platform::CRASH_REPORTER_PATH;
 
 // Indicates how the client is operating. When in background mode the crash
 // helper will not prompt the user if the client crashes.
+#[derive(Clone, Copy)]
 enum ClientMode {
     Foreground,
     #[allow(unused)] // Unused on Android
@@ -113,7 +114,14 @@ pub unsafe extern "C" fn crash_generator_logic_desktop(
         Ok(connector) => connector,
     };
 
+    let mode = if background_mode {
+        ClientMode::Background
+    } else {
+        ClientMode::Foreground
+    };
+
     let ipc_server = IPCServer::new(
+        mode,
         client_pid,
         client_handle,
         listener,
@@ -121,12 +129,6 @@ pub unsafe extern "C" fn crash_generator_logic_desktop(
         breakpad_data,
         minidump_path,
     );
-
-    let mode = if background_mode {
-        ClientMode::Background
-    } else {
-        ClientMode::Foreground
-    };
 
     match ipc_server {
         Ok(ipc_server) => main_loop(ipc_server, mode),
@@ -187,6 +189,7 @@ pub unsafe extern "C" fn crash_generator_logic_android(
             }
         };
         let ipc_server = match IPCServer::new(
+            ClientMode::Foreground,
             pid,
             /* client_handle */ None,
             listener,

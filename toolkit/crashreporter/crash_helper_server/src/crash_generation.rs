@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::memory_info::get_memory_info;
+use crate::{memory_info::get_memory_info, ClientMode};
 
 use super::{
     breakpad_crash_generator::{BreakpadCrashGenerator, BreakpadProcessId, OpaqueCrashGenerator},
@@ -83,22 +83,27 @@ where
     // generation thread, so it needs to be `Send`.
     Self: Send,
 {
+    mode: ClientMode,
     main_process_handle: ProcessHandle,
     minidump_path: PathBuf,
     memory_report_path: Option<PathBuf>,
+    events_dir: Option<PathBuf>,
     reports_by_pid: HashMap<Pid, Vec<CrashReport>>,
     reports_by_id: HashMap<GeckoChildId, CrashReport>,
 }
 
 impl CrashGenerator {
     pub(crate) fn new(
+        mode: ClientMode,
         main_process_handle: ProcessHandle,
         minidump_path: OsString,
     ) -> CrashGenerator {
         CrashGenerator {
+            mode,
             main_process_handle,
             minidump_path: PathBuf::from(minidump_path),
             memory_report_path: None,
+            events_dir: None,
             reports_by_pid: HashMap::<Pid, Vec<CrashReport>>::new(),
             reports_by_id: HashMap::<GeckoChildId, CrashReport>::new(),
         }
@@ -122,6 +127,10 @@ impl CrashGenerator {
         } else {
             OsString::new()
         }
+    }
+
+    pub(crate) fn set_events_dir(&mut self, path: &OsString) {
+        self.events_dir = Some(PathBuf::from(path));
     }
 
     pub(crate) fn move_report_to_id(&mut self, pid: Pid, id: GeckoChildId) {
@@ -252,9 +261,19 @@ impl CrashGenerator {
         minidump_path: &Path,
         error: Option<CString>,
     ) -> Option<CString> {
+        // We don't do error-checking here as producing a minidump path without
+        // a name is a catastrophic bug that would break reporting entirely.
+        let id = minidump_path
+            .file_prefix()
+            .expect("The minidump file should have an UUID as its name")
+            .to_string_lossy();
         let mut extra_path = PathBuf::from(minidump_path);
         extra_path.set_extension("extra");
-        let extra_file_written = write_extra_file(annotations, &extra_path).is_ok();
+        let extra_file_written = write_extra_file(&annotations, &extra_path).is_ok();
+
+        if matches!(self.mode, ClientMode::Foreground) {
+            self.write_event_file(&id, &annotations);
+        }
 
         if !extra_file_written {
             Some(c"MissingAnnotations".to_owned())
@@ -299,6 +318,17 @@ impl CrashGenerator {
         annotations.extend(memory_info);
 
         annotations
+    }
+
+    fn write_event_file(&self, id: &str, annotations: &HashMap<u32, AnnotationData>) {
+        if let Some(events_dir) = self.events_dir.as_ref() {
+            let path = events_dir.join(id);
+            let mut file = File::create_new(path).unwrap(); // TODO
+            writeln!(file, "crash.main.3");
+            writeln!(file, "{}", crash_time());
+            writeln!(file, "{}", id);
+            write_annotations(&mut file, annotations);
+        }
     }
 }
 
@@ -559,13 +589,22 @@ fn prepare_annotation_data(id: CrashAnnotation, data: &AnnotationData) -> Option
     }
 }
 
-fn write_extra_file(annotations: HashMap<u32, AnnotationData>, path: &Path) -> Result<()> {
-    let mut annotations_written: usize = 0;
+fn write_extra_file(annotations: &HashMap<u32, AnnotationData>, path: &Path) -> Result<()> {
     let mut file = File::create(path)?;
+    write_annotations(&mut file, annotations)?;
+    Ok(())
+}
+
+fn write_annotations(
+    mut file: &mut File,
+    annotations: &HashMap<u32, AnnotationData>,
+) -> Result<()> {
+    let mut annotations_written: usize = 0;
+
     write!(&mut file, "{{")?;
 
     for (id, value) in annotations {
-        let Some(annotation_id) = CrashAnnotation::from_u32(id) else {
+        let Some(annotation_id) = CrashAnnotation::from_u32(*id) else {
             continue;
         };
         if annotation_id == CrashAnnotation::PHCBaseAddress {
@@ -590,6 +629,7 @@ fn write_extra_file(annotations: HashMap<u32, AnnotationData>, path: &Path) -> R
         // Drop the last comma
         file.seek(SeekFrom::Current(-1))?;
     }
+
     writeln!(&mut file, "}}")?;
     Ok(())
 }

@@ -12,7 +12,7 @@ use std::{collections::HashMap, ffi::OsString, mem, path::PathBuf, rc::Rc, sync:
 
 use crate::{
     breakpad_crash_generator::BreakpadCrashGenerator, crash_generation::CrashGenerator,
-    finalize_breakpad_minidump, platform, BreakpadData,
+    finalize_breakpad_minidump, platform, BreakpadData, ClientMode,
 };
 
 // Contains the information required to launch the crash reporter client after
@@ -151,6 +151,7 @@ pub(crate) struct IPCServer {
 
 impl IPCServer {
     pub(crate) fn new(
+        mode: ClientMode,
         client_pid: Pid,
         client_handle: Option<ProcessHandle>,
         listener: IPCListener,
@@ -170,6 +171,7 @@ impl IPCServer {
         connector.set_process(client_handle.clone());
 
         let crash_generator = Box::new(Mutex::new(CrashGenerator::new(
+            mode,
             client_handle.clone(),
             minidump_path.clone(),
         )));
@@ -423,7 +425,10 @@ impl IPCServer {
             }
             PathKind::Data => self.client_env.set_data_dir(message.path),
             PathKind::PendingPings => log::error!("The pending pings path cannot be set"),
-            PathKind::Events => self.client_env.set_events_dir(message.path),
+            PathKind::Events => {
+                generator.set_events_dir(&message.path);
+                self.client_env.set_events_dir(message.path);
+            }
         }
     }
 
