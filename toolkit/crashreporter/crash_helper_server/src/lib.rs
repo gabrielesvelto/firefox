@@ -21,7 +21,6 @@ use std::{
     env,
     ffi::OsString,
     path::{Path, PathBuf},
-    process::Command,
 };
 
 use crash_generation::{finalize_breakpad_minidump, initialize_static_annotations};
@@ -130,8 +129,12 @@ pub unsafe extern "C" fn crash_generator_logic_desktop(
         minidump_path,
     );
 
+    let instance = CrashHelperInstance {
+        mode,
+    };
+
     match ipc_server {
-        Ok(ipc_server) => main_loop(ipc_server, mode),
+        Ok(ipc_server) => instance.main_loop(ipc_server),
         Err(e) => {
             log::error!("Could not create the IPC server (error: {e:?})");
             #[cfg(not(target_os = "android"))]
@@ -158,6 +161,7 @@ pub unsafe extern "C" fn crash_generator_logic_desktop(
 pub unsafe extern "C" fn crash_generator_logic_android(
     build_id: *const BreakpadChar,
     pid: Pid,
+    crash_handler: *const BreakpadChar,
     breakpad_data: BreakpadRawData,
     minidump_path: *const BreakpadChar,
     pipe: crash_helper_common::RawIPCConnector,
@@ -172,6 +176,8 @@ pub unsafe extern "C" fn crash_generator_logic_android(
         Some(ProcessHandle::from_raw_handle(pid)),
     ));
 
+    let crash_handler = unsafe { <OsString as BreakpadString>::from_ptr(crash_handler) };
+    let crash_handler = crash_handler.to_str().unwrap().to_string();
     let breakpad_data = BreakpadData::new(breakpad_data);
     let minidump_path = unsafe { <OsString as BreakpadString>::from_ptr(minidump_path) };
 
@@ -204,27 +210,144 @@ pub unsafe extern "C" fn crash_generator_logic_android(
             }
         };
 
-        main_loop(ipc_server, ClientMode::Foreground);
+        let instance = CrashHelperInstance {
+            mode: ClientMode::Foreground,
+            crash_handler,
+        };
+
+        instance.main_loop(ipc_server);
     });
 }
 
-fn main_loop(mut ipc_server: IPCServer, mode: ClientMode) -> i32 {
-    loop {
-        match ipc_server.run() {
-            Ok(result) => {
-                match result {
-                    IPCServerState::Running => {} // Go on
-                    IPCServerState::ClientDisconnected => return 0,
-                    IPCServerState::ClientCrashed(minidump, environment) => {
-                        maybe_report_crash(&minidump, environment, mode);
-                        return 0;
+struct CrashHelperInstance {
+    mode: ClientMode,
+    #[cfg(target_os = "android")]
+    crash_handler: String,
+}
+
+impl CrashHelperInstance {
+    fn main_loop(&self, mut ipc_server: IPCServer) -> i32 {
+        loop {
+            match ipc_server.run() {
+                Ok(result) => {
+                    match result {
+                        IPCServerState::Running => {} // Go on
+                        IPCServerState::ClientDisconnected => return 0,
+                        IPCServerState::ClientCrashed(minidump, environment) => {
+                            self.maybe_report_crash(&minidump, environment);
+                            return 0;
+                        }
                     }
                 }
+                Err(error) => {
+                    log::error!("The crashhelper encountered an error, exiting (error: {error})");
+                    return -1;
+                }
             }
-            Err(error) => {
-                log::error!("The crashhelper encountered an error, exiting (error: {error})");
-                return -1;
+        }
+    }
+
+    fn maybe_report_crash(&self, minidump: &Path, environment: ClientEnvironment) {
+        log::error!("maybe_report_crash()");
+        if env_var_is_set("MOZ_CRASHREPORTER_NO_REPORT")
+            || env_var_is_set("MOZ_CRASHREPORTER_FULLDUMP")
+            || matches!(self.mode, ClientMode::Background)
+        {
+            return;
+        }
+
+        log::error!("self.report_crash() minidump = {}", minidump.display());
+        self.report_crash(minidump, environment);
+    }
+
+    fn report_crash(&self, minidump: &Path, #[allow(unused)] environment: ClientEnvironment) {
+        #[cfg(not(target_os = "android"))]
+        {
+            let crash_reporter = crashreporter_path();
+            let _ = Command::new(crash_reporter.as_path())
+                .arg(minidump)
+                .envs(environment.into_env_vars())
+                .spawn()
+                .expect("Failed to launch the crash reporter client")
+                .wait();
+        }
+        #[cfg(target_os = "android")]
+        {
+            use std::{ffi::CString, fs, os::unix::ffi::OsStrExt};
+
+use nix::{libc::exit, unistd::{ForkResult, fork}};
+
+            log::error!("self.report_crash()");
+            let mut extra = PathBuf::from(minidump);
+            extra.set_extension("extra");
+            let serial_number = env::var("MOZ_ANDROID_USER_SERIAL_NUMBER");
+            log::error!("serial_number = {serial_number:?}");
+
+            let command = c"/system/bin/am";
+            let mut args = vec![
+                c"/system/bin/am",
+                c"start-foreground-service",
+            ];
+
+            let serial_number = serial_number.map(|s| CString::new(s.as_bytes()).unwrap());
+
+            if let Ok(ref serial_number) = serial_number {
+                args.push(c"--user");
+                args.push(serial_number);
             }
+                args.push(c"--user");
+                args.push(c"0");
+
+            let crash_handler = CString::new(self.crash_handler.clone()).unwrap();
+            let minidump = CString::new(minidump.as_os_str().as_bytes()).unwrap();
+            let extra = CString::new(extra.as_os_str().as_bytes()).unwrap();
+
+            args.extend(
+                [
+                    c"-a",
+                    c"org.mozilla.gecko.ACTION_CRASHED",
+                    c"-n",
+                    &crash_handler,
+                    c"--es",
+                    c"minidumpPath",
+                    &minidump,
+                    c"--es",
+                    c"extrasPath",
+                    &extra,
+                    c"--ex",
+                    c"fatal",
+                    c"true",
+                    c"--es",
+                    c"processVisibility",
+                    c"MAIN",
+                    c"--es",
+                    c"processType",
+                    c"main",
+                ]
+            );
+
+            log::error!("args = {args:?}");
+            let metadata = fs::metadata("/system/bin/am");
+            log::error!("metadata = {metadata:?}");
+
+            let res = unsafe { fork() };
+            if let Ok(res) = res {
+                match res {                ForkResult::Child => {
+                    let res = nix::unistd::execv(&command, &args);
+                },
+                ForkResult::Parent{child} => {
+                    use nix::sys::wait::{WaitPidFlag, waitpid};
+
+                    log::error!("child = {child:?}");
+                    let res = waitpid(child, Some(WaitPidFlag::__WALL));
+                    log::error!("waitpid = {res:?}");
+                }
+}
+
+            }
+
+            log::error!("res = {res:?}");
+            unsafe { exit(1) };
         }
     }
 }
@@ -239,73 +362,6 @@ fn crashreporter_path() -> std::path::PathBuf {
 
 fn env_var_is_set(name: &'static str) -> bool {
     env::var(name).is_ok_and(|v| !v.is_empty())
-}
-
-fn maybe_report_crash(minidump: &Path, environment: ClientEnvironment, mode: ClientMode) {
-    if env_var_is_set("MOZ_CRASHREPORTER_NO_REPORT")
-        || env_var_is_set("MOZ_CRASHREPORTER_FULLDUMP")
-        || matches!(mode, ClientMode::Background)
-    {
-        return;
-    }
-
-    report_crash(minidump, environment);
-}
-
-fn report_crash(minidump: &Path, #[allow(unused)] environment: ClientEnvironment) {
-    #[cfg(not(target_os = "android"))]
-    {
-        let crash_reporter = crashreporter_path();
-        let _ = Command::new(crash_reporter.as_path())
-            .arg(minidump)
-            .envs(environment.into_env_vars())
-            .spawn()
-            .expect("Failed to launch the crash reporter client")
-            .wait();
-    }
-    #[cfg(target_os = "android")]
-    {
-        let Ok(crash_handler) = env::var("MOZ_ANDROID_CRASH_HANDLER") else {
-            log::error!("MOZ_ANDROID_CRASH_HANDLER is not set, could not report a crash");
-            return;
-        };
-
-        let mut extra = PathBuf::from(minidump);
-        extra.set_extension("extra");
-        let serial_number = env::var("MOZ_ANDROID_USER_SERIAL_NUMBER");
-
-        let mut command = Command::new("/system/bin/am");
-        let command = command.arg("start-foreground-service");
-        let command = if let Ok(serial_number) = serial_number {
-            command.arg("--user").arg(serial_number)
-        } else {
-            command
-        };
-
-        let _ = command
-            .arg("-a")
-            .arg("org.mozilla.gecko.ACTION_CRASHED")
-            .arg("-n")
-            .arg(crash_handler)
-            .arg("--es")
-            .arg("minidumpPath")
-            .arg(minidump)
-            .arg("--es")
-            .arg("extrasPath")
-            .arg(extra)
-            .arg("--ez")
-            .arg("fatal")
-            .arg("true")
-            .arg("--es")
-            .arg("processVisibility")
-            .arg("MAIN")
-            .arg("--es")
-            .arg("processType")
-            .arg("main")
-            .spawn()
-            .expect("Could not launch the crash reporter activity")
-            .wait();
-    }
 }
 
 #[cfg(not(target_os = "android"))]

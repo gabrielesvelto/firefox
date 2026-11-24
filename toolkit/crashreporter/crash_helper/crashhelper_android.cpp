@@ -16,11 +16,11 @@
 
 extern "C" JNIEXPORT void JNICALL
 Java_org_mozilla_gecko_crashhelper_CrashHelper_crash_1generator(
-    JNIEnv* jenv, jclass, jstring build_id, jint pid, jint breakpad_fd,
-    jstring minidump_path, jint server_fd) {
+    JNIEnv* jenv, jclass, jstring build_id, jint pid, jstring crash_handler,
+    jint breakpad_fd, jstring minidump_path, jint server_fd) {
   // The breakpad server socket needs to be put in non-blocking mode, we do it
   // here as the Rust code that picks it up won't touch it anymore and just
-  // pass it along to Breakpad.
+  // passes it along to Breakpad.
   int flags = fcntl(breakpad_fd, F_GETFL);
   if (flags == -1) {
     __android_log_print(ANDROID_LOG_FATAL, CRASH_HELPER_LOGTAG,
@@ -40,11 +40,13 @@ Java_org_mozilla_gecko_crashhelper_CrashHelper_crash_1generator(
   }
 
   const char* build_id_str = jenv->GetStringUTFChars(build_id, nullptr);
+  const char* crash_handler_str =
+      jenv->GetStringUTFChars(crash_handler, nullptr);
   const char* minidump_path_str =
       jenv->GetStringUTFChars(minidump_path, nullptr);
   const RawIPCConnector pipe = {.socket = server_fd};
-  crash_generator_logic_android(build_id_str, pid, breakpad_fd,
-                                minidump_path_str, pipe);
+  crash_generator_logic_android(build_id_str, pid, crash_handler_str,
+                                breakpad_fd, minidump_path_str, pipe);
   jenv->ReleaseStringUTFChars(minidump_path, minidump_path_str);
   jenv->ReleaseStringUTFChars(build_id, build_id_str);
 }

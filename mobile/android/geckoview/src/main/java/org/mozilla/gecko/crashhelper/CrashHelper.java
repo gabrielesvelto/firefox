@@ -44,6 +44,7 @@ public final class CrashHelper extends Service {
     @Override
     public boolean start(
         final int browserPid,
+        final String crashHandlerClass,
         final ParcelFileDescriptor breakpadFd,
         final String minidumpPath,
         final ParcelFileDescriptor serverFd) {
@@ -58,6 +59,7 @@ public final class CrashHelper extends Service {
       CrashHelper.crash_generator(
           BuildConfig.MOZ_APP_BUILDID,
           browserPid,
+          crashHandlerClass,
           breakpadFd.detachFd(),
           minidumpPath,
           serverFd.detachFd());
@@ -72,6 +74,7 @@ public final class CrashHelper extends Service {
   }
 
   public static ServiceConnection createConnection(
+      final String crashHandlerClass,
       final ParcelFileDescriptor breakpadFd,
       final String minidumpPath,
       final ParcelFileDescriptor serverFd) {
@@ -80,6 +83,7 @@ public final class CrashHelper extends Service {
           final ParcelFileDescriptor breakpadFd,
           final String minidumpPath,
           final ParcelFileDescriptor serverFd) {
+        mCrashHandlerClass = crashHandlerClass;
         mBreakpadFd = breakpadFd;
         mMinidumpPath = minidumpPath;
         mServerFd = serverFd;
@@ -96,7 +100,7 @@ public final class CrashHelper extends Service {
 
         final ICrashHelper helper = ICrashHelper.Stub.asInterface(service);
         try {
-          helper.start(Process.myPid(), mBreakpadFd, mMinidumpPath, mServerFd);
+          helper.start(Process.myPid(), mCrashHandlerClass, mBreakpadFd, mMinidumpPath, mServerFd);
         } catch (final DeadObjectException e) {
           // The crash helper process died before we could start it, presumably
           // because of an out-of-memory condition. We don't attempt to restart
@@ -123,6 +127,7 @@ public final class CrashHelper extends Service {
         sDisconnected = true;
       }
 
+      String mCrashHandlerClass;
       ParcelFileDescriptor mBreakpadFd;
       String mMinidumpPath;
       ParcelFileDescriptor mServerFd;
@@ -193,5 +198,10 @@ public final class CrashHelper extends Service {
   // tear it down for us.
 
   protected static native void crash_generator(
-      String buildId, int clientPid, int breakpadFd, String minidumpPath, int serverFd);
+      String buildId,
+      int clientPid,
+      String crashHandlerClass,
+      int breakpadFd,
+      String minidumpPath,
+      int serverFd);
 }

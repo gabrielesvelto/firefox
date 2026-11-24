@@ -440,6 +440,13 @@ public final class GeckoRuntime implements Parcelable {
     }
 
     final Context context = GeckoAppShell.getApplicationContext();
+    final Class<?> crashHandler = GeckoAppShell.getCrashHandlerService();
+    String crashHandlerClass = null;
+
+    if (crashHandler != null) {
+      crashHandlerClass = context.getPackageName() + "/" + crashHandler.getName();
+    }
+
     final CrashHelper.Pipes pipes = CrashHelper.createCrashHelperPipes();
 
     if (pipes == null) {
@@ -453,7 +460,8 @@ public final class GeckoRuntime implements Parcelable {
       final File minidumps = new File(context.getFilesDir(), "minidumps");
       context.bindService(
           i,
-          CrashHelper.createConnection(pipes.mBreakpadServer, minidumps.getPath(), pipes.mServer),
+          CrashHelper.createConnection(
+              crashHandlerClass, pipes.mBreakpadServer, minidumps.getPath(), pipes.mServer),
           Context.BIND_AUTO_CREATE);
     } catch (final ClassNotFoundException e) {
       Log.w(LOGTAG, "Couldn't find the crash helper class");
