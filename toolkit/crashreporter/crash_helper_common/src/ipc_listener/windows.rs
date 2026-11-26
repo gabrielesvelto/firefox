@@ -12,7 +12,9 @@ use crate::{
 use std::{
     cell::RefCell,
     ffi::{CStr, CString, OsStr, OsString},
-    os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle, RawHandle},
+    os::windows::io::{
+        AsHandle, AsRawHandle, BorrowedHandle, FromRawHandle, OwnedHandle, RawHandle,
+    },
     ptr::null_mut,
     rc::Rc,
     str::FromStr,
@@ -114,6 +116,17 @@ impl IPCListener {
             handle: RefCell::new(Rc::new(handle)),
             overlapped: None,
         })
+    }
+}
+
+impl AsHandle for IPCListener {
+    fn as_handle<'a>(&'a self) -> BorrowedHandle<'a> {
+        // SAFETY: Ugly but I couldn't find a better way. The underlying handle
+        // can only be changed via `accept()` which requires a mutable handle,
+        // since this ties an unmutable handle to the lifetime of the object it
+        // should not be possible to replace `self.handle` while this reference
+        // is alive.
+        unsafe { BorrowedHandle::borrow_raw(self.handle.borrow().as_raw_handle()) }
     }
 }
 

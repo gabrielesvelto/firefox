@@ -88,6 +88,12 @@ impl AsRawProcessHandle for ProcessHandle {
     }
 }
 
+impl AsHandle for ProcessHandle {
+    fn as_handle(&self) -> BorrowedHandle<'_> {
+        self.0.as_handle()
+    }
+}
+
 impl Clone for ProcessHandle {
     fn clone(&self) -> Self {
         ProcessHandle(self.0.try_clone().unwrap())

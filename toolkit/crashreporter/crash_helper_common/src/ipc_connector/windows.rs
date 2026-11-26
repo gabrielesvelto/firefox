@@ -16,7 +16,7 @@ use bytes::{BufMut, BytesMut};
 use std::{
     ffi::{CStr, OsStr, OsString},
     os::windows::io::{
-        AsHandle, AsRawHandle, FromRawHandle, IntoRawHandle, OwnedHandle, RawHandle,
+        AsHandle, AsRawHandle, BorrowedHandle, FromRawHandle, IntoRawHandle, OwnedHandle, RawHandle,
     },
     ptr::null_mut,
     rc::Rc,
@@ -386,6 +386,12 @@ impl IPCConnector {
 
         // SAFETY: We just checked the `dst_handle` is a valid handle.
         Ok(unsafe { OwnedHandle::from_raw_handle(dst_handle) })
+    }
+}
+
+impl AsHandle for IPCConnector {
+    fn as_handle(&self) -> BorrowedHandle<'_> {
+        (*self.handle).as_handle()
     }
 }
 

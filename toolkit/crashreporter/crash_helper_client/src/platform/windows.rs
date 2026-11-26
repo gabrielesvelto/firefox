@@ -12,19 +12,120 @@ use std::{
     mem::{size_of, zeroed},
     os::windows::{
         ffi::{OsStrExt, OsStringExt},
-        io::{FromRawHandle, OwnedHandle, RawHandle},
+        io::{AsHandle, BorrowedHandle, FromRawHandle, OwnedHandle, RawHandle},
     },
     ptr::{null, null_mut},
 };
 use windows_sys::Win32::{
-    Foundation::{CloseHandle, FALSE, TRUE},
+    Foundation::{CloseHandle, GetLastError, ERROR_INSUFFICIENT_BUFFER, FALSE, HANDLE, TRUE},
     System::Threading::{
-        CreateProcessW, GetCurrentProcessId, CREATE_UNICODE_ENVIRONMENT, DETACHED_PROCESS,
-        PROCESS_INFORMATION, STARTUPINFOW,
+        CreateProcessW, DeleteProcThreadAttributeList, GetCurrentProcessId,
+        InitializeProcThreadAttributeList, UpdateProcThreadAttribute, CREATE_UNICODE_ENVIRONMENT,
+        DETACHED_PROCESS, EXTENDED_STARTUPINFO_PRESENT, LPPROC_THREAD_ATTRIBUTE_LIST,
+        PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, STARTUPINFOEXW, STARTUPINFOW,
     },
 };
 
 use crate::CrashHelperClient;
+
+struct ProcessThreadAttributeListStorage {
+    storage: Vec<u8>,
+}
+
+impl ProcessThreadAttributeListStorage {
+    fn new(n_attrs: u32) -> Result<ProcessThreadAttributeListStorage> {
+        let mut size: usize = 0;
+        // SAFETY: `size` is allocated on the stack and thus a pointer
+        // to it is valid for the lifetime of the call.
+        let res = unsafe {
+            InitializeProcThreadAttributeList(null_mut(), n_attrs, /* dwflags */ 0, &mut size)
+        };
+
+        if (res != FALSE) || unsafe { GetLastError() != ERROR_INSUFFICIENT_BUFFER } {
+            bail!("Could not compute the size of the attribute list");
+        }
+
+        let mut storage = vec![0u8; size];
+        // SAFETY: The `storage` vector is allocated on the heap and
+        // sized appropriately. `size` is also allocated on the heap
+        // and thus valid for the duration of the call.
+        let res = unsafe {
+            InitializeProcThreadAttributeList(
+                storage.as_mut_ptr() as LPPROC_THREAD_ATTRIBUTE_LIST,
+                n_attrs,
+                /* dwflags */ 0,
+                &mut size,
+            )
+        };
+
+        if res == FALSE {
+            bail!("Could not initialize attribute list, error: {}", unsafe {
+                GetLastError()
+            });
+        }
+
+        Ok(ProcessThreadAttributeListStorage { storage })
+    }
+
+    fn as_mut_ptr(&mut self) -> LPPROC_THREAD_ATTRIBUTE_LIST {
+        self.storage.as_mut_ptr() as _
+    }
+}
+
+impl Drop for ProcessThreadAttributeListStorage {
+    fn drop(&mut self) {
+        // SAFETY: The `storage` field always contains an object that was
+        // allocated using `InitializeProcThreadAttributeList()`.
+        unsafe {
+            DeleteProcThreadAttributeList(self.storage.as_mut_ptr() as LPPROC_THREAD_ATTRIBUTE_LIST);
+        }
+    }
+}
+
+struct ProcessThreadAttributeList<'a> {
+    storage: ProcessThreadAttributeListStorage,
+    #[allow(unused)]
+    // This stores the buffer we pass to `UpdateProcThreadAttribute()` which
+    // needs to remain valid at least until we dispose of the
+    // `PROC_THREAD_ATTRIBUTE_LIST` object.
+    handles: Vec<BorrowedHandle<'a>>,
+}
+
+impl<'a> ProcessThreadAttributeList<'a> {
+    // This should be borrowed handles
+    fn new(handles_ref: &'a [BorrowedHandle]) -> Result<ProcessThreadAttributeList<'a>> {
+        let mut storage = ProcessThreadAttributeListStorage::new(1)?;
+        let handles = Vec::from(handles_ref);
+
+        // SAFETY: The `storage` and `handles` pointers both point to objects we
+        // just allocated on the heap and which are guaranteed to be valid for the
+        // duration of the call.
+        let res = unsafe {
+            UpdateProcThreadAttribute(
+                storage.as_mut_ptr(),
+                /* dwflags */ 0,
+                PROC_THREAD_ATTRIBUTE_HANDLE_LIST as usize,
+                handles.as_ptr() as _,
+                handles.len() * size_of::<HANDLE>(),
+                null_mut(),
+                null_mut(),
+            )
+        };
+
+        if res == FALSE {
+            bail!(
+                "Could not add the inherited handles to the attribute list, error: {}",
+                unsafe { GetLastError() }
+            );
+        }
+
+        Ok(ProcessThreadAttributeList { storage, handles })
+    }
+
+    fn as_mut_ptr(&mut self) -> LPPROC_THREAD_ATTRIBUTE_LIST {
+        self.storage.as_mut_ptr()
+    }
+}
 
 impl CrashHelperClient {
     pub(crate) fn new(
@@ -99,9 +200,20 @@ impl CrashHelperClient {
         cmd_line.push("\0");
         let mut cmd_line: Vec<u16> = cmd_line.encode_wide().collect();
 
+        let handles = [
+            breakpad_data.as_handle(),
+            endpoint.as_handle(),
+            listener.as_handle(),
+            handle.as_handle(),
+        ];
+        let mut ptal = ProcessThreadAttributeList::new(&handles)?;
         let mut pi = unsafe { zeroed::<PROCESS_INFORMATION>() };
-        let si = STARTUPINFOW {
-            cb: size_of::<STARTUPINFOW>().try_into().unwrap(),
+        let si = STARTUPINFOEXW {
+            StartupInfo: STARTUPINFOW {
+                cb: size_of::<STARTUPINFOEXW>().try_into().unwrap(),
+                ..unsafe { zeroed() }
+            },
+            lpAttributeList: ptal.as_mut_ptr(),
             ..unsafe { zeroed() }
         };
 
@@ -112,10 +224,10 @@ impl CrashHelperClient {
                 /* lpProcessAttributes */ null_mut(),
                 /* lpThreadAttributes */ null_mut(),
                 /* bInheritHandles */ TRUE,
-                CREATE_UNICODE_ENVIRONMENT | DETACHED_PROCESS,
+                CREATE_UNICODE_ENVIRONMENT | DETACHED_PROCESS | EXTENDED_STARTUPINFO_PRESENT,
                 /* lpEnvironment */ null_mut(),
                 /* lpCurrentDirectory */ null_mut(),
-                &si,
+                &si.StartupInfo,
                 &mut pi,
             )
         };

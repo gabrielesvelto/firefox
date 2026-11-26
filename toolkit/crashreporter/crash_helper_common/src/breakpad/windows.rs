@@ -9,7 +9,9 @@
 
 use std::{
     ffi::OsString,
-    os::windows::io::{AsRawHandle, FromRawHandle, IntoRawHandle, OwnedHandle, RawHandle},
+    os::windows::io::{
+        AsHandle, AsRawHandle, BorrowedHandle, FromRawHandle, IntoRawHandle, OwnedHandle, RawHandle,
+    },
     str::FromStr,
 };
 
@@ -40,5 +42,11 @@ impl BreakpadData {
     pub fn serialize(&self) -> OsString {
         let raw_handle = self.handle.as_raw_handle() as usize;
         OsString::from_str(raw_handle.to_string().as_ref()).unwrap()
+    }
+}
+
+impl AsHandle for BreakpadData {
+    fn as_handle(&self) -> BorrowedHandle<'_> {
+        self.handle.as_handle()
     }
 }
